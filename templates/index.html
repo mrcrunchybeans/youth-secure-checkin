@@ -192,7 +192,9 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
       const option = document.createElement('option');
       option.value = adult.id;
       option.textContent = adult.name;
-      if (index === 0) option.selected = true;
+      // Select the default adult if specified, otherwise select the first one
+      const isSelected = data.default_adult_id ? adult.id === data.default_adult_id : index === 0;
+      if (isSelected) option.selected = true;
       adultSelect.appendChild(option);
     });
     const kidsList = document.getElementById('kids-list');

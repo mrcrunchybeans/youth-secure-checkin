@@ -243,7 +243,7 @@ def checkin_last4():
         return jsonify({'error': 'Invalid last 4 digits'}), 400
     conn = get_db()
     cur = conn.execute("""
-        SELECT f.id, f.phone, f.troop,
+        SELECT f.id, f.phone, f.troop, f.default_adult_id,
                GROUP_CONCAT(DISTINCT a.id || ':' || a.name) as adults,
                GROUP_CONCAT(DISTINCT k.id || ':' || k.name) as kids
         FROM families f
@@ -266,6 +266,7 @@ def checkin_last4():
         'family_id': family['id'],
         'phone': family['phone'],
         'troop': family['troop'],
+        'default_adult_id': family['default_adult_id'],
         'adults': adults,
         'kids': kids
     })
@@ -469,6 +470,7 @@ def admin_add_family():
         troop = request.form.get('troop', '').strip()
         adults = request.form.getlist('adults')
         kids = request.form.getlist('kids')
+        default_adult_index = request.form.get('default_adult_index', '').strip()
         if not phone:
             flash('Phone required', 'danger')
             return redirect(request.url)
@@ -476,12 +478,24 @@ def admin_add_family():
         try:
             cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", (phone, troop))
             family_id = cur.lastrowid
+            
+            # Track adult IDs to set default
+            adult_ids = []
             for adult in adults:
                 if adult.strip():
-                    conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
+                    cur = conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
+                    adult_ids.append(cur.lastrowid)
+            
             for kid in kids:
                 if kid.strip():
                     conn.execute("INSERT INTO kids (family_id, name) VALUES (?, ?)", (family_id, kid.strip()))
+            
+            # Set default adult if specified
+            if default_adult_index and default_adult_index.isdigit():
+                idx = int(default_adult_index)
+                if 0 <= idx < len(adult_ids):
+                    conn.execute("UPDATE families SET default_adult_id = ? WHERE id = ?", (adult_ids[idx], family_id))
+            
             conn.commit()
             flash('Family added', 'success')
             return redirect(url_for('admin_families'))
@@ -563,18 +577,40 @@ def admin_edit_family(family_id):
         troop = request.form.get('troop', '').strip()
         adults = request.form.getlist('adults')
         kids = request.form.getlist('kids')
+        default_adult_id = request.form.get('default_adult_id', '').strip()
         if not phone:
             phone = None
         try:
+            # First, update family without default_adult_id
             conn.execute("UPDATE families SET phone = ?, troop = ? WHERE id = ?", (phone, troop, family_id))
+            
+            # Delete and re-insert adults and kids
             conn.execute("DELETE FROM adults WHERE family_id = ?", (family_id,))
             conn.execute("DELETE FROM kids WHERE family_id = ?", (family_id,))
+            
+            # Insert adults and track which one should be default
+            new_adult_ids = []
+            final_default_id = None
+            
             for adult in adults:
                 if adult.strip():
-                    conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
+                    cur = conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
+                    new_adult_id = cur.lastrowid
+                    new_adult_ids.append(new_adult_id)
+            
             for kid in kids:
                 if kid.strip():
                     conn.execute("INSERT INTO kids (family_id, name) VALUES (?, ?)", (family_id, kid.strip()))
+            
+            # Determine which adult should be the default
+            # The default_adult_id from the form is the old adult ID, so we need to match it
+            if default_adult_id and default_adult_id.isdigit():
+                old_default_id = int(default_adult_id)
+                # Check if this ID still exists in our new adults
+                if old_default_id in new_adult_ids:
+                    final_default_id = old_default_id
+            
+            conn.execute("UPDATE families SET default_adult_id = ? WHERE id = ?", (final_default_id, family_id))
             conn.commit()
             flash('Family updated', 'success')
             return redirect(url_for('admin_families'))

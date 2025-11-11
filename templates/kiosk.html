@@ -218,7 +218,9 @@ function showFamilyModal(data) {
     html += `<select id="adult-select" name="adult_id" class="form-select" required>`;
     html += `<option value="">Choose adult...</option>`;
     (data.adults || []).forEach(function(adult, index) {
-        html += `<option value="${adult.id}" ${index === 0 ? 'selected' : ''}>${adult.name}</option>`;
+        // Select the default adult if specified, otherwise select the first one
+        const isSelected = data.default_adult_id ? adult.id === data.default_adult_id : index === 0;
+        html += `<option value="${adult.id}" ${isSelected ? 'selected' : ''}>${adult.name}</option>`;
     });
     html += `</select></div>`;
 

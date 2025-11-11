@@ -15,11 +15,18 @@
       <label class="form-label">Adults</label>
       <div id="adults">
         {% for adult in adults %}
-          <input name="adults" class="form-control mb-2" value="{{ adult.name }}" placeholder="Adult name" />
+          <div class="d-flex align-items-center mb-2">
+            <input type="radio" name="default_adult_id" value="{{ adult.id }}" class="me-2" {% if family.default_adult_id == adult.id %}checked{% endif %} title="Set as default for check-in" />
+            <input name="adults" data-adult-id="{{ adult.id }}" class="form-control" value="{{ adult.name }}" placeholder="Adult name" />
+          </div>
         {% endfor %}
-        <input name="adults" class="form-control mb-2" placeholder="Adult name" />
+        <div class="d-flex align-items-center mb-2">
+          <input type="radio" name="default_adult_id" value="" class="me-2" title="Set as default for check-in" />
+          <input name="adults" class="form-control" placeholder="Adult name" />
+        </div>
       </div>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('adults')">Add Adult</button>
+      <small class="form-text text-muted d-block mt-2">Select the radio button next to the adult who should be pre-selected during check-in.</small>
     </div>
     <div class="mb-3">
       <label class="form-label">Kids</label>
@@ -38,11 +45,29 @@
 <script>
 function addField(type) {
   const div = document.getElementById(type);
-  const input = document.createElement('input');
-  input.name = type;
-  input.className = 'form-control mb-2';
-  input.placeholder = type === 'adults' ? 'Adult name' : 'Kid name';
-  div.appendChild(input);
+  if (type === 'adults') {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-flex align-items-center mb-2';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'default_adult_id';
+    radio.value = '';
+    radio.className = 'me-2';
+    radio.title = 'Set as default for check-in';
+    const input = document.createElement('input');
+    input.name = type;
+    input.className = 'form-control';
+    input.placeholder = 'Adult name';
+    wrapper.appendChild(radio);
+    wrapper.appendChild(input);
+    div.appendChild(wrapper);
+  } else {
+    const input = document.createElement('input');
+    input.name = type;
+    input.className = 'form-control mb-2';
+    input.placeholder = 'Kid name';
+    div.appendChild(input);
+  }
 }
 </script>
 {% endblock %}

@@ -2,7 +2,9 @@
 CREATE TABLE IF NOT EXISTS families (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT,
-    troop TEXT
+    troop TEXT,
+    default_adult_id INTEGER,
+    FOREIGN KEY (default_adult_id) REFERENCES adults(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS adults (
