@@ -10,7 +10,14 @@ import io
 import re
 import threading
 import time
-from label_printer import generate_unique_code, print_checkout_label
+
+# Optional label printing support
+try:
+    from label_printer import generate_unique_code, print_checkout_label
+    LABEL_PRINTING_AVAILABLE = True
+except ImportError:
+    LABEL_PRINTING_AVAILABLE = False
+    print("Warning: Label printing libraries not available. Install Pillow to enable this feature.")
 
 def normalize_address(address):
     if not address:
@@ -286,7 +293,7 @@ def checkin_selected():
     
     # Check if label printing is enabled
     setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
-    require_codes = setting and setting[0] == 'true'
+    require_codes = setting and setting[0] == 'true' and LABEL_PRINTING_AVAILABLE
     
     # Get label printer settings if needed
     if require_codes:
@@ -311,7 +318,7 @@ def checkin_selected():
         
         # Generate unique code if required
         checkout_code = None
-        if require_codes:
+        if require_codes and LABEL_PRINTING_AVAILABLE:
             try:
                 checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
             except Exception as e:
