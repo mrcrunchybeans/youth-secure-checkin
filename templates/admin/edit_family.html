@@ -21,11 +21,13 @@
       <div id="adults">
         {% for adult in adults %}
           <div class="d-flex align-items-center mb-2">
+            <input type="hidden" name="adult_ids" value="{{ adult.id }}" />
             <input type="radio" name="default_adult_id" value="{{ adult.id }}" class="me-2" {% if family.default_adult_id == adult.id %}checked{% endif %} title="Set as default for check-in" />
             <input name="adults" data-adult-id="{{ adult.id }}" class="form-control" value="{{ adult.name }}" placeholder="Adult name" />
           </div>
         {% endfor %}
         <div class="d-flex align-items-center mb-2">
+          <input type="hidden" name="adult_ids" value="" />
           <input type="radio" name="default_adult_id" value="" class="me-2" title="Set as default for check-in" />
           <input name="adults" class="form-control" placeholder="Adult name" />
         </div>
@@ -38,11 +40,13 @@
       <div id="kids">
         {% for kid in kids %}
           <div class="mb-3 border rounded p-2 bg-light">
+            <input type="hidden" name="kid_ids" value="{{ kid.id }}" />
             <input name="kids" class="form-control mb-2" value="{{ kid.name }}" placeholder="Kid name" />
             <textarea name="kid_notes" class="form-control" rows="2" placeholder="Notes (dietary restrictions, special needs, etc.)" style="font-size: 0.9rem;">{{ kid.notes or '' }}</textarea>
           </div>
         {% endfor %}
         <div class="mb-3 border rounded p-2 bg-light">
+          <input type="hidden" name="kid_ids" value="" />
           <input name="kids" class="form-control mb-2" placeholder="Kid name" />
           <textarea name="kid_notes" class="form-control" rows="2" placeholder="Notes (dietary restrictions, special needs, etc.)" style="font-size: 0.9rem;"></textarea>
         </div>
@@ -59,6 +63,10 @@ function addField(type) {
   if (type === 'adults') {
     const wrapper = document.createElement('div');
     wrapper.className = 'd-flex align-items-center mb-2';
+    const hiddenId = document.createElement('input');
+    hiddenId.type = 'hidden';
+    hiddenId.name = 'adult_ids';
+    hiddenId.value = '';
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'default_adult_id';
@@ -69,12 +77,17 @@ function addField(type) {
     input.name = type;
     input.className = 'form-control';
     input.placeholder = 'Adult name';
+    wrapper.appendChild(hiddenId);
     wrapper.appendChild(radio);
     wrapper.appendChild(input);
     div.appendChild(wrapper);
   } else {
     const wrapper = document.createElement('div');
     wrapper.className = 'mb-3 border rounded p-2 bg-light';
+    const hiddenId = document.createElement('input');
+    hiddenId.type = 'hidden';
+    hiddenId.name = 'kid_ids';
+    hiddenId.value = '';
     const input = document.createElement('input');
     input.name = type;
     input.className = 'form-control mb-2';
@@ -85,6 +98,7 @@ function addField(type) {
     textarea.rows = 2;
     textarea.placeholder = 'Notes (dietary restrictions, special needs, etc.)';
     textarea.style.fontSize = '0.9rem';
+    wrapper.appendChild(hiddenId);
     wrapper.appendChild(input);
     wrapper.appendChild(textarea);
     div.appendChild(wrapper);

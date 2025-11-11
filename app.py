@@ -583,46 +583,61 @@ def admin_edit_family(family_id):
         troop = request.form.get('troop', '').strip()
         authorized_adults = request.form.get('authorized_adults', '').strip()
         adults = request.form.getlist('adults')
+        adult_ids = request.form.getlist('adult_ids')
         kids = request.form.getlist('kids')
+        kid_ids = request.form.getlist('kid_ids')
         kid_notes = request.form.getlist('kid_notes')
         default_adult_id = request.form.get('default_adult_id', '').strip()
         if not phone:
             phone = None
         try:
-            # Update family including authorized_adults
-            conn.execute("UPDATE families SET phone = ?, troop = ?, authorized_adults = ? WHERE id = ?", 
-                        (phone, troop, authorized_adults if authorized_adults else None, family_id))
+            # Update family including authorized_adults and default_adult_id
+            final_default_id = int(default_adult_id) if default_adult_id and default_adult_id.isdigit() else None
+            conn.execute("UPDATE families SET phone = ?, troop = ?, authorized_adults = ?, default_adult_id = ? WHERE id = ?", 
+                        (phone, troop, authorized_adults if authorized_adults else None, final_default_id, family_id))
             
-            # Delete and re-insert adults and kids
-            conn.execute("DELETE FROM adults WHERE family_id = ?", (family_id,))
-            conn.execute("DELETE FROM kids WHERE family_id = ?", (family_id,))
+            # Update adults: UPDATE existing, INSERT new, DELETE removed
+            existing_adult_ids = set()
+            for i, adult_name in enumerate(adults):
+                if adult_name.strip():
+                    adult_id = adult_ids[i] if i < len(adult_ids) and adult_ids[i] else None
+                    if adult_id:
+                        # Update existing adult
+                        conn.execute("UPDATE adults SET name = ? WHERE id = ? AND family_id = ?", 
+                                    (adult_name.strip(), adult_id, family_id))
+                        existing_adult_ids.add(int(adult_id))
+                    else:
+                        # Insert new adult
+                        conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", 
+                                    (family_id, adult_name.strip()))
             
-            # Insert adults and track which one should be default
-            new_adult_ids = []
-            final_default_id = None
+            # Delete adults that were removed
+            all_adults = conn.execute("SELECT id FROM adults WHERE family_id = ?", (family_id,)).fetchall()
+            for adult in all_adults:
+                if adult['id'] not in existing_adult_ids:
+                    conn.execute("DELETE FROM adults WHERE id = ?", (adult['id'],))
             
-            for adult in adults:
-                if adult.strip():
-                    cur = conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
-                    new_adult_id = cur.lastrowid
-                    new_adult_ids.append(new_adult_id)
-            
-            # Insert kids with their notes
-            for i, kid in enumerate(kids):
-                if kid.strip():
+            # Update kids: UPDATE existing, INSERT new, DELETE removed
+            existing_kid_ids = set()
+            for i, kid_name in enumerate(kids):
+                if kid_name.strip():
+                    kid_id = kid_ids[i] if i < len(kid_ids) and kid_ids[i] else None
                     note = kid_notes[i].strip() if i < len(kid_notes) else ''
-                    conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
-                                (family_id, kid.strip(), note if note else None))
+                    if kid_id:
+                        # Update existing kid
+                        conn.execute("UPDATE kids SET name = ?, notes = ? WHERE id = ? AND family_id = ?", 
+                                    (kid_name.strip(), note if note else None, kid_id, family_id))
+                        existing_kid_ids.add(int(kid_id))
+                    else:
+                        # Insert new kid
+                        conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
+                                    (family_id, kid_name.strip(), note if note else None))
             
-            # Determine which adult should be the default
-            # The default_adult_id from the form is the old adult ID, so we need to match it
-            if default_adult_id and default_adult_id.isdigit():
-                old_default_id = int(default_adult_id)
-                # Check if this ID still exists in our new adults
-                if old_default_id in new_adult_ids:
-                    final_default_id = old_default_id
-            
-            conn.execute("UPDATE families SET default_adult_id = ? WHERE id = ?", (final_default_id, family_id))
+            # Delete kids that were removed
+            all_kids = conn.execute("SELECT id FROM kids WHERE family_id = ?", (family_id,)).fetchall()
+            for kid in all_kids:
+                if kid['id'] not in existing_kid_ids:
+                    conn.execute("DELETE FROM kids WHERE id = ?", (kid['id'],))
             conn.commit()
             flash('Family updated', 'success')
             return redirect(url_for('admin_families'))
