@@ -76,6 +76,9 @@ def create_label_image(kid_name: str, event_name: str, event_date: str,
     Returns:
         PIL Image object
     """
+    if not HAS_PIL:
+        raise ImportError("PIL/Pillow is not installed. Install with: pip install Pillow")
+    
     # Convert inches to pixels (300 DPI)
     dpi = 300
     width = int(width_inches * dpi)
