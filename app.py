@@ -450,12 +450,9 @@ def admin_families():
     conn = get_db()
     cur = conn.execute("""
         SELECT f.id, f.phone, f.troop,
-               GROUP_CONCAT(DISTINCT a.name, ', ') as adults,
-               GROUP_CONCAT(DISTINCT k.name, ', ') as kids
+               (SELECT GROUP_CONCAT(name, ', ') FROM adults WHERE family_id = f.id) as adults,
+               (SELECT GROUP_CONCAT(name, ', ') FROM kids WHERE family_id = f.id) as kids
         FROM families f
-        LEFT JOIN adults a ON a.family_id = f.id
-        LEFT JOIN kids k ON k.family_id = f.id
-        GROUP BY f.id
         ORDER BY f.phone
     """)
     families = cur.fetchall()
