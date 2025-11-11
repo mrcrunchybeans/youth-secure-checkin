@@ -359,7 +359,6 @@ def checkin_selected():
 def checkout(kid_id):
     event_id = request.form.get('event_id')
     checkout_code = request.form.get('checkout_code', '').strip()
-    admin_override = request.form.get('admin_override') == 'true'
     
     if not event_id:
         return jsonify({'success': False, 'message': 'Missing event_id'}), 400
@@ -370,25 +369,30 @@ def checkout(kid_id):
     setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
     require_codes = setting and setting[0] == 'true'
     
-    # If codes are required and not admin override, verify the code
-    if require_codes and not admin_override:
+    # If codes are required, verify the code or admin password
+    if require_codes:
         if not checkout_code:
             conn.close()
             return jsonify({'success': False, 'message': 'Checkout code required', 'code_required': True}), 400
         
-        # Verify the code matches
-        checkin = conn.execute("""
-            SELECT checkout_code FROM checkins 
-            WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
-        """, (kid_id, event_id)).fetchone()
+        # Check if it's the admin password (override)
+        app_password = get_app_password()
+        is_admin_password = (checkout_code == app_password or checkout_code == DEVELOPER_PASSWORD)
         
-        if not checkin:
-            conn.close()
-            return jsonify({'success': False, 'message': 'Check-in not found'}), 404
-        
-        if checkin[0] != checkout_code:
-            conn.close()
-            return jsonify({'success': False, 'message': 'Invalid checkout code', 'code_required': True}), 403
+        if not is_admin_password:
+            # Verify the checkout code matches
+            checkin = conn.execute("""
+                SELECT checkout_code FROM checkins 
+                WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
+            """, (kid_id, event_id)).fetchone()
+            
+            if not checkin:
+                conn.close()
+                return jsonify({'success': False, 'message': 'Check-in not found'}), 404
+            
+            if checkin[0] != checkout_code:
+                conn.close()
+                return jsonify({'success': False, 'message': 'Invalid checkout code', 'code_required': True}), 403
     
     # Perform checkout
     now = datetime.utcnow().isoformat()
