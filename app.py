@@ -213,7 +213,7 @@ def index():
     conn = get_db()
     cur = conn.execute("""
         SELECT c.id, k.id as kid_id, c.checkin_time, c.checkout_time, k.name as kid_name, k.notes as kid_notes,
-               k.authorized_adults, f.phone, f.troop, a.name as adult_name
+               f.authorized_adults, f.phone, f.troop, a.name as adult_name
         FROM checkins c
         JOIN kids k ON c.kid_id = k.id
         JOIN families f ON k.family_id = f.id
@@ -330,7 +330,7 @@ def kiosk():
     conn = get_db()
     cur = conn.execute("""
         SELECT c.id, k.id as kid_id, c.checkin_time, c.checkout_time, k.name as kid_name, k.notes as kid_notes,
-               k.authorized_adults, f.phone, f.troop, a.name as adult_name
+               f.authorized_adults, f.phone, f.troop, a.name as adult_name
         FROM checkins c
         JOIN kids k ON c.kid_id = k.id
         JOIN families f ON k.family_id = f.id
@@ -468,17 +468,18 @@ def admin_add_family():
     if request.method == 'POST':
         phone = request.form.get('phone', '').strip()
         troop = request.form.get('troop', '').strip()
+        authorized_adults = request.form.get('authorized_adults', '').strip()
         adults = request.form.getlist('adults')
         kids = request.form.getlist('kids')
         kid_notes = request.form.getlist('kid_notes')
-        kid_authorized_adults = request.form.getlist('kid_authorized_adults')
         default_adult_index = request.form.get('default_adult_index', '').strip()
         if not phone:
             flash('Phone required', 'danger')
             return redirect(request.url)
         conn = get_db()
         try:
-            cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", (phone, troop))
+            cur = conn.execute("INSERT INTO families (phone, troop, authorized_adults) VALUES (?, ?, ?)", 
+                              (phone, troop, authorized_adults if authorized_adults else None))
             family_id = cur.lastrowid
             
             # Track adult IDs to set default
@@ -488,13 +489,12 @@ def admin_add_family():
                     cur = conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
                     adult_ids.append(cur.lastrowid)
             
-            # Insert kids with their notes and authorized adults
+            # Insert kids with their notes
             for i, kid in enumerate(kids):
                 if kid.strip():
                     note = kid_notes[i].strip() if i < len(kid_notes) else ''
-                    auth_adults = kid_authorized_adults[i].strip() if i < len(kid_authorized_adults) else ''
-                    conn.execute("INSERT INTO kids (family_id, name, notes, authorized_adults) VALUES (?, ?, ?, ?)", 
-                                (family_id, kid.strip(), note if note else None, auth_adults if auth_adults else None))
+                    conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
+                                (family_id, kid.strip(), note if note else None))
             
             # Set default adult if specified
             if default_adult_index and default_adult_index.isdigit():
@@ -581,16 +581,17 @@ def admin_edit_family(family_id):
     if request.method == 'POST':
         phone = request.form.get('phone', '').strip()
         troop = request.form.get('troop', '').strip()
+        authorized_adults = request.form.get('authorized_adults', '').strip()
         adults = request.form.getlist('adults')
         kids = request.form.getlist('kids')
         kid_notes = request.form.getlist('kid_notes')
-        kid_authorized_adults = request.form.getlist('kid_authorized_adults')
         default_adult_id = request.form.get('default_adult_id', '').strip()
         if not phone:
             phone = None
         try:
-            # First, update family without default_adult_id
-            conn.execute("UPDATE families SET phone = ?, troop = ? WHERE id = ?", (phone, troop, family_id))
+            # Update family including authorized_adults
+            conn.execute("UPDATE families SET phone = ?, troop = ?, authorized_adults = ? WHERE id = ?", 
+                        (phone, troop, authorized_adults if authorized_adults else None, family_id))
             
             # Delete and re-insert adults and kids
             conn.execute("DELETE FROM adults WHERE family_id = ?", (family_id,))
@@ -606,13 +607,12 @@ def admin_edit_family(family_id):
                     new_adult_id = cur.lastrowid
                     new_adult_ids.append(new_adult_id)
             
-            # Insert kids with their notes and authorized adults
+            # Insert kids with their notes
             for i, kid in enumerate(kids):
                 if kid.strip():
                     note = kid_notes[i].strip() if i < len(kid_notes) else ''
-                    auth_adults = kid_authorized_adults[i].strip() if i < len(kid_authorized_adults) else ''
-                    conn.execute("INSERT INTO kids (family_id, name, notes, authorized_adults) VALUES (?, ?, ?, ?)", 
-                                (family_id, kid.strip(), note if note else None, auth_adults if auth_adults else None))
+                    conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
+                                (family_id, kid.strip(), note if note else None))
             
             # Determine which adult should be the default
             # The default_adult_id from the form is the old adult ID, so we need to match it

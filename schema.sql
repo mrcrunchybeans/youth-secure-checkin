@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS families (
     phone TEXT,
     troop TEXT,
     default_adult_id INTEGER,
+    authorized_adults TEXT,
     FOREIGN KEY (default_adult_id) REFERENCES adults(id) ON DELETE SET NULL
 );
 
@@ -19,7 +20,6 @@ CREATE TABLE IF NOT EXISTS kids (
     family_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     notes TEXT,
-    authorized_adults TEXT,
     FOREIGN KEY (family_id) REFERENCES families(id)
 );
 
