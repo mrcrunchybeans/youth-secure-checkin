@@ -86,12 +86,12 @@
                                     <td style="vertical-align: middle;">
                                         {{ checkin.kid_name }}
                                         {% if checkin.kid_notes %}
-                                          <span class="badge bg-info text-dark ms-1" style="cursor: pointer; font-size: 0.75rem;" 
+                                          <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.65rem; opacity: 0.6;" 
                                                 data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
                                                 title="{{ checkin.kid_notes | replace('\n', '<br>') }}">ℹ️</span>
                                         {% endif %}
                                         {% if checkin.authorized_adults %}
-                                          <span class="badge bg-success text-white ms-1" style="cursor: pointer; font-size: 0.75rem;" 
+                                          <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.65rem; opacity: 0.6;" 
                                                 data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
                                                 title="<strong>Authorized for Checkout:</strong><br>{{ checkin.authorized_adults | replace('\n', '<br>') }}">👤</span>
                                         {% endif %}

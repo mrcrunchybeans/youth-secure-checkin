@@ -69,12 +69,12 @@
               <div>
                 <strong style="font-size: 1.1rem;">{{ row['kid_name'] }}</strong>
                 {% if row['kid_notes'] %}
-                  <span class="badge bg-info text-dark ms-1" style="cursor: pointer; font-size: 0.85rem;" 
+                  <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" 
                         data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
                         title="{{ row['kid_notes'] | replace('\n', '<br>') }}">ℹ️</span>
                 {% endif %}
                 {% if row['authorized_adults'] %}
-                  <span class="badge bg-success text-white ms-1" style="cursor: pointer; font-size: 0.85rem;" 
+                  <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" 
                         data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
                         title="<strong>Authorized for Checkout:</strong><br>{{ row['authorized_adults'] | replace('\n', '<br>') }}">👤</span>
                 {% endif %}
