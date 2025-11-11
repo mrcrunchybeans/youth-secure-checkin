@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS kids (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     family_id INTEGER NOT NULL,
     name TEXT NOT NULL,
+    notes TEXT,
+    authorized_adults TEXT,
     FOREIGN KEY (family_id) REFERENCES families(id)
 );
 

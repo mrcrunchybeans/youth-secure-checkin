@@ -25,7 +25,11 @@
     <div class="mb-3">
       <label class="form-label">Kids</label>
       <div id="kids">
-        <input name="kids" class="form-control mb-2" placeholder="Kid name" />
+        <div class="mb-3 border rounded p-2 bg-light">
+          <input name="kids" class="form-control mb-2" placeholder="Kid name" />
+          <textarea name="kid_notes" class="form-control mb-2" rows="2" placeholder="Notes (dietary restrictions, special needs, etc.)" style="font-size: 0.9rem;"></textarea>
+          <textarea name="kid_authorized_adults" class="form-control" rows="2" placeholder="Authorized adults for checkout (e.g., Mom, Dad, Grandma Jane)" style="font-size: 0.9rem;"></textarea>
+        </div>
       </div>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('kids')">Add Kid</button>
     </div>
@@ -54,11 +58,28 @@ function addField(type) {
     wrapper.appendChild(input);
     div.appendChild(wrapper);
   } else {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mb-3 border rounded p-2 bg-light';
     const input = document.createElement('input');
     input.name = type;
     input.className = 'form-control mb-2';
     input.placeholder = 'Kid name';
-    div.appendChild(input);
+    const textarea = document.createElement('textarea');
+    textarea.name = 'kid_notes';
+    textarea.className = 'form-control mb-2';
+    textarea.rows = 2;
+    textarea.placeholder = 'Notes (dietary restrictions, special needs, etc.)';
+    textarea.style.fontSize = '0.9rem';
+    const textarea2 = document.createElement('textarea');
+    textarea2.name = 'kid_authorized_adults';
+    textarea2.className = 'form-control';
+    textarea2.rows = 2;
+    textarea2.placeholder = 'Authorized adults for checkout (e.g., Mom, Dad, Grandma Jane)';
+    textarea2.style.fontSize = '0.9rem';
+    wrapper.appendChild(input);
+    wrapper.appendChild(textarea);
+    wrapper.appendChild(textarea2);
+    div.appendChild(wrapper);
   }
 }
 </script>

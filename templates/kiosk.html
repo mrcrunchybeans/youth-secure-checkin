@@ -83,7 +83,19 @@
                             <tbody id="checked-in-list">
                                 {% for checkin in checked_in %}
                                 <tr style="height: 2rem;">
-                                    <td style="vertical-align: middle;">{{ checkin.kid_name }}</td>
+                                    <td style="vertical-align: middle;">
+                                        {{ checkin.kid_name }}
+                                        {% if checkin.kid_notes %}
+                                          <span class="badge bg-info text-dark ms-1" style="cursor: pointer; font-size: 0.75rem;" 
+                                                data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
+                                                title="{{ checkin.kid_notes | replace('\n', '<br>') }}">ℹ️</span>
+                                        {% endif %}
+                                        {% if checkin.authorized_adults %}
+                                          <span class="badge bg-success text-white ms-1" style="cursor: pointer; font-size: 0.75rem;" 
+                                                data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
+                                                title="<strong>Authorized for Checkout:</strong><br>{{ checkin.authorized_adults | replace('\n', '<br>') }}">👤</span>
+                                        {% endif %}
+                                    </td>
                                     <td style="vertical-align: middle;">{{ checkin.phone }}</td>
                                     <td style="vertical-align: middle;">{{ checkin.adult_name }}</td>
                                     <td style="vertical-align: middle; font-size: 0.8rem;">{{ checkin.formatted_time }}</td>
@@ -362,6 +374,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-focus the phone input on page load
     phoneInput.focus();
+});
+
+// Enable Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });
 </script>
 

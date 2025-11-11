@@ -212,8 +212,8 @@ def index():
 
     conn = get_db()
     cur = conn.execute("""
-        SELECT c.id, k.id as kid_id, c.checkin_time, c.checkout_time, k.name as kid_name, f.phone, f.troop,
-               a.name as adult_name
+        SELECT c.id, k.id as kid_id, c.checkin_time, c.checkout_time, k.name as kid_name, k.notes as kid_notes,
+               k.authorized_adults, f.phone, f.troop, a.name as adult_name
         FROM checkins c
         JOIN kids k ON c.kid_id = k.id
         JOIN families f ON k.family_id = f.id
@@ -329,8 +329,8 @@ def kiosk():
 
     conn = get_db()
     cur = conn.execute("""
-        SELECT c.id, k.id as kid_id, c.checkin_time, c.checkout_time, k.name as kid_name, f.phone, f.troop,
-               a.name as adult_name
+        SELECT c.id, k.id as kid_id, c.checkin_time, c.checkout_time, k.name as kid_name, k.notes as kid_notes,
+               k.authorized_adults, f.phone, f.troop, a.name as adult_name
         FROM checkins c
         JOIN kids k ON c.kid_id = k.id
         JOIN families f ON k.family_id = f.id
@@ -470,6 +470,8 @@ def admin_add_family():
         troop = request.form.get('troop', '').strip()
         adults = request.form.getlist('adults')
         kids = request.form.getlist('kids')
+        kid_notes = request.form.getlist('kid_notes')
+        kid_authorized_adults = request.form.getlist('kid_authorized_adults')
         default_adult_index = request.form.get('default_adult_index', '').strip()
         if not phone:
             flash('Phone required', 'danger')
@@ -486,9 +488,13 @@ def admin_add_family():
                     cur = conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
                     adult_ids.append(cur.lastrowid)
             
-            for kid in kids:
+            # Insert kids with their notes and authorized adults
+            for i, kid in enumerate(kids):
                 if kid.strip():
-                    conn.execute("INSERT INTO kids (family_id, name) VALUES (?, ?)", (family_id, kid.strip()))
+                    note = kid_notes[i].strip() if i < len(kid_notes) else ''
+                    auth_adults = kid_authorized_adults[i].strip() if i < len(kid_authorized_adults) else ''
+                    conn.execute("INSERT INTO kids (family_id, name, notes, authorized_adults) VALUES (?, ?, ?, ?)", 
+                                (family_id, kid.strip(), note if note else None, auth_adults if auth_adults else None))
             
             # Set default adult if specified
             if default_adult_index and default_adult_index.isdigit():
@@ -577,6 +583,8 @@ def admin_edit_family(family_id):
         troop = request.form.get('troop', '').strip()
         adults = request.form.getlist('adults')
         kids = request.form.getlist('kids')
+        kid_notes = request.form.getlist('kid_notes')
+        kid_authorized_adults = request.form.getlist('kid_authorized_adults')
         default_adult_id = request.form.get('default_adult_id', '').strip()
         if not phone:
             phone = None
@@ -598,9 +606,13 @@ def admin_edit_family(family_id):
                     new_adult_id = cur.lastrowid
                     new_adult_ids.append(new_adult_id)
             
-            for kid in kids:
+            # Insert kids with their notes and authorized adults
+            for i, kid in enumerate(kids):
                 if kid.strip():
-                    conn.execute("INSERT INTO kids (family_id, name) VALUES (?, ?)", (family_id, kid.strip()))
+                    note = kid_notes[i].strip() if i < len(kid_notes) else ''
+                    auth_adults = kid_authorized_adults[i].strip() if i < len(kid_authorized_adults) else ''
+                    conn.execute("INSERT INTO kids (family_id, name, notes, authorized_adults) VALUES (?, ?, ?, ?)", 
+                                (family_id, kid.strip(), note if note else None, auth_adults if auth_adults else None))
             
             # Determine which adult should be the default
             # The default_adult_id from the form is the old adult ID, so we need to match it

@@ -66,7 +66,20 @@
         {% for row in checked_in %}
           <li class="list-group-item d-flex justify-content-between align-items-center py-2">
             <div style="flex: 1;">
-              <div><strong style="font-size: 1.1rem;">{{ row['kid_name'] }}</strong> <span class="text-muted d-block d-sm-inline">— {{ row['adult_name'] }}</span></div>
+              <div>
+                <strong style="font-size: 1.1rem;">{{ row['kid_name'] }}</strong>
+                {% if row['kid_notes'] %}
+                  <span class="badge bg-info text-dark ms-1" style="cursor: pointer; font-size: 0.85rem;" 
+                        data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
+                        title="{{ row['kid_notes'] | replace('\n', '<br>') }}">ℹ️</span>
+                {% endif %}
+                {% if row['authorized_adults'] %}
+                  <span class="badge bg-success text-white ms-1" style="cursor: pointer; font-size: 0.85rem;" 
+                        data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
+                        title="<strong>Authorized for Checkout:</strong><br>{{ row['authorized_adults'] | replace('\n', '<br>') }}">👤</span>
+                {% endif %}
+                <span class="text-muted d-block d-sm-inline">— {{ row['adult_name'] }}</span>
+              </div>
               <small class="text-muted d-block">Phone: {{ row['phone'] }} · {{ row['formatted_time'] }}</small>
             </div>
             <form method="post" action="/checkout/{{ row['kid_id'] }}" onsubmit="return confirm(`Check out {{ row['kid_name'] }}?`)">
@@ -139,7 +152,6 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p><strong>Phone:</strong> <span id="modal-phone"></span></p>
         <p><strong>Phone:</strong> <span id="modal-phone"></span></p>
         <p><strong>Troop:</strong> <span id="modal-troop"></span></p>
         <form id="select-kids-form">
@@ -225,6 +237,14 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
     location.reload();
   })
   .catch(error => console.error('Error:', error));
+});
+
+// Enable Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function() {
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
 });
 </script>
 {% endblock %}
