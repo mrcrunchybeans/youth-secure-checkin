@@ -163,12 +163,19 @@ def print_checkout_label(kid_name: str, event_name: str, event_date: str,
     Returns:
         True if printing successful, False otherwise
     """
+    print(f"Generating label for {kid_name}, code: {checkout_code}")
+    
     # Create the label image
     img = create_label_image(kid_name, event_name, event_date, checkin_time, 
                             checkout_code, width, height)
     
-    # Save a copy for debugging (optional)
-    # img.save('/tmp/last_label.png')
+    # Save a copy for debugging
+    try:
+        label_path = f'/tmp/label_{checkout_code}.png'
+        img.save(label_path)
+        print(f"Label image saved to: {label_path}")
+    except Exception as e:
+        print(f"Could not save label image: {e}")
     
     # Print based on printer type
     if printer_type.lower() == 'dymo':
