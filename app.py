@@ -10,6 +10,7 @@ import io
 import re
 import threading
 import time
+from label_printer import generate_unique_code, print_checkout_label
 
 def normalize_address(address):
     if not address:
@@ -282,14 +283,66 @@ def checkin_selected():
         return jsonify({'success': False, 'message': 'Missing data'}), 400
     conn = get_db()
     now = datetime.utcnow().isoformat()
+    
+    # Check if label printing is enabled
+    setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
+    require_codes = setting and setting[0] == 'true'
+    
+    # Get label printer settings if needed
+    if require_codes:
+        printer_type = conn.execute("SELECT value FROM settings WHERE key = 'label_printer_type'").fetchone()
+        label_width = conn.execute("SELECT value FROM settings WHERE key = 'label_width'").fetchone()
+        label_height = conn.execute("SELECT value FROM settings WHERE key = 'label_height'").fetchone()
+        printer_type = printer_type[0] if printer_type else 'dymo'
+        label_width = float(label_width[0]) if label_width else 2.0
+        label_height = float(label_height[0]) if label_height else 1.0
+        
+        # Get event info for label
+        event_row = conn.execute("SELECT name, start_time FROM events WHERE id = ?", (event_id,)).fetchone()
+        event_name = event_row[0] if event_row else "Event"
+        event_date = event_row[1][:10] if event_row else datetime.now().strftime('%Y-%m-%d')
+    
     checked_in_count = 0
     for kid_id in kid_ids:
         # Check if already checked in to this event
         cur = conn.execute("SELECT id FROM checkins WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", (kid_id, event_id))
         if cur.fetchone():
             continue
-        conn.execute("INSERT INTO checkins (kid_id, adult_id, event_id, checkin_time) VALUES (?, ?, ?, ?)", (kid_id, adult_id, event_id, now))
+        
+        # Generate unique code if required
+        checkout_code = None
+        if require_codes:
+            try:
+                checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
+            except Exception as e:
+                print(f"Error generating checkout code: {e}")
+                checkout_code = None
+        
+        # Insert check-in with code
+        conn.execute("INSERT INTO checkins (kid_id, adult_id, event_id, checkin_time, checkout_code) VALUES (?, ?, ?, ?, ?)", 
+                    (kid_id, adult_id, event_id, now, checkout_code))
         checked_in_count += 1
+        
+        # Print label if code was generated
+        if checkout_code:
+            try:
+                kid_row = conn.execute("SELECT name FROM kids WHERE id = ?", (kid_id,)).fetchone()
+                kid_name = kid_row[0] if kid_row else "Unknown"
+                checkin_time = datetime.fromisoformat(now).strftime('%H:%M')
+                
+                print_checkout_label(
+                    kid_name=kid_name,
+                    event_name=event_name,
+                    event_date=event_date,
+                    checkin_time=checkin_time,
+                    checkout_code=checkout_code,
+                    printer_type=printer_type,
+                    width=label_width,
+                    height=label_height
+                )
+            except Exception as e:
+                print(f"Error printing label: {e}")
+    
     conn.commit()
     conn.close()
     return jsonify({'success': True, 'message': f'Checked in {checked_in_count} kid(s)'})
@@ -298,13 +351,48 @@ def checkin_selected():
 @require_auth
 def checkout(kid_id):
     event_id = request.form.get('event_id')
+    checkout_code = request.form.get('checkout_code', '').strip()
+    admin_override = request.form.get('admin_override') == 'true'
+    
     if not event_id:
-        return "Missing event_id", 400
+        return jsonify({'success': False, 'message': 'Missing event_id'}), 400
+    
     conn = get_db()
+    
+    # Check if codes are required
+    setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
+    require_codes = setting and setting[0] == 'true'
+    
+    # If codes are required and not admin override, verify the code
+    if require_codes and not admin_override:
+        if not checkout_code:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Checkout code required', 'code_required': True}), 400
+        
+        # Verify the code matches
+        checkin = conn.execute("""
+            SELECT checkout_code FROM checkins 
+            WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
+        """, (kid_id, event_id)).fetchone()
+        
+        if not checkin:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Check-in not found'}), 404
+        
+        if checkin[0] != checkout_code:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Invalid checkout code', 'code_required': True}), 403
+    
+    # Perform checkout
     now = datetime.utcnow().isoformat()
-    conn.execute("UPDATE checkins SET checkout_time = ? WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", (now, kid_id, event_id))
+    conn.execute("UPDATE checkins SET checkout_time = ? WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", 
+                (now, kid_id, event_id))
     conn.commit()
     conn.close()
+    
+    # Return JSON if it's an AJAX request, otherwise redirect
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'message': 'Checked out successfully'})
     return redirect(request.referrer or url_for('kiosk'))
 
 @app.route('/kiosk')
@@ -432,17 +520,47 @@ def admin_index():
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @require_auth
 def admin_settings():
+    conn = get_db()
+    
     if request.method == 'POST':
+        # Handle password change
         new_password = request.form.get('new_password', '').strip()
         if new_password:
             set_app_password(new_password)
             flash('App password updated successfully!', 'success')
-        else:
-            flash('Password cannot be empty', 'danger')
+        
+        # Handle label printing settings
+        if 'require_checkout_code' in request.form:
+            require_codes = 'true' if request.form.get('require_checkout_code') == 'on' else 'false'
+            printer_type = request.form.get('label_printer_type', 'dymo').strip()
+            label_width = request.form.get('label_width', '2.0').strip()
+            label_height = request.form.get('label_height', '1.0').strip()
+            
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_codes,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_width', ?)", (label_width,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_height', ?)", (label_height,))
+            conn.commit()
+            flash('Label printing settings updated successfully!', 'success')
+        
+        conn.close()
         return redirect(url_for('admin_settings'))
-
+    
+    # GET request - fetch current settings
     current_password = get_app_password()
-    return render_template('admin/settings.html', current_password=current_password, dev_password_set=bool(DEVELOPER_PASSWORD))
+    
+    # Fetch label printing settings
+    label_settings = {}
+    for key in ['require_checkout_code', 'label_printer_type', 'label_width', 'label_height']:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        label_settings[key] = row[0] if row else None
+    
+    conn.close()
+    
+    return render_template('admin/settings.html', 
+                         current_password=current_password, 
+                         dev_password_set=bool(DEVELOPER_PASSWORD),
+                         label_settings=label_settings)
 
 @app.route('/admin/families')
 @require_auth

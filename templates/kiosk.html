@@ -100,10 +100,10 @@
                                     <td style="vertical-align: middle;">{{ checkin.adult_name }}</td>
                                     <td style="vertical-align: middle; font-size: 0.8rem;">{{ checkin.formatted_time }}</td>
                                     <td style="vertical-align: middle;">
-                                        <form method="post" action="{{ url_for('checkout', kid_id=checkin.kid_id) }}" class="d-inline">
-                                            <input type="hidden" name="event_id" value="{{ current_event_id }}">
-                                            <button type="submit" class="btn btn-warning btn-sm" style="font-size: 0.75rem; padding: 0.15rem 0.35rem;">Check-Out</button>
-                                        </form>
+                                        <button class="btn btn-warning btn-sm checkout-btn" style="font-size: 0.75rem; padding: 0.15rem 0.35rem;"
+                                                data-kid-id="{{ checkin.kid_id }}"
+                                                data-kid-name="{{ checkin.kid_name }}"
+                                                data-event-id="{{ current_event_id }}">Check-Out</button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -374,6 +374,60 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-focus the phone input on page load
     phoneInput.focus();
+});
+
+// Handle checkout with code verification
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('checkout-btn')) {
+        const kidId = e.target.dataset.kidId;
+        const kidName = e.target.dataset.kidName;
+        const eventId = e.target.dataset.eventId;
+        
+        // First, check out without code to see if code is required
+        const formData = new FormData();
+        formData.append('event_id', eventId);
+        
+        fetch(`/checkout/${kidId}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else if (data.code_required) {
+                // Prompt for checkout code
+                const code = prompt(`Enter checkout code for ${kidName}:`);
+                if (code) {
+                    const codeFormData = new FormData();
+                    codeFormData.append('event_id', eventId);
+                    codeFormData.append('checkout_code', code);
+                    
+                    fetch(`/checkout/${kidId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: codeFormData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert(data.message || 'Invalid checkout code');
+                        }
+                    });
+                }
+            } else {
+                alert(data.message || 'Checkout failed');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
 });
 
 // Enable Bootstrap tooltips

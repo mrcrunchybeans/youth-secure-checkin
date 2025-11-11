@@ -1,0 +1,13 @@
+# Additional dependencies for label printing feature
+# Add these to your requirements.txt if enabling label printing
+
+# Image processing for label generation
+Pillow>=10.0.0
+
+# DYMO printer support (optional - install if using DYMO printers)
+# Note: May require additional system packages
+# pyusb>=1.2.1
+# python-escpos>=3.0
+
+# Brother QL printer support (optional - install if using Brother QL series)
+# brother-ql>=0.9.4

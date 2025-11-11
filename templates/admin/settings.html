@@ -30,6 +30,67 @@
     </div>
 
     <div class="card mt-3">
+      <div class="card-header" style="background-color: #4a582d; color: white;">
+        <strong>Label Printing & Checkout Codes</strong>
+      </div>
+      <div class="card-body">
+        <h5 class="mb-3">Checkout Code Settings</h5>
+        <p class="text-muted mb-4">Enable secure checkout with printed labels and verification codes.</p>
+
+        <form method="POST">
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
+                   {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}>
+            <label class="form-check-label" for="require_checkout_code">
+              <strong>Require checkout codes</strong>
+            </label>
+            <div class="form-text">When enabled, parents must enter a code to check out their child. A label will be printed at check-in with the code.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="label_printer_type" class="form-label">Printer Type</label>
+            <select class="form-select" id="label_printer_type" name="label_printer_type">
+              <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO Label Printer</option>
+              <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL Series</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="col-6">
+              <div class="mb-3">
+                <label for="label_width" class="form-label">Label Width (inches)</label>
+                <input type="number" step="0.1" class="form-control" id="label_width" name="label_width" 
+                       value="{{ label_settings.label_width or '2.0' }}">
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="mb-3">
+                <label for="label_height" class="form-label">Label Height (inches)</label>
+                <input type="number" step="0.1" class="form-control" id="label_height" name="label_height" 
+                       value="{{ label_settings.label_height or '1.0' }}">
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-info">
+            <strong>How it works:</strong>
+            <ul class="mb-0 small">
+              <li>When checking in, a unique 5-digit code is generated</li>
+              <li>A label prints with the child's name, event, time, and code</li>
+              <li>Parent keeps the label</li>
+              <li>To check out, parent must enter the code</li>
+              <li>Admins can override without a code</li>
+            </ul>
+          </div>
+
+          <button type="submit" class="btn btn-lg" style="background-color: #4a582d; color: white; border: none;">
+            Update Label Settings
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3">
       <div class="card-header" style="background-color: #003b59; color: white;">
         <strong>Developer Access</strong>
       </div>

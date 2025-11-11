@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS checkins (
     event_id INTEGER NOT NULL,
     checkin_time TEXT NOT NULL,
     checkout_time TEXT,
+    checkout_code TEXT,
     FOREIGN KEY (kid_id) REFERENCES kids(id),
     FOREIGN KEY (event_id) REFERENCES events(id)
 );
