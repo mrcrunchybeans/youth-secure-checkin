@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2>Edit Family</h2>
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Phone</label>
+      <input name="phone" class="form-control" value="{{ family.phone }}" required />
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Troop</label>
+      <input name="troop" class="form-control" value="{{ family.troop or '' }}" />
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Adults</label>
+      <div id="adults">
+        {% for adult in adults %}
+          <input name="adults" class="form-control mb-2" value="{{ adult.name }}" placeholder="Adult name" />
+        {% endfor %}
+        <input name="adults" class="form-control mb-2" placeholder="Adult name" />
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('adults')">Add Adult</button>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Kids</label>
+      <div id="kids">
+        {% for kid in kids %}
+          <input name="kids" class="form-control mb-2" value="{{ kid.name }}" placeholder="Kid name" />
+        {% endfor %}
+        <input name="kids" class="form-control mb-2" placeholder="Kid name" />
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('kids')">Add Kid</button>
+    </div>
+    <button type="submit" class="btn btn-primary">Update Family</button>
+  </form>
+  <a href="/admin/families" class="btn btn-secondary mt-3">Back</a>
+</div>
+<script>
+function addField(type) {
+  const div = document.getElementById(type);
+  const input = document.createElement('input');
+  input.name = type;
+  input.className = 'form-control mb-2';
+  input.placeholder = type === 'adults' ? 'Adult name' : 'Kid name';
+  div.appendChild(input);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2>Admin Panel</h2>
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5>Families</h5>
+          <p>Manage family records, adults, and kids.</p>
+          <a href="/admin/families" class="btn" style="background-color: #79060d; color: white; border: none;">Manage Families</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5>Events</h5>
+          <p>Import events from iCal or manage manually.</p>
+          <a href="/admin/events" class="btn" style="background-color: #79060d; color: white; border: none;">Manage Events</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5>Security Settings</h5>
+          <p>Configure access code and security.</p>
+          <a href="/admin/settings" class="btn" style="background-color: #003b59; color: white; border: none;">Settings</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <a href="/" class="btn btn-outline-secondary mt-3">← Back to Check-in</a>
+  <a href="/logout" class="btn btn-outline-danger mt-3 ms-2">🔒 Logout</a>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2>Import Families</h2>
+  <p>Upload a CSV file exported from your troop system. The format should match the example provided.</p>
+  <form method="post" enctype="multipart/form-data">
+    <div class="mb-3">
+      <label class="form-label">Troop Name</label>
+      <input name="troop" class="form-control" required />
+    </div>
+    <div class="mb-3">
+      <label class="form-label">CSV File</label>
+      <input type="file" name="file" class="form-control" accept=".csv" required />
+    </div>
+    <button type="submit" class="btn btn-primary">Import</button>
+  </form>
+  <a href="/admin/families" class="btn btn-secondary mt-3">Back</a>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  @media (max-width: 768px) {
+    .filter-buttons {
+      flex-direction: column !important;
+      width: 100%;
+    }
+    .filter-buttons .btn {
+      width: 100%;
+      margin-bottom: 0.5rem;
+      margin-right: 0 !important;
+    }
+    .table {
+      font-size: 0.75rem;
+    }
+    .table thead th {
+      padding: 0.3rem;
+      white-space: nowrap;
+    }
+    .table tbody td {
+      padding: 0.3rem;
+      font-size: 0.7rem;
+    }
+    /* Hide less important columns on mobile */
+    .table th:first-child,
+    .table td:first-child {
+      display: none;
+    }
+  }
+</style>
+  <h4 class="mb-3">Recent check-ins</h4>
+
+  <!-- Filter Form -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="get" action="/history" class="row g-3">
+        <div class="col-md-4 col-12">
+          <label for="event_id" class="form-label">Event</label>
+          <select name="event_id" id="event_id" class="form-select form-select-sm">
+            <option value="">All Events</option>
+            {% for event in events %}
+              <option value="{{ event.id }}" {% if event.id|string == event_id %}selected{% endif %}>
+                {{ event.name }} - {{ event.start_time[:10] }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3 col-6">
+          <label for="start_date" class="form-label">Start Date</label>
+          <input type="date" name="start_date" id="start_date" class="form-control form-control-sm" value="{{ start_date or '' }}">
+        </div>
+        <div class="col-md-3 col-6">
+          <label for="end_date" class="form-label">End Date</label>
+          <input type="date" name="end_date" id="end_date" class="form-control form-control-sm" value="{{ end_date or '' }}">
+        </div>
+        <div class="col-md-2 col-12 d-flex align-items-end filter-buttons">
+          <button type="submit" class="btn btn-sm me-2" style="background-color: #79060d; color: white; border: none;">Filter</button>
+          <a href="/history" class="btn btn-sm btn-outline-secondary">Clear</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>Kid</th>
+          <th>Adult</th>
+          <th>Phone</th>
+          <th>Event</th>
+          <th>Checkin</th>
+          <th>Checkout</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r['id'] }}</td>
+            <td><strong>{{ r['kid_name'] }}</strong></td>
+            <td>{{ r['adult_name'] }}</td>
+            <td>{{ r['phone'] }}</td>
+            <td>{{ r['event_name'] }}</td>
+            <td>{{ r['formatted_checkin'] }}</td>
+            <td>{{ r['formatted_checkout'] or '-' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

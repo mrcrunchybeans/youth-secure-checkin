@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  @media (max-width: 768px) {
+    .card-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+    }
+    .event-select-mobile {
+      max-width: 150px !important;
+      font-size: 0.8rem;
+    }
+    #checkin-form .col-auto {
+      width: 100%;
+    }
+    #checkin-form button {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .list-group-item {
+      flex-direction: column;
+      align-items: flex-start !important;
+    }
+    .list-group-item form {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .list-group-item form button {
+      width: 100%;
+    }
+  }
+</style>
+<div class="row">
+  <div class="col-lg-8 col-12">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="background-color: #79060d; color: white;">
+        <strong class="mb-1 mb-sm-0">Check In</strong>
+        <!-- Desktop: dropdown select -->
+        <select id="event-select" class="form-select form-select-sm d-none d-sm-inline-block" style="width: auto; max-width: 300px;">
+          {% for event in events %}
+            <option value="{{ event['id'] }}" {% if event['id'] == current_event_id %}selected{% endif %}>{{ event['start_time'][:10] }} - {{ event['name'] }}</option>
+          {% endfor %}
+        </select>
+        <!-- Mobile: button opens modal -->
+        <button type="button" class="btn btn-sm btn-light d-inline d-sm-none" data-bs-toggle="modal" data-bs-target="#eventModalIndex" style="padding: 0.25rem 0.75rem; font-size: 1.2rem;" title="Select Event">
+          &#128197;
+        </button>
+      </div>
+      <div class="card-body">
+        <form id="checkin-form" class="row g-3 align-items-end">
+          <input type="hidden" id="event-id" name="event_id" value="{{ current_event_id }}">
+          <div class="col-auto col-md-8" style="flex: 1;">
+            <label class="form-label fw-bold">Last 4 Digits of Phone</label>
+            <input id="last4" class="form-control" maxlength="4" pattern="\d{4}" required placeholder="0000" inputmode="numeric" />
+          </div>
+          <div class="col-auto col-md-4">
+            <button type="submit" class="btn" style="background-color: #79060d; color: white; border: none; padding: 0.5rem 2rem;">Find Family</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="background-color: #4a582d; color: white;"><strong>Currently Checked In</strong></div>
+      <ul class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+        {% for row in checked_in %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <div style="flex: 1;">
+              <div><strong style="font-size: 1.1rem;">{{ row['kid_name'] }}</strong> <span class="text-muted d-block d-sm-inline">— {{ row['adult_name'] }}</span></div>
+              <small class="text-muted d-block">Phone: {{ row['phone'] }} · {{ row['formatted_time'] }}</small>
+            </div>
+            <form method="post" action="/checkout/{{ row['kid_id'] }}" onsubmit="return confirm(`Check out {{ row['kid_name'] }}?`)">
+              <input type="hidden" name="event_id" value="{{ current_event_id }}">
+              <button class="btn btn-sm" style="color: #79060d; border-color: #79060d; white-space: nowrap;">Check Out</button>
+            </form>
+          </li>
+        {% else %}
+          <li class="list-group-item text-muted text-center py-4">No one is currently checked in.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-4 col-12 mt-3 mt-lg-0">
+    <div class="card mb-3">
+      <div class="card-header" style="background-color: #003b59; color: white;"><strong>Quick Actions</strong></div>
+      <div class="card-body">
+        <div class="d-grid gap-2">
+          <a href="/kiosk" class="btn" style="background-color: #79060d; color: white; border: none;">
+            <span style="font-size: 1.2rem;">📱</span> Kiosk Mode
+          </a>
+          <a href="/admin" class="btn" style="background-color: #003b59; color: white; border: none;">
+            <span style="font-size: 1.2rem;">⚙️</span> Admin Panel
+          </a>
+          <a href="/history" class="btn btn-outline-secondary">
+            <span style="font-size: 1.2rem;">📋</span> View History
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card d-none d-lg-block">
+      <div class="card-header"><strong>About</strong></div>
+      <div class="card-body">
+        <p class="small mb-2">This system supports family-based check-in using the last 4 digits of phone numbers.</p>
+        <p class="small mb-0 text-muted">Configure families, adults, kids, and events in the Admin panel.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile event selector modal -->
+<div class="modal fade" id="eventModalIndex" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background-color: #79060d; color: white;">
+        <h5 class="modal-title">Select Event</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="max-height:60vh; overflow-y:auto;">
+        <div class="list-group">
+          {% for event in events %}
+          <a href="/?event_id={{ event['id'] }}" class="list-group-item list-group-item-action {% if event['id'] == current_event_id %}active{% endif %}">
+            {{ event['start_time'][:10] }} — {{ event['name'] }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="familyModal" tabindex="-1" aria-labelledby="familyModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background-color: #79060d; color: white;">
+        <h5 class="modal-title" id="familyModalLabel">Select Kids to Check In</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Phone:</strong> <span id="modal-phone"></span></p>
+        <p><strong>Phone:</strong> <span id="modal-phone"></span></p>
+        <p><strong>Troop:</strong> <span id="modal-troop"></span></p>
+        <form id="select-kids-form">
+          <input type="hidden" id="family-id" name="family_id">
+          <input type="hidden" id="modal-event-id" name="event_id" value="{{ current_event_id }}">
+          <div class="mb-3">
+            <label class="form-label">Checking in as:</label>
+            <select name="adult_id" id="adult-select" class="form-select" required>
+              <option value="">Select Adult</option>
+            </select>
+          </div>
+          <div id="kids-list"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" style="background-color: #003b59; color: white; border: none;" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="select-kids-form" class="btn" style="background-color: #4a582d; color: white; border: none;">Check In Selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('event-select').addEventListener('change', function() {
+  const eventId = this.value;
+  window.location.href = `/?event_id=${eventId}`;
+});
+
+document.getElementById('checkin-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const last4 = document.getElementById('last4').value;
+  const eventId = document.getElementById('event-id').value;
+  fetch('/checkin_last4', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({last4: last4, event_id: eventId})
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+    document.getElementById('modal-phone').textContent = data.phone;
+    document.getElementById('modal-troop').textContent = data.troop || '—';
+    document.getElementById('family-id').value = data.family_id;
+    const adultSelect = document.getElementById('adult-select');
+    adultSelect.innerHTML = '<option value="">Select Adult</option>';
+    data.adults.forEach((adult, index) => {
+      const option = document.createElement('option');
+      option.value = adult.id;
+      option.textContent = adult.name;
+      if (index === 0) option.selected = true;
+      adultSelect.appendChild(option);
+    });
+    const kidsList = document.getElementById('kids-list');
+    kidsList.innerHTML = '';
+    data.kids.forEach(kid => {
+      const div = document.createElement('div');
+      div.className = 'form-check';
+      div.innerHTML = `
+        <input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="kid-${kid.id}">
+        <label class="form-check-label" for="kid-${kid.id}">${kid.name}</label>
+      `;
+      kidsList.appendChild(div);
+    });
+    new bootstrap.Modal(document.getElementById('familyModal')).show();
+  })
+  .catch(error => console.error('Error:', error));
+});
+
+document.getElementById('select-kids-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  fetch('/checkin_selected', {
+    method: 'POST',
+    body: formData
+  })
+  .then(() => {
+    bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide();
+    location.reload();
+  })
+  .catch(error => console.error('Error:', error));
+});
+</script>
+{% endblock %}

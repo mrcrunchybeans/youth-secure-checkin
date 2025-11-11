@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2>Events</h2>
+
+  <div class="card mb-3">
+    <div class="card-header" style="background-color: #79060d; color: white;">
+      <strong>iCal Sync Configuration</strong>
+    </div>
+    <div class="card-body">
+      <form method="post" action="/admin/events/set_ical">
+        <label class="form-label fw-bold">iCal URL</label>
+        <div class="input-group mb-3">
+          <input name="ical_url" class="form-control" value="{{ ical_url or '' }}" placeholder="https://example.com/calendar.ics" />
+          <button type="submit" class="btn" style="background-color: #79060d; color: white; border: none;">Save URL</button>
+        </div>
+      </form>
+
+      <div class="alert alert-info mb-3">
+        <strong>🔄 Auto-Sync Active:</strong> Events automatically sync every hour from your iCal URL.
+        <br>
+        <small><strong>Last Sync:</strong> {{ last_sync }}</small>
+      </div>
+
+      <form method="post" action="/admin/events/sync" class="d-inline">
+        <button type="submit" class="btn btn-outline-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16" style="margin-bottom: 2px;">
+            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+          </svg>
+          Sync Now (Manual)
+        </button>
+      </form>
+    </div>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+        <tr>
+          <td>{{ e['name'] }}</td>
+          <td>{{ e['start_time'][:10] if e['start_time'] else '—' }}</td>
+          <td>{{ e['start_time'][11:16] if e['start_time'] else '—' }} - {{ e['end_time'][11:16] if e['end_time'] else '—' }}</td>
+          <td>{{ e['description'] or '—' }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <a href="/admin" class="btn btn-secondary">Back to Admin</a>
+</div>
+{% endblock %}

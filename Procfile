@@ -1,0 +1,1 @@
+bweb: gunicorn app:app

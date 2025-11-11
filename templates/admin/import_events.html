@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2>Import Events from iCal</h2>
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">iCal URL</label>
+      <input name="ical_url" class="form-control" required placeholder="https://example.com/calendar.ics" />
+    </div>
+    <button type="submit" class="btn btn-primary">Import</button>
+  </form>
+  <a href="/admin/events" class="btn btn-secondary mt-3">Back</a>
+</div>
+{% endblock %}
