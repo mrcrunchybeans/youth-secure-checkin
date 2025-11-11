@@ -7,12 +7,20 @@ Supports DYMO label printers with customizable label sizes.
 import random
 import sqlite3
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PIL import Image
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 try:
     from brother_ql.brother_ql_create import convert
     from brother_ql import BrotherQLRaster
-    from PIL import Image, ImageDraw, ImageFont
     HAS_BROTHER_QL = True
 except ImportError:
     HAS_BROTHER_QL = False
@@ -52,7 +60,7 @@ def generate_unique_code(event_id: int, db_path: str) -> str:
 
 def create_label_image(kid_name: str, event_name: str, event_date: str, 
                        checkin_time: str, checkout_code: str, 
-                       width_inches: float = 2.0, height_inches: float = 1.0) -> Image:
+                       width_inches: float = 2.0, height_inches: float = 1.0) -> 'Image.Image':
     """
     Create a PIL Image for the label with all check-in information.
     
@@ -108,7 +116,7 @@ def create_label_image(kid_name: str, event_name: str, event_date: str,
     return img
 
 
-def print_label_dymo(img: Image, printer_name: Optional[str] = None) -> bool:
+def print_label_dymo(img: 'Image.Image', printer_name: Optional[str] = None) -> bool:
     """
     Print label using DYMO printer.
     
