@@ -61,7 +61,7 @@
     </div>
 
     <div class="card">
-      <div class="card-header" style="background-color: #4a582d; color: white;"><strong>Currently Checked In</strong></div>
+      <div class="card-header" style="background-color: #4a582d; color: white;"><strong>Currently Checked In - {{ checked_in|length }}</strong></div>
       <ul class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
         {% for row in checked_in %}
           <li class="list-group-item d-flex justify-content-between align-items-center py-2">
