@@ -102,6 +102,57 @@
             margin-top: 20px;
             line-height: 1.6;
         }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                align-items: flex-start;
+                padding-top: 20px;
+            }
+            .share-container {
+                padding: 25px;
+                border-radius: 15px;
+            }
+            .event-title {
+                font-size: 1.5rem;
+            }
+            .code-card {
+                padding: 20px;
+                margin-bottom: 15px;
+            }
+            .checkout-code {
+                font-size: 2rem;
+                letter-spacing: 5px;
+                padding: 15px;
+            }
+            .share-btn {
+                padding: 20px;
+                font-size: 1.3rem;
+                margin-top: 15px;
+                position: sticky;
+                bottom: 10px;
+                z-index: 100;
+            }
+            .kid-name {
+                font-size: 1.1rem;
+            }
+            .info-text {
+                font-size: 0.85rem;
+                margin-top: 15px;
+            }
+        }
+        
+        /* Extra small phones */
+        @media (max-width: 400px) {
+            .checkout-code {
+                font-size: 1.8rem;
+                letter-spacing: 3px;
+            }
+            .share-container {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
