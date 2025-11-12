@@ -335,7 +335,11 @@ def checkin_selected():
             try:
                 kid_row = conn.execute("SELECT name FROM kids WHERE id = ?", (kid_id,)).fetchone()
                 kid_name = kid_row[0] if kid_row else "Unknown"
-                checkin_time = datetime.fromisoformat(now).strftime('%H:%M')
+                
+                # Convert UTC to CST for display
+                utc_time = datetime.fromisoformat(now).replace(tzinfo=pytz.UTC)
+                cst_time = utc_time.astimezone(pytz.timezone('America/Chicago'))
+                checkin_time = cst_time.strftime('%I:%M %p')
                 
                 print_checkout_label(
                     kid_name=kid_name,

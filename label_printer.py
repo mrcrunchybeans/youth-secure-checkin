@@ -90,31 +90,37 @@ def create_label_image(kid_name: str, event_name: str, event_date: str,
     
     # Try to use a better font, fall back to default if not available
     try:
-        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
-        body_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
-        code_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
+        body_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+        code_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
+        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
     except:
         title_font = ImageFont.load_default()
         body_font = ImageFont.load_default()
         code_font = ImageFont.load_default()
+        small_font = ImageFont.load_default()
     
-    # Layout
-    y_pos = 30
+    # Layout - more compact for 2"x1" label
+    y_pos = 20
     
     # Kid name (title)
-    draw.text((20, y_pos), kid_name, fill='black', font=title_font)
-    y_pos += 80
+    draw.text((15, y_pos), kid_name, fill='black', font=title_font)
+    y_pos += 60
     
-    # Event info
-    draw.text((20, y_pos), f"{event_name}", fill='black', font=body_font)
-    y_pos += 50
-    draw.text((20, y_pos), f"{event_date} • {checkin_time}", fill='black', font=body_font)
-    y_pos += 70
+    # Event info (truncate if too long)
+    event_display = event_name[:30] + "..." if len(event_name) > 30 else event_name
+    draw.text((15, y_pos), event_display, fill='black', font=small_font)
+    y_pos += 35
+    draw.text((15, y_pos), f"{event_date} • {checkin_time}", fill='black', font=small_font)
+    y_pos += 45
     
     # Checkout code (prominently displayed)
-    draw.text((20, y_pos), "Checkout Code:", fill='black', font=body_font)
-    y_pos += 60
-    draw.text((20, y_pos), checkout_code, fill='black', font=code_font)
+    draw.text((15, y_pos), "Checkout Code:", fill='black', font=body_font)
+    y_pos += 45
+    
+    # Draw the checkout code with extra spacing between digits for readability
+    code_display = " ".join(checkout_code)  # Add spaces between digits
+    draw.text((15, y_pos), code_display, fill='black', font=code_font)
     
     return img
 
