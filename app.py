@@ -510,7 +510,8 @@ def checkin_selected():
         'labels': labels_to_print,
         'checkins': checked_in_data,
         'share_token': share_token,
-        'qr_code': qr_code_data
+        'qr_code': qr_code_data,
+        'checkout_code': family_checkout_code
     })
 
 @app.route('/checkout/<int:kid_id>', methods=['POST'])

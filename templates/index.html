@@ -184,7 +184,11 @@
       </div>
       <div class="modal-body text-center" style="padding: 1.5rem;">
         <img id="qr-code-img" src="" alt="QR Code" style="max-width: 100%; width: 100%; border: 5px solid #f8f9fa; border-radius: 10px;">
-        <p class="mt-3 text-muted mb-0" style="font-size: 0.9rem; line-height: 1.4;">Scan with your phone to get the checkout code</p>
+        <div class="mt-3 mb-2" style="background: #f8f9fa; border: 2px solid #79060d; border-radius: 10px; padding: 0.8rem;">
+          <div class="text-muted mb-1" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05rem;">Checkout Code</div>
+          <div id="qr-code-text" style="font-size: 1.8rem; font-weight: bold; color: #79060d; font-family: 'Courier New', monospace; letter-spacing: 0.3rem;"></div>
+        </div>
+        <p class="text-muted mb-0" style="font-size: 0.85rem; line-height: 1.4;">Scan QR code or write down the code above</p>
       </div>
       <div class="modal-footer" style="border: none; justify-content: center; padding: 1rem 1.5rem;">
         <button type="button" class="btn" style="background: linear-gradient(135deg, #79060d 0%, #003b59 100%); color: white; border: none; border-radius: 10px; padding: 0.6rem 2rem; font-size: 1.1rem; font-weight: 600;" data-bs-dismiss="modal">Done</button>
@@ -225,8 +229,9 @@
 </div>
 
 <script>
-function showQRCodeModal(qrCodeData) {
+function showQRCodeModal(qrCodeData, checkoutCode) {
   document.getElementById('qr-code-img').src = qrCodeData;
+  document.getElementById('qr-code-text').textContent = checkoutCode || '';
   new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
 }
 
@@ -293,7 +298,7 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
     
     // Show QR code if available
     if (data.qr_code) {
-      showQRCodeModal(data.qr_code);
+      showQRCodeModal(data.qr_code, data.checkout_code);
     }
     
     // Print labels if any were returned (deferred to prevent UI blocking)
