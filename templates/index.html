@@ -193,6 +193,37 @@
   </div>
 </div>
 
+<!-- Checkout Code Entry Modal -->
+<div class="modal fade" id="checkoutCodeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid #79060d;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #79060d 0%, #003b59 100%); color: white; border: none; padding: 1rem;">
+        <h5 class="modal-title" style="font-size: 1.3rem; font-weight: 700;">🔒 Enter Checkout Code</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem;">
+        <p class="text-center mb-3" style="font-size: 1.1rem; font-weight: 600; color: #333;" id="checkout-kid-name"></p>
+        <form id="checkout-code-form">
+          <div class="mb-3">
+            <label for="checkout-code-input" class="form-label" style="font-weight: 600; color: #555;">Checkout Code:</label>
+            <input type="text" class="form-control form-control-lg text-center" id="checkout-code-input" 
+                   style="font-size: 1.5rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid #79060d; font-weight: bold;"
+                   maxlength="10" required autocomplete="off">
+          </div>
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-lg" style="background: linear-gradient(135deg, #4a582d 0%, #79060d 100%); color: white; border: none; border-radius: 10px; padding: 0.8rem; font-size: 1.1rem; font-weight: 600;">
+              ✓ Check Out
+            </button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 10px; padding: 0.6rem;">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 function showQRCodeModal(qrCodeData) {
   document.getElementById('qr-code-img').src = qrCodeData;
@@ -341,11 +372,16 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
 });
 
 // Handle checkout with code verification
+let currentCheckoutData = null;
+
 document.addEventListener('click', function(e) {
   if (e.target.classList.contains('checkout-btn')) {
     const kidId = e.target.dataset.kidId;
     const kidName = e.target.dataset.kidName;
     const eventId = e.target.dataset.eventId;
+    
+    // Store data for later use
+    currentCheckoutData = { kidId, kidName, eventId };
     
     // First, check out without code to see if code is required
     const formData = new FormData();
@@ -363,35 +399,64 @@ document.addEventListener('click', function(e) {
       if (data.success) {
         location.reload();
       } else if (data.code_required) {
-        // Prompt for checkout code
-        const code = prompt(`Enter checkout code for ${kidName}:`);
-        if (code) {
-          const codeFormData = new FormData();
-          codeFormData.append('event_id', eventId);
-          codeFormData.append('checkout_code', code);
-          
-          fetch(`/checkout/${kidId}`, {
-            method: 'POST',
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: codeFormData
-          })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              location.reload();
-            } else {
-              alert(data.message || 'Invalid checkout code');
-            }
-          });
-        }
+        // Show modal for checkout code
+        document.getElementById('checkout-kid-name').textContent = kidName;
+        document.getElementById('checkout-code-input').value = '';
+        const modal = new bootstrap.Modal(document.getElementById('checkoutCodeModal'));
+        modal.show();
+        // Focus input after modal is shown
+        document.getElementById('checkoutCodeModal').addEventListener('shown.bs.modal', function() {
+          document.getElementById('checkout-code-input').focus();
+        }, { once: true });
       } else {
         alert(data.message || 'Checkout failed');
       }
     })
     .catch(error => console.error('Error:', error));
   }
+});
+
+// Handle checkout code form submission
+document.getElementById('checkout-code-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  if (!currentCheckoutData) return;
+  
+  const code = document.getElementById('checkout-code-input').value.trim();
+  if (!code) return;
+  
+  const codeFormData = new FormData();
+  codeFormData.append('event_id', currentCheckoutData.eventId);
+  codeFormData.append('checkout_code', code);
+  
+  fetch(`/checkout/${currentCheckoutData.kidId}`, {
+    method: 'POST',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: codeFormData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('checkoutCodeModal')).hide();
+      location.reload();
+    } else {
+      // Show error in modal
+      const input = document.getElementById('checkout-code-input');
+      input.classList.add('is-invalid');
+      input.value = '';
+      input.placeholder = data.message || 'Invalid code - try again';
+      setTimeout(() => {
+        input.classList.remove('is-invalid');
+        input.placeholder = '';
+      }, 2000);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Network error during checkout');
+  });
 });
 
 // Enable Bootstrap tooltips
