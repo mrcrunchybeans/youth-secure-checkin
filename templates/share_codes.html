@@ -166,6 +166,12 @@
 </head>
 <body>
     <div class="share-container">
+        {% if logo_filename %}
+        <div class="text-center mb-4">
+            <img src="{{ url_for('static', filename='uploads/' + logo_filename) }}" alt="Logo" style="max-height: 100px; max-width: 100%;">
+        </div>
+        {% endif %}
+        
         <h1 class="event-title">{{ event_name }}</h1>
         <p class="event-date">{{ event_date }}</p>
         

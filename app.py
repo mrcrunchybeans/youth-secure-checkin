@@ -14,6 +14,8 @@ import secrets
 import qrcode
 from io import BytesIO
 import base64
+import os
+from werkzeug.utils import secure_filename
 
 # Optional label printing support
 try:
@@ -68,6 +70,15 @@ def init_db():
 app = Flask(__name__)
 app.secret_key = 'dev-key-for-local'  # override in prod with env var
 
+# File upload configuration
+UPLOAD_FOLDER = Path(__file__).parent / 'static' / 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'svg'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
+
+# Ensure upload folder exists
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
 local_tz = pytz.timezone('America/Chicago')  # Adjust to your local timezone
 
 # Hard-coded developer password - CHANGE THIS!
@@ -96,6 +107,28 @@ def set_app_password(password):
 def check_authenticated():
     """Check if user is authenticated"""
     return session.get('authenticated', False)
+
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_logo_filename():
+    """Get the current logo filename from settings"""
+    conn = get_db()
+    cur = conn.execute("SELECT value FROM settings WHERE key = 'logo_filename'")
+    row = cur.fetchone()
+    conn.close()
+    return row['value'] if row else None
+
+def set_logo_filename(filename):
+    """Set the logo filename in settings"""
+    conn = get_db()
+    if filename:
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('logo_filename', ?)", (filename,))
+    else:
+        conn.execute("DELETE FROM settings WHERE key = 'logo_filename'")
+    conn.commit()
+    conn.close()
 
 def require_auth(f):
     """Decorator to require authentication"""
@@ -625,13 +658,16 @@ def share_codes(token):
     # Format event time
     event_time = datetime.fromisoformat(token_data['start_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
     
+    logo_filename = get_logo_filename()
+    
     return render_template('share_codes.html',
                          event_name=token_data['event_name'],
                          event_date=event_time.strftime('%B %d, %Y'),
                          checkout_code=family_code,
                          checkin_time=checkin_time,
                          kids=kids,
-                         all_checked_out=all_checked_out)
+                         all_checked_out=all_checked_out,
+                         logo_filename=logo_filename)
 
 @app.route('/kiosk')
 @require_auth
@@ -761,14 +797,56 @@ def admin_settings():
     conn = get_db()
     
     if request.method == 'POST':
+        action = request.form.get('action', '')
+        
+        # Handle logo upload
+        if action == 'upload_logo':
+            if 'logo_file' not in request.files:
+                flash('No file selected', 'danger')
+            else:
+                file = request.files['logo_file']
+                if file.filename == '':
+                    flash('No file selected', 'danger')
+                elif not allowed_file(file.filename):
+                    flash('Invalid file type. Please upload PNG, JPG, or SVG.', 'danger')
+                else:
+                    # Delete old logo if exists
+                    old_logo = get_logo_filename()
+                    if old_logo:
+                        old_path = app.config['UPLOAD_FOLDER'] / old_logo
+                        if old_path.exists():
+                            old_path.unlink()
+                    
+                    # Save new logo
+                    filename = secure_filename(file.filename)
+                    # Add timestamp to avoid caching issues
+                    name, ext = os.path.splitext(filename)
+                    filename = f"logo_{int(time.time())}{ext}"
+                    filepath = app.config['UPLOAD_FOLDER'] / filename
+                    file.save(str(filepath))
+                    
+                    set_logo_filename(filename)
+                    flash('Logo uploaded successfully!', 'success')
+        
+        # Handle logo removal
+        elif action == 'remove_logo':
+            old_logo = get_logo_filename()
+            if old_logo:
+                old_path = app.config['UPLOAD_FOLDER'] / old_logo
+                if old_path.exists():
+                    old_path.unlink()
+                set_logo_filename(None)
+                flash('Logo removed successfully!', 'success')
+        
         # Handle password change
-        new_password = request.form.get('new_password', '').strip()
-        if new_password:
-            set_app_password(new_password)
-            flash('App password updated successfully!', 'success')
+        elif request.form.get('new_password'):
+            new_password = request.form.get('new_password', '').strip()
+            if new_password:
+                set_app_password(new_password)
+                flash('App password updated successfully!', 'success')
         
         # Handle label printing settings (check if any label setting fields are present)
-        if 'label_printer_type' in request.form or 'label_width' in request.form or 'checkout_code_method' in request.form:
+        elif 'label_printer_type' in request.form or 'label_width' in request.form or 'checkout_code_method' in request.form:
             # Checkbox only appears in form data if checked, so we check explicitly
             require_codes = 'true' if request.form.get('require_checkout_code') == 'on' else 'false'
             checkout_code_method = request.form.get('checkout_code_method', 'qr').strip()
@@ -789,6 +867,7 @@ def admin_settings():
     
     # GET request - fetch current settings
     current_password = get_app_password()
+    current_logo = get_logo_filename()
     
     # Fetch label printing settings
     label_settings = {}
@@ -801,7 +880,8 @@ def admin_settings():
     return render_template('admin/settings.html', 
                          current_password=current_password, 
                          dev_password_set=bool(DEVELOPER_PASSWORD),
-                         label_settings=label_settings)
+                         label_settings=label_settings,
+                         current_logo=current_logo)
 
 @app.route('/admin/families')
 @require_auth
