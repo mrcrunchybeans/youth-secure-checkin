@@ -3,40 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Link Expired</title>
+    <title>Link Expired - Trail Life Check-In</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #79060d 0%, #003b59 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
         .expired-container {
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 60px 40px;
+            padding: 50px 40px;
             max-width: 500px;
             width: 100%;
             text-align: center;
+            border: 3px solid #79060d;
         }
         .expired-icon {
             font-size: 5rem;
-            color: #dc3545;
             margin-bottom: 20px;
+            filter: grayscale(100%);
+            opacity: 0.5;
         }
         h1 {
-            color: #212529;
-            font-weight: bold;
+            color: #79060d;
+            font-weight: 700;
             margin-bottom: 20px;
+            font-size: 2rem;
         }
         p {
-            color: #6c757d;
+            color: #555;
             font-size: 1.1rem;
-            line-height: 1.6;
+            line-height: 1.7;
+            margin-bottom: 0;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #4a582d;
+            padding: 15px 20px;
+            margin-top: 30px;
+            border-radius: 8px;
+            text-align: left;
+        }
+        .info-box strong {
+            color: #4a582d;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+        .info-box p {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+            color: #666;
         }
     </style>
 </head>
@@ -45,10 +69,13 @@
         <div class="expired-icon">⏰</div>
         <h1>Link Expired</h1>
         <p>
-            This checkout code link has expired or has already been used.<br>
-            <br>
-            Checkout codes are valid for 24 hours or until checkout is complete.
+            This checkout code link has expired or has already been used.
         </p>
+        
+        <div class="info-box">
+            <strong>💡 Why did this happen?</strong>
+            <p>Checkout code links are valid for 24 hours and are automatically removed after all kids are checked out for security.</p>
+        </div>
     </div>
 </body>
 </html>
