@@ -341,6 +341,8 @@ def checkin_selected():
         event_date = event_row[1][:10] if event_row else datetime.now().strftime('%Y-%m-%d')
     
     checked_in_count = 0
+    labels_to_print = []  # Collect label data for client-side printing
+    
     for kid_id in kid_ids:
         # Check if already checked in to this event
         cur = conn.execute("SELECT id FROM checkins WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", (kid_id, event_id))
@@ -361,7 +363,7 @@ def checkin_selected():
                     (kid_id, adult_id, event_id, now, checkout_code))
         checked_in_count += 1
         
-        # Print label if code was generated
+        # Prepare label data for client-side printing
         if checkout_code:
             try:
                 kid_row = conn.execute("SELECT name FROM kids WHERE id = ?", (kid_id,)).fetchone()
@@ -372,22 +374,26 @@ def checkin_selected():
                 cst_time = utc_time.astimezone(pytz.timezone('America/Chicago'))
                 checkin_time = cst_time.strftime('%I:%M %p')
                 
-                print_checkout_label(
-                    kid_name=kid_name,
-                    event_name=event_name,
-                    event_date=event_date,
-                    checkin_time=checkin_time,
-                    checkout_code=checkout_code,
-                    printer_type=printer_type,
-                    width=label_width,
-                    height=label_height
-                )
+                # Add label data to list for client-side printing
+                labels_to_print.append({
+                    'kid_name': kid_name,
+                    'event_name': event_name,
+                    'event_date': event_date,
+                    'checkin_time': checkin_time,
+                    'checkout_code': checkout_code
+                })
             except Exception as e:
-                print(f"Error printing label: {e}")
+                print(f"Error preparing label data: {e}")
     
     conn.commit()
     conn.close()
-    return jsonify({'success': True, 'message': f'Checked in {checked_in_count} kid(s)'})
+    
+    # Return response with label data for client-side printing
+    return jsonify({
+        'success': True, 
+        'message': f'Checked in {checked_in_count} kid(s)',
+        'labels': labels_to_print
+    })
 
 @app.route('/checkout/<int:kid_id>', methods=['POST'])
 @require_auth

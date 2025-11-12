@@ -6,9 +6,18 @@ This feature adds secure checkout verification using printed labels with unique 
 
 When enabled, this feature:
 1. Generates a unique 5-digit code for each check-in
-2. Prints a label with the child's name, event details, and checkout code
+2. Automatically prints a label with the child's name, event details, and checkout code
 3. Requires the parent to enter the code to check out their child
 4. Provides admin override capability for special circumstances
+5. **Prints on the client machine** (where the browser is running), not the server
+
+## Architecture
+
+The label printing uses **client-side JavaScript** with DYMO's Label Framework:
+- Server generates checkout codes and sends label data to browser
+- Browser JavaScript automatically prints to locally connected DYMO printer
+- Works through Cloudflare tunnels and remote connections
+- No server-side printer configuration needed
 
 ## Setup
 
@@ -20,29 +29,40 @@ python3 migrate_add_checkout_code.py
 python3 migrate_add_label_settings.py
 ```
 
-### 2. Install Dependencies
+### 2. Install DYMO Software (On Check-in Kiosk/Computer)
 
-For basic label image generation:
+**Important**: Install DYMO software on the computer where labels will print (NOT the server).
+
+#### Windows
+1. Download **DYMO Connect** from: https://www.dymo.com/support
+2. Install and run DYMO Connect
+3. Connect your DYMO LabelWriter printer via USB
+4. Verify printer shows up in DYMO Connect
+
+#### Mac
+1. Download **DYMO Connect** for Mac from: https://www.dymo.com/support
+2. Install and grant necessary permissions
+3. Connect DYMO LabelWriter via USB
+
+#### Linux (Ubuntu/Debian)
 ```bash
-pip install Pillow
+# Download DYMO Label software
+wget https://download.dymo.com/dymo/Software/Linux/dymo-cups-drivers-1.4.0.tar.gz
+tar -xzf dymo-cups-drivers-1.4.0.tar.gz
+cd dymo-cups-drivers-1.4.0.5
+sudo ./configure && sudo make && sudo make install
+
+# Or use the web service approach (recommended)
+# DYMO Connect runs as a local web service on port 41951
 ```
 
-For DYMO printer support:
-```bash
-# System packages (Ubuntu/Debian)
-sudo apt-get install libusb-1.0-0-dev
-
-# Python packages
-pip install pyusb python-escpos
-```
-
-### 3. Configure Printer
+### 3. Configure in Admin Settings
 
 1. Go to Admin → Settings
 2. Scroll to "Label Printing & Checkout Codes"
 3. Check "Require checkout codes"
-4. Select your printer type (DYMO or Brother QL)
-5. Set label dimensions (default: 2.0" x 1.0")
+4. Select printer type: **DYMO** (recommended)
+5. Set label dimensions (default: 2.0" x 1.0" for DYMO 30252 labels)
 6. Click "Update Label Settings"
 
 ### 4. Test Printing

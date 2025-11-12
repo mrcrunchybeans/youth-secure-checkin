@@ -232,7 +232,20 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
     method: 'POST',
     body: formData
   })
-  .then(() => {
+  .then(response => response.json())
+  .then(data => {
+    // Print labels if any were returned
+    if (data.labels && data.labels.length > 0) {
+      data.labels.forEach(label => {
+        printDymoLabel(
+          label.kid_name,
+          label.event_name,
+          label.event_date,
+          label.checkin_time,
+          label.checkout_code
+        );
+      });
+    }
     bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide();
     location.reload();
   })
@@ -301,4 +314,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+<script src="/static/dymo_print.js"></script>
 {% endblock %}

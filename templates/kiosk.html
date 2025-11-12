@@ -272,6 +272,18 @@ function showFamilyModal(data) {
             .then(response => response.json())
             .then(resp => {
                 if (resp.success) {
+                    // Print labels if any were returned
+                    if (resp.labels && resp.labels.length > 0) {
+                        resp.labels.forEach(label => {
+                            printDymoLabel(
+                                label.kid_name,
+                                label.event_name,
+                                label.event_date,
+                                label.checkin_time,
+                                label.checkout_code
+                            );
+                        });
+                    }
                     modal.hide();
                     location.reload();
                 } else {
@@ -674,4 +686,5 @@ body {
     }
 }
 </style>
+<script src="/static/dymo_print.js"></script>
 {% endblock %}
