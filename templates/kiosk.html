@@ -272,6 +272,8 @@ function showFamilyModal(data) {
             .then(response => response.json())
             .then(resp => {
                 if (resp.success) {
+                    modal.hide();
+                    
                     // Print labels if any were returned
                     if (resp.labels && resp.labels.length > 0) {
                         resp.labels.forEach(label => {
@@ -283,9 +285,12 @@ function showFamilyModal(data) {
                                 label.checkout_code
                             );
                         });
+                        // Wait for printing to complete before reloading
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        // No labels to print, reload immediately
+                        location.reload();
                     }
-                    modal.hide();
-                    location.reload();
                 } else {
                     alert('Error: ' + (resp.message || 'Unknown'));
                 }

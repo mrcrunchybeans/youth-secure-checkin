@@ -234,6 +234,8 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
   })
   .then(response => response.json())
   .then(data => {
+    bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide();
+    
     // Print labels if any were returned
     if (data.labels && data.labels.length > 0) {
       data.labels.forEach(label => {
@@ -245,9 +247,12 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
           label.checkout_code
         );
       });
+      // Wait for printing to complete before reloading
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      // No labels to print, reload immediately
+      location.reload();
     }
-    bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide();
-    location.reload();
   })
   .catch(error => console.error('Error:', error));
 });
