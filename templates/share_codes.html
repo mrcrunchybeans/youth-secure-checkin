@@ -20,8 +20,11 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             padding: 40px;
+            padding-bottom: 100px; /* Extra space for button */
             max-width: 500px;
             width: 100%;
+            overflow: visible !important;
+            min-height: 100vh;
         }
         .event-title {
             color: #79060d;
@@ -75,6 +78,8 @@
         }
         .share-btn {
             display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
             width: 100%;
             padding: 18px;
             font-size: 1.2rem;
@@ -84,9 +89,10 @@
             border-radius: 15px;
             color: white;
             margin-top: 20px;
-            transition: all 0.3s ease;
+            transition: none !important;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(121, 6, 13, 0.3);
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
         }
         .share-btn:hover {
             transform: translateY(-2px);
@@ -130,9 +136,11 @@
             .share-btn {
                 padding: 20px;
                 font-size: 1.3rem;
-                margin-top: 15px;
-                position: sticky;
-                bottom: 10px;
+                margin-top: 30px;
+                position: relative !important;
+                bottom: auto !important;
+                left: 0;
+                right: 0;
                 z-index: 100;
             }
             .kid-name {
