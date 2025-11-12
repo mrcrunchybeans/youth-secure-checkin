@@ -247,11 +247,63 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
           label.checkout_code
         );
       });
-      // Wait for printing to complete before reloading
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      // No labels to print, reload immediately
-      location.reload();
+    }
+    
+    // Add check-ins to the page dynamically
+    if (data.checkins && data.checkins.length > 0) {
+      const checkedInDiv = document.getElementById('checked-in-list');
+      const eventId = document.querySelector('[name="event_id"]').value;
+      
+      data.checkins.forEach(checkin => {
+        const card = document.createElement('div');
+        card.className = 'card mb-2';
+        card.innerHTML = `
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h5 class="card-title mb-1">${checkin.kid_name}
+                  ${checkin.kid_notes ? '<i class="bi bi-sticky text-muted" style="font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="' + checkin.kid_notes + '">📋</i>' : ''}
+                  ${checkin.authorized_adults ? '<i class="bi bi-person-check text-muted" style="font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="Authorized: ' + checkin.authorized_adults + '">👤</i>' : ''}
+                </h5>
+                <p class="card-text mb-0">
+                  <small class="text-muted">
+                    <strong>${checkin.adult_name}</strong> • ${checkin.phone}<br>
+                    ${checkin.formatted_time}
+                  </small>
+                </p>
+              </div>
+              <button class="btn btn-danger btn-sm checkout-btn" 
+                      data-kid-id="${checkin.kid_id}" 
+                      data-kid-name="${checkin.kid_name}"
+                      data-event-id="${eventId}">Check Out</button>
+            </div>
+          </div>
+        `;
+        checkedInDiv.insertBefore(card, checkedInDiv.firstChild);
+      });
+      
+      // Update count in header
+      const countBadge = document.querySelector('h2 .badge');
+      if (countBadge) {
+        const currentCount = parseInt(countBadge.textContent) || 0;
+        countBadge.textContent = currentCount + data.checkins.length;
+      }
+      
+      // Initialize tooltips for new elements
+      const tooltips = card.querySelectorAll('[data-bs-toggle="tooltip"]');
+      tooltips.forEach(el => new bootstrap.Tooltip(el));
+    }
+    
+    // Show success message
+    if (data.message) {
+      const alert = document.createElement('div');
+      alert.className = 'alert alert-success alert-dismissible fade show';
+      alert.innerHTML = `
+        ${data.message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `;
+      document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+      setTimeout(() => alert.remove(), 3000);
     }
   })
   .catch(error => console.error('Error:', error));

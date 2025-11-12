@@ -342,6 +342,20 @@ def checkin_selected():
     
     checked_in_count = 0
     labels_to_print = []  # Collect label data for client-side printing
+    checked_in_data = []  # Collect check-in data for UI update
+    
+    # Get family info for the response
+    family_row = conn.execute("""
+        SELECT f.phone, f.troop, f.authorized_adults,
+               a.name as adult_name
+        FROM families f
+        JOIN adults a ON a.id = ?
+        WHERE f.id = ?
+    """, (adult_id, family_id)).fetchone()
+    
+    adult_name = family_row['adult_name'] if family_row else 'Unknown'
+    phone = family_row['phone'] if family_row else ''
+    authorized_adults = family_row['authorized_adults'] if family_row else ''
     
     for kid_id in kid_ids:
         # Check if already checked in to this event
@@ -359,21 +373,37 @@ def checkin_selected():
                 checkout_code = None
         
         # Insert check-in with code
-        conn.execute("INSERT INTO checkins (kid_id, adult_id, event_id, checkin_time, checkout_code) VALUES (?, ?, ?, ?, ?)", 
+        cursor = conn.execute("INSERT INTO checkins (kid_id, adult_id, event_id, checkin_time, checkout_code) VALUES (?, ?, ?, ?, ?)", 
                     (kid_id, adult_id, event_id, now, checkout_code))
+        checkin_id = cursor.lastrowid
         checked_in_count += 1
+        
+        # Get kid data for response
+        kid_row = conn.execute("SELECT name, notes FROM kids WHERE id = ?", (kid_id,)).fetchone()
+        kid_name = kid_row['name'] if kid_row else "Unknown"
+        kid_notes = kid_row['notes'] if kid_row else ''
+        
+        # Convert UTC to CST for display
+        utc_time = datetime.fromisoformat(now).replace(tzinfo=pytz.UTC)
+        cst_time = utc_time.astimezone(pytz.timezone('America/Chicago'))
+        checkin_time = cst_time.strftime('%I:%M %p')
+        formatted_time = cst_time.strftime('%b %d %I:%M %p')
+        
+        # Add to checked-in data for UI update
+        checked_in_data.append({
+            'id': checkin_id,
+            'kid_id': int(kid_id),
+            'kid_name': kid_name,
+            'kid_notes': kid_notes,
+            'adult_name': adult_name,
+            'phone': phone,
+            'authorized_adults': authorized_adults,
+            'formatted_time': formatted_time
+        })
         
         # Prepare label data for client-side printing
         if checkout_code:
             try:
-                kid_row = conn.execute("SELECT name FROM kids WHERE id = ?", (kid_id,)).fetchone()
-                kid_name = kid_row[0] if kid_row else "Unknown"
-                
-                # Convert UTC to CST for display
-                utc_time = datetime.fromisoformat(now).replace(tzinfo=pytz.UTC)
-                cst_time = utc_time.astimezone(pytz.timezone('America/Chicago'))
-                checkin_time = cst_time.strftime('%I:%M %p')
-                
                 # Add label data to list for client-side printing
                 labels_to_print.append({
                     'kid_name': kid_name,
@@ -388,11 +418,12 @@ def checkin_selected():
     conn.commit()
     conn.close()
     
-    # Return response with label data for client-side printing
+    # Return response with label data for client-side printing and check-in data for UI
     return jsonify({
         'success': True, 
         'message': f'Checked in {checked_in_count} kid(s)',
-        'labels': labels_to_print
+        'labels': labels_to_print,
+        'checkins': checked_in_data
     })
 
 @app.route('/checkout/<int:kid_id>', methods=['POST'])
