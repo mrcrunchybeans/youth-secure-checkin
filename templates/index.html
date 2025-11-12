@@ -211,9 +211,28 @@
           <div class="mb-3">
             <label for="checkout-code-input" class="form-label" style="font-weight: 600; color: #555;">Checkout Code:</label>
             <input type="text" class="form-control form-control-lg text-center" id="checkout-code-input" 
-                   style="font-size: 1.5rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid #79060d; font-weight: bold;"
-                   maxlength="10" required autocomplete="off">
+                   style="font-size: 1.8rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid #79060d; font-weight: bold; padding: 0.8rem;"
+                   maxlength="10" required autocomplete="off" readonly>
           </div>
+          
+          <!-- On-screen keypad -->
+          <div id="checkout-keypad" class="mb-3">
+            <div class="d-grid gap-2" style="grid-template-columns: repeat(3, 1fr); display: grid;">
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="1" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">1</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="2" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">2</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="3" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">3</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="4" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">4</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="5" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">5</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="6" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">6</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="7" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">7</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="8" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">8</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="9" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">9</button>
+              <button type="button" class="btn btn-outline-danger" id="checkout-keypad-clear" style="font-size: 1.2rem; padding: 0.8rem; font-weight: 600;">Clear</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="0" style="font-size: 1.4rem; padding: 0.8rem; font-weight: 600;">0</button>
+              <button type="button" class="btn btn-outline-warning" id="checkout-keypad-back" style="font-size: 1.2rem; padding: 0.8rem; font-weight: 600;">←</button>
+            </div>
+          </div>
+          
           <div class="d-grid gap-2">
             <button type="submit" class="btn btn-lg" style="background: linear-gradient(135deg, #4a582d 0%, #79060d 100%); color: white; border: none; border-radius: 10px; padding: 0.8rem; font-size: 1.1rem; font-weight: 600;">
               ✓ Check Out
@@ -418,6 +437,35 @@ document.addEventListener('click', function(e) {
       }
     })
     .catch(error => console.error('Error:', error));
+  }
+});
+
+// Checkout code keypad handlers
+document.addEventListener('DOMContentLoaded', function() {
+  const checkoutInput = document.getElementById('checkout-code-input');
+  const checkoutKeys = document.querySelectorAll('.checkout-key');
+  const checkoutBack = document.getElementById('checkout-keypad-back');
+  const checkoutClear = document.getElementById('checkout-keypad-clear');
+  
+  checkoutKeys.forEach(key => {
+    key.addEventListener('click', function() {
+      const value = this.dataset.value;
+      if (checkoutInput.value.length < 10) {
+        checkoutInput.value += value;
+      }
+    });
+  });
+  
+  if (checkoutBack) {
+    checkoutBack.addEventListener('click', function() {
+      checkoutInput.value = checkoutInput.value.slice(0, -1);
+    });
+  }
+  
+  if (checkoutClear) {
+    checkoutClear.addEventListener('click', function() {
+      checkoutInput.value = '';
+    });
   }
 });
 
