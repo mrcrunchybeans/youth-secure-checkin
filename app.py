@@ -121,9 +121,10 @@ def sync_ical_events():
             cal = Calendar.from_ical(response.text)
 
             conn = get_db()
-            # Clear existing events
-            conn.execute("DELETE FROM events")
+            # Track events from calendar to identify which ones to keep
+            calendar_events = []
             event_count = 0
+            
             for component in cal.walk():
                 if component.name == "VEVENT":
                     name = str(component.get('summary', 'Event'))
@@ -146,9 +147,39 @@ def sync_ical_events():
                             dt = local_tz.localize(dt)
                         end_time = dt.isoformat()
                     description = str(component.get('description', ''))
-                    conn.execute("INSERT INTO events (name, start_time, end_time, description) VALUES (?, ?, ?, ?)",
-                                 (name, start_time, end_time, description))
+                    
+                    # Check if event already exists (match by name and start_time)
+                    existing = conn.execute(
+                        "SELECT id FROM events WHERE name = ? AND start_time = ?",
+                        (name, start_time)
+                    ).fetchone()
+                    
+                    if existing:
+                        # Update existing event
+                        conn.execute(
+                            "UPDATE events SET end_time = ?, description = ? WHERE id = ?",
+                            (end_time, description, existing['id'])
+                        )
+                        calendar_events.append(existing['id'])
+                    else:
+                        # Insert new event
+                        cursor = conn.execute(
+                            "INSERT INTO events (name, start_time, end_time, description) VALUES (?, ?, ?, ?)",
+                            (name, start_time, end_time, description)
+                        )
+                        calendar_events.append(cursor.lastrowid)
                     event_count += 1
+            
+            # Delete events that are no longer in the calendar (but only old ones with no active check-ins)
+            if calendar_events:
+                placeholders = ','.join('?' * len(calendar_events))
+                conn.execute(f"""
+                    DELETE FROM events 
+                    WHERE id NOT IN ({placeholders})
+                    AND start_time < datetime('now', '-7 days')
+                    AND id NOT IN (SELECT DISTINCT event_id FROM checkins WHERE checkout_time IS NULL)
+                """, calendar_events)
+            
             conn.commit()
 
             # Update last sync time
