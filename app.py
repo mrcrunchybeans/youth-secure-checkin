@@ -678,7 +678,7 @@ def get_siblings(kid_id):
     
     conn.close()
     
-    sibling_list = [{'id': s['id'], 'name': s['name']} for s in siblings]
+    sibling_list = [{'kid_id': s['id'], 'name': s['name']} for s in siblings]
     
     return jsonify({
         'success': True,
