@@ -6,7 +6,12 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
         // Check if DYMO framework is loaded
         if (typeof dymo === 'undefined') {
             console.error('DYMO Label Framework not loaded');
-            showPrintError('DYMO Label Framework not loaded. Please refresh the page.');
+            showPrintError('DYMO Label Framework not available.<br><br>' +
+                         '<strong>To enable label printing:</strong><br>' +
+                         '1. Download and install <a href="https://www.dymo.com/support" target="_blank" class="text-white"><u>DYMO Connect</u></a><br>' +
+                         '2. Connect your DYMO LabelWriter printer<br>' +
+                         '3. Ensure DYMO Connect is running<br>' +
+                         '4. Refresh this page');
             return false;
         }
 
@@ -157,7 +162,12 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
         var printers = dymo.label.framework.getPrinters();
         if (printers.length == 0) {
             console.error('No DYMO printers found');
-            showPrintError('No DYMO printer detected. Please connect a DYMO LabelWriter printer and ensure DYMO Connect is running.');
+            showPrintError('No DYMO printer detected.<br><br>' +
+                         '<strong>Troubleshooting:</strong><br>' +
+                         '1. Connect DYMO LabelWriter via USB<br>' +
+                         '2. Make sure DYMO Connect is running<br>' +
+                         '3. Check printer shows up in DYMO Connect<br>' +
+                         '4. Try restarting DYMO Connect');
             return false;
         }
         
@@ -186,7 +196,9 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
         
     } catch (e) {
         console.error('Error printing label:', e);
-        showPrintError('Error printing label: ' + e.message + '\n\nMake sure DYMO Connect software is installed and running.');
+        showPrintError('Error printing label: ' + e.message + '<br><br>' +
+                     'Make sure DYMO Connect is installed and running.<br>' +
+                     'Download from: <a href="https://www.dymo.com/support" target="_blank" class="text-white"><u>dymo.com/support</u></a>');
         return false;
     }
 }
