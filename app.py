@@ -725,9 +725,11 @@ def kiosk():
         dt = datetime.fromisoformat(e['start_time']).astimezone(local_tz)
         e['formatted_start'] = dt.strftime('%b %d, %Y %I:%M %p')
 
+    logo_filename = get_logo_filename()
+    
     conn.close()
 
-    return render_template('kiosk.html', checked_in=checked_in, events=events, current_event_id=int(event_id), current_event_name=current_event_name, current_event_date=current_event_date)
+    return render_template('kiosk.html', checked_in=checked_in, events=events, current_event_id=int(event_id), current_event_name=current_event_name, current_event_date=current_event_date, logo_filename=logo_filename)
 
 @app.route('/history')
 @require_auth

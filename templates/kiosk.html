@@ -28,6 +28,12 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
+            {% if logo_filename %}
+            <div class="text-center mb-3">
+                <img src="{{ url_for('static', filename='uploads/' + logo_filename) }}" alt="Logo" style="max-height: 80px; max-width: 100%;">
+            </div>
+            {% endif %}
+            
             <h1 class="text-center mb-1" style="font-size: 2rem;">Check-in Kiosk</h1>
             <p class="text-center mb-2" style="font-size: 1rem; color: #666; font-weight: normal;">{{ current_event_name }} - {{ current_event_date }}</p>
 
