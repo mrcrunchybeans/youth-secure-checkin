@@ -459,8 +459,8 @@ document.addEventListener('click', function(e) {
               const div = document.createElement('div');
               div.className = 'form-check';
               div.innerHTML = `
-                <input class="form-check-input sibling-checkbox" type="checkbox" value="${sibling.id}" id="sib-${sibling.id}">
-                <label class="form-check-label" for="sib-${sibling.id}" style="font-size: 0.9rem;">${sibling.name}</label>
+                <input class="form-check-input sibling-checkbox" type="checkbox" value="${sibling.kid_id}" id="sib-${sibling.kid_id}">
+                <label class="form-check-label" for="sib-${sibling.kid_id}" style="font-size: 0.9rem;">${sibling.name}</label>
               `;
               siblingsList.appendChild(div);
             });
