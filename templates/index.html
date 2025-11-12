@@ -427,8 +427,9 @@ document.addEventListener('click', function(e) {
     })
     .then(response => response.json())
     .then(siblingData => {
+      console.log('Siblings response:', siblingData);
       // Store sibling data for use in form submission
-      currentCheckoutData.siblings = siblingData.siblings || [];
+      currentCheckoutData.siblings = (siblingData.success && siblingData.siblings) ? siblingData.siblings : [];
       
       // Try checkout without code to see if code is required
       const formData = new FormData();
@@ -453,6 +454,7 @@ document.addEventListener('click', function(e) {
           // Show siblings if any
           const siblingsSection = document.getElementById('siblings-section');
           const siblingsList = document.getElementById('siblings-list');
+          console.log('Siblings to display:', currentCheckoutData.siblings);
           if (currentCheckoutData.siblings.length > 0) {
             siblingsList.innerHTML = '';
             currentCheckoutData.siblings.forEach(sibling => {
