@@ -47,3 +47,16 @@ CREATE TABLE IF NOT EXISTS checkins (
     FOREIGN KEY (kid_id) REFERENCES kids(id),
     FOREIGN KEY (event_id) REFERENCES events(id)
 );
+
+CREATE TABLE IF NOT EXISTS share_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT UNIQUE NOT NULL,
+    family_id INTEGER NOT NULL,
+    event_id INTEGER NOT NULL,
+    checkin_ids TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used INTEGER DEFAULT 0,
+    FOREIGN KEY (family_id) REFERENCES families(id),
+    FOREIGN KEY (event_id) REFERENCES events(id)
+);

@@ -10,6 +10,10 @@ import io
 import re
 import threading
 import time
+import secrets
+import qrcode
+from io import BytesIO
+import base64
 
 # Optional label printing support
 try:
@@ -102,6 +106,32 @@ def require_auth(f):
             return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
     return decorated_function
+
+def generate_share_token():
+    """Generate a secure random token for sharing checkout codes"""
+    return secrets.token_urlsafe(32)
+
+def create_qr_code(url):
+    """Generate a QR code image as base64 string"""
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Convert to base64 for embedding in HTML
+    buffer = BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+    img_base64 = base64.b64encode(buffer.getvalue()).decode()
+    return f"data:image/png;base64,{img_base64}"
+
+def cleanup_expired_tokens():
+    """Remove expired share tokens from database"""
+    conn = get_db()
+    now = datetime.utcnow().isoformat()
+    conn.execute("DELETE FROM share_tokens WHERE expires_at < ? OR used = 1", (now,))
+    conn.commit()
+    conn.close()
 
 def sync_ical_events():
     """Sync events from iCal URL - can be called manually or automatically"""
@@ -322,12 +352,15 @@ def checkin_selected():
     conn = get_db()
     now = datetime.utcnow().isoformat()
     
-    # Check if label printing is enabled
-    setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
-    require_codes = setting and setting[0] == 'true' and LABEL_PRINTING_AVAILABLE
+    # Check if checkout codes are enabled and get method
+    require_codes_setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
+    require_codes = require_codes_setting and require_codes_setting[0] == 'true'
     
-    # Get label printer settings if needed
-    if require_codes:
+    checkout_method_setting = conn.execute("SELECT value FROM settings WHERE key = 'checkout_code_method'").fetchone()
+    checkout_method = checkout_method_setting[0] if checkout_method_setting else 'qr'  # Default to QR
+    
+    # Get label printer settings if printing is needed
+    if require_codes and checkout_method in ['label', 'both'] and LABEL_PRINTING_AVAILABLE:
         printer_type = conn.execute("SELECT value FROM settings WHERE key = 'label_printer_type'").fetchone()
         label_width = conn.execute("SELECT value FROM settings WHERE key = 'label_width'").fetchone()
         label_height = conn.execute("SELECT value FROM settings WHERE key = 'label_height'").fetchone()
@@ -357,24 +390,24 @@ def checkin_selected():
     phone = family_row['phone'] if family_row else ''
     authorized_adults = family_row['authorized_adults'] if family_row else ''
     
+    # Generate ONE code for this entire family check-in if required
+    family_checkout_code = None
+    if require_codes:
+        try:
+            family_checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
+        except Exception as e:
+            print(f"Error generating checkout code: {e}")
+            family_checkout_code = None
+    
     for kid_id in kid_ids:
         # Check if already checked in to this event
         cur = conn.execute("SELECT id FROM checkins WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", (kid_id, event_id))
         if cur.fetchone():
             continue
         
-        # Generate unique code if required
-        checkout_code = None
-        if require_codes and LABEL_PRINTING_AVAILABLE:
-            try:
-                checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
-            except Exception as e:
-                print(f"Error generating checkout code: {e}")
-                checkout_code = None
-        
-        # Insert check-in with code
+        # Insert check-in with the SAME family code for all kids
         cursor = conn.execute("INSERT INTO checkins (kid_id, adult_id, event_id, checkin_time, checkout_code) VALUES (?, ?, ?, ?, ?)", 
-                    (kid_id, adult_id, event_id, now, checkout_code))
+                    (kid_id, adult_id, event_id, now, family_checkout_code))
         checkin_id = cursor.lastrowid
         checked_in_count += 1
         
@@ -401,8 +434,8 @@ def checkin_selected():
             'formatted_time': formatted_time
         })
         
-        # Prepare label data for client-side printing
-        if checkout_code:
+        # Prepare label data for client-side printing if method includes labels
+        if family_checkout_code and checkout_method in ['label', 'both']:
             try:
                 # Add label data to list for client-side printing
                 labels_to_print.append({
@@ -410,12 +443,31 @@ def checkin_selected():
                     'event_name': event_name,
                     'event_date': event_date,
                     'checkin_time': checkin_time,
-                    'checkout_code': checkout_code
+                    'checkout_code': family_checkout_code
                 })
             except Exception as e:
                 print(f"Error preparing label data: {e}")
     
     conn.commit()
+    
+    # Generate share token and QR code if codes were generated and method includes QR
+    share_token = None
+    qr_code_data = None
+    if checkout_method in ['qr', 'both'] and checked_in_data and len(checked_in_data) > 0 and any(c['id'] for c in checked_in_data):
+        share_token = generate_share_token()
+        expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
+        checkin_ids = ','.join([str(c['id']) for c in checked_in_data])
+        
+        conn.execute("""
+            INSERT INTO share_tokens (token, family_id, event_id, checkin_ids, created_at, expires_at, used)
+            VALUES (?, ?, ?, ?, ?, ?, 0)
+        """, (share_token, family_id, event_id, checkin_ids, now, expires_at))
+        conn.commit()
+        
+        # Generate QR code URL
+        share_url = url_for('share_codes', token=share_token, _external=True)
+        qr_code_data = create_qr_code(share_url)
+    
     conn.close()
     
     # Return response with label data for client-side printing and check-in data for UI
@@ -423,7 +475,9 @@ def checkin_selected():
         'success': True, 
         'message': f'Checked in {checked_in_count} kid(s)',
         'labels': labels_to_print,
-        'checkins': checked_in_data
+        'checkins': checked_in_data,
+        'share_token': share_token,
+        'qr_code': qr_code_data
     })
 
 @app.route('/checkout/<int:kid_id>', methods=['POST'])
@@ -468,8 +522,42 @@ def checkout(kid_id):
     
     # Perform checkout
     now = datetime.utcnow().isoformat()
+    
+    # Get the checkin_id to check if all kids in the token are checked out
+    checkin_row = conn.execute("""
+        SELECT id FROM checkins 
+        WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
+    """, (kid_id, event_id)).fetchone()
+    
+    checkin_id = checkin_row['id'] if checkin_row else None
+    
     conn.execute("UPDATE checkins SET checkout_time = ? WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", 
                 (now, kid_id, event_id))
+    
+    # Mark share token as used if all kids are checked out
+    if checkin_id:
+        # Find tokens containing this checkin
+        tokens = conn.execute("""
+            SELECT id, checkin_ids FROM share_tokens 
+            WHERE checkin_ids LIKE ? AND used = 0
+        """, (f'%{checkin_id}%',)).fetchall()
+        
+        for token in tokens:
+            checkin_ids = token['checkin_ids'].split(',')
+            # Check if all checkins in this token are checked out
+            all_checked_out = True
+            for cid in checkin_ids:
+                check = conn.execute("""
+                    SELECT checkout_time FROM checkins WHERE id = ?
+                """, (cid,)).fetchone()
+                if check and not check['checkout_time']:
+                    all_checked_out = False
+                    break
+            
+            # Mark token as used if all kids are checked out
+            if all_checked_out:
+                conn.execute("UPDATE share_tokens SET used = 1 WHERE id = ?", (token['id'],))
+    
     conn.commit()
     conn.close()
     
@@ -477,6 +565,73 @@ def checkout(kid_id):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'success': True, 'message': 'Checked out successfully'})
     return redirect(request.referrer or url_for('kiosk'))
+
+@app.route('/share/<token>')
+def share_codes(token):
+    """Display checkout codes for a family's check-ins with Web Share API support"""
+    cleanup_expired_tokens()  # Clean up old tokens first
+    
+    conn = get_db()
+    
+    # Get token data
+    token_data = conn.execute("""
+        SELECT st.*, e.name as event_name, e.start_time
+        FROM share_tokens st
+        JOIN events e ON e.id = st.event_id
+        WHERE st.token = ? AND st.used = 0 AND st.expires_at > ?
+    """, (token, datetime.utcnow().isoformat())).fetchone()
+    
+    if not token_data:
+        conn.close()
+        return render_template('share_expired.html'), 404
+    
+    # Get checkin details - all kids share the same code
+    checkin_ids = token_data['checkin_ids'].split(',')
+    kids = []
+    family_code = None
+    checkin_time = None
+    all_checked_out = True
+    
+    for checkin_id in checkin_ids:
+        checkin = conn.execute("""
+            SELECT c.checkout_code, c.checkin_time, c.checkout_time,
+                   k.name as kid_name
+            FROM checkins c
+            JOIN kids k ON k.id = c.kid_id
+            WHERE c.id = ?
+        """, (checkin_id,)).fetchone()
+        
+        if checkin:
+            # Get the family code from the first checkin (they're all the same)
+            if not family_code:
+                family_code = checkin['checkout_code']
+                # Convert UTC to local time
+                utc_time = datetime.fromisoformat(checkin['checkin_time']).replace(tzinfo=pytz.UTC)
+                checkin_time = utc_time.astimezone(local_tz).strftime('%I:%M %p')
+            
+            kids.append({
+                'name': checkin['kid_name'],
+                'checked_out': checkin['checkout_time'] is not None
+            })
+            
+            if not checkin['checkout_time']:
+                all_checked_out = False
+    
+    conn.close()
+    
+    if not kids or not family_code:
+        return render_template('share_expired.html'), 404
+    
+    # Format event time
+    event_time = datetime.fromisoformat(token_data['start_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
+    
+    return render_template('share_codes.html',
+                         event_name=token_data['event_name'],
+                         event_date=event_time.strftime('%B %d, %Y'),
+                         checkout_code=family_code,
+                         checkin_time=checkin_time,
+                         kids=kids,
+                         all_checked_out=all_checked_out)
 
 @app.route('/kiosk')
 @require_auth
@@ -613,19 +768,21 @@ def admin_settings():
             flash('App password updated successfully!', 'success')
         
         # Handle label printing settings (check if any label setting fields are present)
-        if 'label_printer_type' in request.form or 'label_width' in request.form:
+        if 'label_printer_type' in request.form or 'label_width' in request.form or 'checkout_code_method' in request.form:
             # Checkbox only appears in form data if checked, so we check explicitly
             require_codes = 'true' if request.form.get('require_checkout_code') == 'on' else 'false'
+            checkout_code_method = request.form.get('checkout_code_method', 'qr').strip()
             printer_type = request.form.get('label_printer_type', 'dymo').strip()
             label_width = request.form.get('label_width', '2.0').strip()
             label_height = request.form.get('label_height', '1.0').strip()
             
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_codes,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_code_method', ?)", (checkout_code_method,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_width', ?)", (label_width,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_height', ?)", (label_height,))
             conn.commit()
-            flash('Label printing settings updated successfully!', 'success')
+            flash('Checkout code settings updated successfully!', 'success')
         
         conn.close()
         return redirect(url_for('admin_settings'))
@@ -635,7 +792,7 @@ def admin_settings():
     
     # Fetch label printing settings
     label_settings = {}
-    for key in ['require_checkout_code', 'label_printer_type', 'label_width', 'label_height']:
+    for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_width', 'label_height']:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         label_settings[key] = row[0] if row else None
     
@@ -958,4 +1115,17 @@ def admin_import_events():
 if __name__ == '__main__':
     # ensure DB exists when running the server directly
     ensure_db()
+    
+    # Clean up expired tokens on startup
+    cleanup_expired_tokens()
+    
+    # Start background thread to clean up tokens periodically
+    def periodic_cleanup():
+        while True:
+            time.sleep(3600)  # Run every hour
+            cleanup_expired_tokens()
+    
+    cleanup_thread = threading.Thread(target=periodic_cleanup, daemon=True)
+    cleanup_thread.start()
+    
     app.run(host='0.0.0.0', port=5000, debug=True)

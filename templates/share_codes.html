@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout Codes - {{ event_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .share-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        .event-title {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .event-date {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+        }
+        .code-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        .code-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+        .kid-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 10px;
+        }
+        .checkout-code {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 5px;
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .checked-out {
+            opacity: 0.5;
+        }
+        .checked-out-badge {
+            background: #28a745;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .share-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 15px;
+            color: white;
+            margin-top: 20px;
+            transition: transform 0.2s ease;
+        }
+        .share-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .info-text {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="share-container">
+        <h1 class="event-title">{{ event_name }}</h1>
+        <p class="event-date">{{ event_date }}</p>
+        
+        <div class="code-card {% if all_checked_out %}checked-out{% endif %}">
+            <div class="text-muted" style="font-size: 0.85rem; margin-bottom: 10px;">Checked in at {{ checkin_time }}</div>
+            
+            <div style="margin-bottom: 15px;">
+                {% for kid in kids %}
+                <div class="kid-name" style="font-size: 1.1rem; margin-bottom: 5px;">
+                    {{ kid.name }}
+                    {% if kid.checked_out %}
+                    <span style="color: #28a745; font-size: 0.9rem;">✓</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="checkout-code">{{ checkout_code }}</div>
+            {% if all_checked_out %}
+            <span class="checked-out-badge">✓ All Checked Out</span>
+            {% endif %}
+        </div>
+        
+        <button class="btn share-btn" onclick="shareContent()">
+            <i class="bi bi-share"></i> Share These Codes
+        </button>
+        
+        <p class="info-text">
+            Use these codes when picking up your kids.<br>
+            This link will expire in 24 hours or after checkout.
+        </p>
+    </div>
+
+    <script>
+        async function shareContent() {
+            const kids = [
+                {% for kid in kids %}
+                "{{ kid.name }}"{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ];
+            const code = "{{ checkout_code }}";
+            
+            let text = "{{ event_name }} - {{ event_date }}\n\n";
+            text += "Kids: " + kids.join(", ") + "\n";
+            text += `Checkout Code: ${code}\n`;
+            text += `\nLink: ${window.location.href}`;
+            
+            // Check if Web Share API is supported
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: '{{ event_name }} - Checkout Codes',
+                        text: text
+                    });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.error('Error sharing:', err);
+                        fallbackShare(text);
+                    }
+                }
+            } else {
+                fallbackShare(text);
+            }
+        }
+        
+        function fallbackShare(text) {
+            // Fallback: copy to clipboard
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Codes copied to clipboard! You can now paste them in a text message or email.');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                // Last resort: show text in a prompt
+                prompt('Copy these codes:', text);
+            });
+        }
+    </script>
+</body>
+</html>

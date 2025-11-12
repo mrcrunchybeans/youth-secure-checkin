@@ -149,7 +149,31 @@
     </div>
 </div>
 
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius: 20px; overflow: hidden;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 2rem;">
+        <h5 class="modal-title" style="font-size: 2rem;">📱 Scan to Get Checkout Codes</h5>
+        <button type="button" class="btn-close btn-close-white" style="font-size: 1.5rem;" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center" style="padding: 50px;">
+        <img id="qr-code-img" src="" alt="QR Code" style="max-width: 400px; width: 100%; border: 15px solid #f8f9fa; border-radius: 20px;">
+        <p class="mt-4 text-muted" style="font-size: 1.3rem;">Scan this QR code with your phone to access checkout codes and share them via text, email, or any app.</p>
+      </div>
+      <div class="modal-footer" style="border: none; justify-content: center; padding: 2rem;">
+        <button type="button" class="btn btn-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 15px; padding: 15px 60px; font-size: 1.5rem;" data-bs-dismiss="modal">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+function showQRCodeModal(qrCodeData) {
+    document.getElementById('qr-code-img').src = qrCodeData;
+    new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
+}
+
 // Fullscreen buttons (both in navbar and fallback)
 ['fullscreen-btn', 'fullscreen-btn-nav'].forEach(function(btnId) {
     const btn = document.getElementById(btnId);
@@ -273,6 +297,11 @@ function showFamilyModal(data) {
             .then(resp => {
                 if (resp.success) {
                     modal.hide();
+                    
+                    // Show QR code if available
+                    if (resp.qr_code) {
+                        showQRCodeModal(resp.qr_code);
+                    }
                     
                     // Print labels if any were returned (deferred to prevent UI blocking)
                     if (resp.labels && resp.labels.length > 0) {

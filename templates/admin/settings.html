@@ -35,25 +35,44 @@
       </div>
       <div class="card-body">
         <h5 class="mb-3">Checkout Code Settings</h5>
-        <p class="text-muted mb-4">Enable secure checkout with printed labels and verification codes.</p>
+        <p class="text-muted mb-4">Control whether checkout codes are required and how parents receive them.</p>
 
         <form method="POST">
-          <div class="mb-3 form-check">
-            <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
-                   {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}>
-            <label class="form-check-label" for="require_checkout_code">
-              <strong>Require checkout codes</strong>
-            </label>
-            <div class="form-text">When enabled, parents must enter a code to check out their child. A label will be printed at check-in with the code.</div>
+          <div class="mb-4">
+            <div class="form-check form-switch" style="font-size: 1.1rem;">
+              <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
+                     {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}
+                     style="width: 3em; height: 1.5em;">
+              <label class="form-check-label" for="require_checkout_code">
+                <strong>Require checkout codes</strong>
+              </label>
+            </div>
+            <div class="form-text ms-5">When enabled, parents must enter a code to check out their child. One code is generated per family check-in.</div>
           </div>
 
-          <div class="mb-3">
-            <label for="label_printer_type" class="form-label">Printer Type</label>
-            <select class="form-select" id="label_printer_type" name="label_printer_type">
-              <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO Label Printer</option>
-              <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL Series</option>
-            </select>
-          </div>
+          <div id="code-method-section" style="{% if label_settings.require_checkout_code != 'true' %}opacity: 0.5; pointer-events: none;{% endif %}">
+            <div class="mb-3">
+              <label for="checkout_code_method" class="form-label"><strong>How should parents receive the checkout code?</strong></label>
+              <select class="form-select" id="checkout_code_method" name="checkout_code_method">
+                <option value="qr" {% if label_settings.checkout_code_method == 'qr' or not label_settings.checkout_code_method %}selected{% endif %}>📱 QR Code - Scan with phone (Free)</option>
+                <option value="label" {% if label_settings.checkout_code_method == 'label' %}selected{% endif %}>🖨️ Print Labels - Physical printout</option>
+                <option value="both" {% if label_settings.checkout_code_method == 'both' %}selected{% endif %}>📱🖨️ Both QR Code and Print</option>
+              </select>
+              <div class="form-text">
+                <strong>QR Code:</strong> Parent scans QR code with phone camera to view code and share via text/email/any app.<br>
+                <strong>Print Labels:</strong> Code prints automatically on label printer (requires label printer hardware).<br>
+                <strong>Both:</strong> Show QR code on screen and print labels simultaneously.
+              </div>
+            </div>
+
+          <div id="printer-settings" style="{% if label_settings.checkout_code_method == 'qr' %}display: none;{% endif %}">
+            <div class="mb-3">
+              <label for="label_printer_type" class="form-label">Printer Type</label>
+              <select class="form-select" id="label_printer_type" name="label_printer_type">
+                <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO Label Printer</option>
+                <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL Series</option>
+              </select>
+            </div>
 
           <div class="row">
             <div class="col-6">
@@ -75,18 +94,40 @@
           <div class="alert alert-info">
             <strong>How it works:</strong>
             <ul class="mb-0 small">
-              <li>When checking in, a unique 5-digit code is generated</li>
-              <li>A label prints with the child's name, event, time, and code</li>
-              <li>Parent keeps the label</li>
-              <li>To check out, parent must enter the code</li>
-              <li>Admins can override without a code</li>
+              <li>When checking in, <strong>one unique 5-digit code is generated per family</strong> (even if checking in multiple siblings)</li>
+              <li><strong>QR Code:</strong> Parent scans QR code with phone to view all kids and the checkout code, then shares via text/email/any app</li>
+              <li><strong>Labels:</strong> Code prints on label for each child (all show same family code)</li>
+              <li>To check out any child, parent enters the same family code</li>
+              <li>Admins can override with the app password</li>
             </ul>
           </div>
 
           <button type="submit" class="btn btn-lg" style="background-color: #4a582d; color: white; border: none;">
-            Update Label Settings
+            Update Checkout Settings
           </button>
         </form>
+
+        <script>
+          // Toggle printer settings visibility based on method
+          document.getElementById('checkout_code_method').addEventListener('change', function() {
+            const printerSettings = document.getElementById('printer-settings');
+            const value = this.value;
+            printerSettings.style.display = (value === 'label' || value === 'both') ? 'block' : 'none';
+          });
+          
+          // Enable/disable method section based on require codes checkbox
+          document.getElementById('require_checkout_code').addEventListener('change', function() {
+            const methodSection = document.getElementById('code-method-section');
+            if (this.checked) {
+              methodSection.style.opacity = '1';
+              methodSection.style.pointerEvents = 'auto';
+            } else {
+              methodSection.style.opacity = '0.5';
+              methodSection.style.pointerEvents = 'none';
+            }
+          });
+        </script>
+      </div>
       </div>
     </div>
 

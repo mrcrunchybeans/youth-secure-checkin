@@ -174,7 +174,31 @@
   </div>
 </div>
 
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius: 20px; overflow: hidden;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <h5 class="modal-title">📱 Scan to Get Checkout Codes</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center" style="padding: 40px;">
+        <img id="qr-code-img" src="" alt="QR Code" style="max-width: 300px; width: 100%; border: 10px solid #f8f9fa; border-radius: 15px;">
+        <p class="mt-4 text-muted">Scan this QR code with your phone to access checkout codes and share them via text, email, or any app.</p>
+      </div>
+      <div class="modal-footer" style="border: none; justify-content: center;">
+        <button type="button" class="btn btn-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 15px; padding: 12px 40px;" data-bs-dismiss="modal">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+function showQRCodeModal(qrCodeData) {
+  document.getElementById('qr-code-img').src = qrCodeData;
+  new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
+}
+
 document.getElementById('event-select').addEventListener('change', function() {
   const eventId = this.value;
   window.location.href = `/?event_id=${eventId}`;
@@ -235,6 +259,11 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
   .then(response => response.json())
   .then(data => {
     bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide();
+    
+    // Show QR code if available
+    if (data.qr_code) {
+      showQRCodeModal(data.qr_code);
+    }
     
     // Print labels if any were returned (deferred to prevent UI blocking)
     if (data.labels && data.labels.length > 0) {
