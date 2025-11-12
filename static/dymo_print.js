@@ -6,6 +6,7 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
         // Check if DYMO framework is loaded
         if (typeof dymo === 'undefined') {
             console.error('DYMO Label Framework not loaded');
+            showPrintError('DYMO Label Framework not loaded. Please refresh the page.');
             return false;
         }
 
@@ -156,7 +157,7 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
         var printers = dymo.label.framework.getPrinters();
         if (printers.length == 0) {
             console.error('No DYMO printers found');
-            alert('No DYMO printer detected. Please connect a DYMO LabelWriter printer.');
+            showPrintError('No DYMO printer detected. Please connect a DYMO LabelWriter printer and ensure DYMO Connect is running.');
             return false;
         }
         
@@ -180,11 +181,12 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
         label.print(printerName);
         
         console.log('Label sent to printer successfully');
+        showPrintSuccess('Label printed successfully to ' + printerName);
         return true;
         
     } catch (e) {
         console.error('Error printing label:', e);
-        alert('Error printing label: ' + e.message + '\n\nMake sure DYMO Connect software is installed and running.');
+        showPrintError('Error printing label: ' + e.message + '\n\nMake sure DYMO Connect software is installed and running.');
         return false;
     }
 }
@@ -205,4 +207,72 @@ function checkDymoStatus() {
     } catch (e) {
         return {ready: false, message: 'DYMO error: ' + e.message};
     }
+}
+
+// Show print error notification
+function showPrintError(message) {
+    // Create toast notification
+    var toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-danger border-0';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>⚠️ Print Failed</strong><br>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    var bsToast = new bootstrap.Toast(toast, {delay: 10000}); // Show for 10 seconds
+    bsToast.show();
+    
+    // Remove from DOM after hidden
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Show print success notification
+function showPrintSuccess(message) {
+    // Create toast notification
+    var toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-success border-0';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'polite');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>✅ Label Printed</strong><br>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    var bsToast = new bootstrap.Toast(toast, {delay: 3000}); // Show for 3 seconds
+    bsToast.show();
+    
+    // Remove from DOM after hidden
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
 }
