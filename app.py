@@ -347,13 +347,12 @@ def checkin_last4():
     conn = get_db()
     cur = conn.execute("""
         SELECT f.id, f.phone, f.troop, f.default_adult_id,
-               GROUP_CONCAT(DISTINCT a.id || ':' || a.name) as adults,
-               GROUP_CONCAT(DISTINCT k.id || ':' || k.name || ':' || k.notes) as kids
+               (SELECT GROUP_CONCAT(a.id || ':' || a.name)
+                FROM adults a WHERE a.family_id = f.id) as adults,
+               (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
+                FROM kids k WHERE k.family_id = f.id) as kids
         FROM families f
-        LEFT JOIN adults a ON a.family_id = f.id
-        LEFT JOIN kids k ON k.family_id = f.id
         WHERE f.phone LIKE ?
-        GROUP BY f.id
     """, ('%' + last4,))
     families = cur.fetchall()
     
