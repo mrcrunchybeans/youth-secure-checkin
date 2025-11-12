@@ -318,6 +318,10 @@ function showFamilyModal(data) {
                                 </div>
                             `;
                             checkedInDiv.insertBefore(card, checkedInDiv.firstChild);
+                            
+                            // Initialize tooltips for this card
+                            const tooltips = card.querySelectorAll('[data-bs-toggle="tooltip"]');
+                            tooltips.forEach(el => new bootstrap.Tooltip(el));
                         });
                         
                         // Update count in header
@@ -326,10 +330,6 @@ function showFamilyModal(data) {
                             const currentCount = parseInt(countBadge.textContent) || 0;
                             countBadge.textContent = currentCount + resp.checkins.length;
                         }
-                        
-                        // Initialize tooltips for new elements
-                        const tooltips = card.querySelectorAll('[data-bs-toggle="tooltip"]');
-                        tooltips.forEach(el => new bootstrap.Tooltip(el));
                     }
                     
                     // Show success message
