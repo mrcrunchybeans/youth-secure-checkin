@@ -544,8 +544,9 @@ def admin_settings():
             set_app_password(new_password)
             flash('App password updated successfully!', 'success')
         
-        # Handle label printing settings
-        if 'require_checkout_code' in request.form:
+        # Handle label printing settings (check if any label setting fields are present)
+        if 'label_printer_type' in request.form or 'label_width' in request.form:
+            # Checkbox only appears in form data if checked, so we check explicitly
             require_codes = 'true' if request.form.get('require_checkout_code') == 'on' else 'false'
             printer_type = request.form.get('label_printer_type', 'dymo').strip()
             label_width = request.form.get('label_width', '2.0').strip()
