@@ -292,9 +292,11 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     data.kids.forEach(kid => {
       const div = document.createElement('div');
       div.className = 'form-check';
+      const isCheckedIn = kid.already_checked_in;
+      const checkedInLabel = isCheckedIn ? ' <span class="badge bg-success">Already Checked In</span>' : '';
       div.innerHTML = `
-        <input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="kid-${kid.id}">
-        <label class="form-check-label" for="kid-${kid.id}">${kid.name}</label>
+        <input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="kid-${kid.id}" ${isCheckedIn ? 'disabled checked' : ''}>
+        <label class="form-check-label" for="kid-${kid.id}" style="${isCheckedIn ? 'opacity: 0.6;' : ''}">${kid.name}${checkedInLabel}</label>
       `;
       kidsList.appendChild(div);
     });

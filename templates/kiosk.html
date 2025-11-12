@@ -326,9 +326,13 @@ function showFamilyModal(data) {
     html += `<div class="kid-options">`;
     (data.kids || []).forEach(function(kid) {
         const kidId = `kid-${kid.id}`;
-        html += `<label class="kid-option" for="${kidId}">`;
-        html += `<input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="${kidId}">`;
-        html += `<span class="kid-name">${kid.name}</span>`;
+        const isCheckedIn = kid.already_checked_in;
+        const checkedInBadge = isCheckedIn ? ' <span class="badge bg-success" style="font-size: 0.75rem;">Already Checked In</span>' : '';
+        const disabledAttr = isCheckedIn ? 'disabled checked' : '';
+        const labelStyle = isCheckedIn ? 'style="opacity: 0.6;"' : '';
+        html += `<label class="kid-option" for="${kidId}" ${labelStyle}>`;
+        html += `<input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="${kidId}" ${disabledAttr}>`;
+        html += `<span class="kid-name">${kid.name}${checkedInBadge}</span>`;
         html += `</label>`;
     });
     html += `</div>`;

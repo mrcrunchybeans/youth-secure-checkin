@@ -341,13 +341,14 @@ def index():
 @require_auth
 def checkin_last4():
     last4 = request.form.get('last4', '').strip()
+    event_id = request.form.get('event_id')
     if not last4 or len(last4) != 4 or not last4.isdigit():
         return jsonify({'error': 'Invalid last 4 digits'}), 400
     conn = get_db()
     cur = conn.execute("""
         SELECT f.id, f.phone, f.troop, f.default_adult_id,
                GROUP_CONCAT(DISTINCT a.id || ':' || a.name) as adults,
-               GROUP_CONCAT(DISTINCT k.id || ':' || k.name) as kids
+               GROUP_CONCAT(DISTINCT k.id || ':' || k.name || ':' || k.notes) as kids
         FROM families f
         LEFT JOIN adults a ON a.family_id = f.id
         LEFT JOIN kids k ON k.family_id = f.id
@@ -355,15 +356,35 @@ def checkin_last4():
         GROUP BY f.id
     """, ('%' + last4,))
     families = cur.fetchall()
-    conn.close()
+    
     if not families:
+        conn.close()
         return jsonify({'error': 'No family found with that phone ending'}), 404
+    
     # Assume first match; in real app, handle multiples
     family = families[0]
     adults = [adult.split(':', 1) for adult in family['adults'].split(',')] if family['adults'] else []
     adults = [{'id': int(a[0]), 'name': a[1]} for a in adults]
-    kids = [kid.split(':', 1) for kid in family['kids'].split(',')] if family['kids'] else []
-    kids = [{'id': int(k[0]), 'name': k[1]} for k in kids]
+    kids = [kid.split(':', 2) for kid in family['kids'].split(',')] if family['kids'] else []
+    kids = [{'id': int(k[0]), 'name': k[1], 'notes': k[2] if len(k) > 2 else ''} for k in kids]
+    
+    # Check which kids are already checked in to this event
+    if event_id:
+        checked_in_kids = set()
+        for kid in kids:
+            checkin = conn.execute("""
+                SELECT id FROM checkins 
+                WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
+            """, (kid['id'], event_id)).fetchone()
+            if checkin:
+                checked_in_kids.add(kid['id'])
+        
+        # Mark kids as already checked in
+        for kid in kids:
+            kid['already_checked_in'] = kid['id'] in checked_in_kids
+    
+    conn.close()
+    
     return jsonify({
         'family_id': family['id'],
         'phone': family['phone'],
@@ -423,14 +444,28 @@ def checkin_selected():
     phone = family_row['phone'] if family_row else ''
     authorized_adults = family_row['authorized_adults'] if family_row else ''
     
-    # Generate ONE code for this entire family check-in if required
+    # Check if this family already has a checkout code for this event from previous check-ins
     family_checkout_code = None
     if require_codes:
-        try:
-            family_checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
-        except Exception as e:
-            print(f"Error generating checkout code: {e}")
-            family_checkout_code = None
+        # Look for existing checkout code for this family/event combination
+        existing_code = conn.execute("""
+            SELECT DISTINCT c.checkout_code 
+            FROM checkins c
+            JOIN kids k ON k.id = c.kid_id
+            WHERE k.family_id = ? AND c.event_id = ? AND c.checkout_time IS NULL AND c.checkout_code IS NOT NULL
+            LIMIT 1
+        """, (family_id, event_id)).fetchone()
+        
+        if existing_code and existing_code[0]:
+            # Reuse existing code for siblings checked in separately
+            family_checkout_code = existing_code[0]
+        else:
+            # Generate new code if none exists
+            try:
+                family_checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
+            except Exception as e:
+                print(f"Error generating checkout code: {e}")
+                family_checkout_code = None
     
     for kid_id in kid_ids:
         # Check if already checked in to this event
