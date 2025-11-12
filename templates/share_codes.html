@@ -76,7 +76,7 @@
             display: inline-block;
             margin-top: 10px;
         }
-        .share-btn {
+        .action-button {
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
@@ -94,12 +94,12 @@
             box-shadow: 0 4px 15px rgba(121, 6, 13, 0.3);
             -webkit-tap-highlight-color: rgba(0,0,0,0);
         }
-        .share-btn:hover {
+        .action-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(121, 6, 13, 0.5);
             background: linear-gradient(135deg, #8a0710 0%, #004670 100%);
         }
-        .share-btn:active {
+        .action-button:active {
             transform: translateY(0);
         }
         .info-text {
@@ -133,7 +133,7 @@
                 letter-spacing: 5px;
                 padding: 15px;
             }
-            .share-btn {
+            .action-button {
                 padding: 20px;
                 font-size: 1.3rem;
                 margin-top: 30px;
@@ -189,7 +189,7 @@
             {% endif %}
         </div>
         
-        <button class="share-btn" onclick="shareContent()">
+        <button class="action-button" id="sendCodeBtn" onclick="shareContent()">
             📱 Share This Code
         </button>
         
