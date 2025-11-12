@@ -180,44 +180,44 @@
 
 <!-- Checkout Code Entry Modal -->
 <div class="modal fade" id="checkoutCodeModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
     <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid #79060d;">
-      <div class="modal-header" style="background: linear-gradient(135deg, #79060d 0%, #003b59 100%); color: white; border: none; padding: 0.75rem 1rem;">
-        <h5 class="modal-title" style="font-size: 1.2rem; font-weight: 700;">🔒 Enter Code</h5>
+      <div class="modal-header" style="background: linear-gradient(135deg, #79060d 0%, #003b59 100%); color: white; border: none; padding: 0.6rem 0.9rem;">
+        <h5 class="modal-title" style="font-size: 1.15rem; font-weight: 700;">🔒 Enter Code</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body" style="padding: 1rem;">
-        <p class="text-center mb-2" style="font-size: 1rem; font-weight: 600; color: #333;" id="checkout-kid-name"></p>
+      <div class="modal-body" style="padding: 0.9rem;">
+        <p class="text-center mb-2" style="font-size: 0.95rem; font-weight: 600; color: #333;" id="checkout-kid-name"></p>
         <form id="checkout-code-form">
           <div class="mb-2">
-            <input type="text" class="form-control form-control-lg text-center" id="checkout-code-input" 
-                   style="font-size: 1.6rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid #79060d; font-weight: bold; padding: 0.5rem;"
+            <input type="text" class="form-control text-center" id="checkout-code-input" 
+                   style="font-size: 1.5rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid #79060d; font-weight: bold; padding: 0.4rem;"
                    maxlength="10" required autocomplete="off" inputmode="none" placeholder="Code">
           </div>
           
           <!-- On-screen keypad -->
           <div id="checkout-keypad" class="mb-2">
-            <div class="d-grid gap-2" style="grid-template-columns: repeat(3, 1fr); display: grid;">
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="1" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">1</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="2" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">2</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="3" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">3</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="4" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">4</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="5" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">5</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="6" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">6</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="7" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">7</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="8" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">8</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="9" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">9</button>
-              <button type="button" class="btn btn-outline-danger" id="checkout-keypad-clear" style="font-size: 1rem; padding: 0.5rem; font-weight: 600;">Clear</button>
-              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="0" style="font-size: 1.3rem; padding: 0.5rem; font-weight: 600;">0</button>
-              <button type="button" class="btn btn-outline-warning" id="checkout-keypad-back" style="font-size: 1rem; padding: 0.5rem; font-weight: 600;">←</button>
+            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 0.4rem; display: grid;">
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="1" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">1</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="2" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">2</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="3" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">3</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="4" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">4</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="5" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">5</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="6" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">6</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="7" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">7</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="8" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">8</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="9" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">9</button>
+              <button type="button" class="btn btn-outline-danger" id="checkout-keypad-clear" style="font-size: 0.95rem; padding: 0.45rem; font-weight: 600;">Clear</button>
+              <button type="button" class="btn btn-outline-secondary checkout-key" data-value="0" style="font-size: 1.25rem; padding: 0.45rem; font-weight: 600;">0</button>
+              <button type="button" class="btn btn-outline-warning" id="checkout-keypad-back" style="font-size: 0.95rem; padding: 0.45rem; font-weight: 600;">←</button>
             </div>
           </div>
           
-          <div class="d-grid gap-2">
-            <button type="submit" class="btn" style="background: linear-gradient(135deg, #4a582d 0%, #79060d 100%); color: white; border: none; border-radius: 10px; padding: 0.6rem; font-size: 1.05rem; font-weight: 600;">
+          <div class="d-grid" style="gap: 0.4rem;">
+            <button type="submit" class="btn" style="background: linear-gradient(135deg, #4a582d 0%, #79060d 100%); color: white; border: none; border-radius: 10px; padding: 0.55rem; font-size: 1.05rem; font-weight: 600;">
               ✓ Check Out
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" style="border-radius: 10px; padding: 0.4rem;">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" style="border-radius: 10px; padding: 0.35rem;">
               Cancel
             </button>
           </div>
