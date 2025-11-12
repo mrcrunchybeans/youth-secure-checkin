@@ -236,16 +236,18 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
   .then(data => {
     bootstrap.Modal.getInstance(document.getElementById('familyModal')).hide();
     
-    // Print labels if any were returned
+    // Print labels if any were returned (deferred to prevent UI blocking)
     if (data.labels && data.labels.length > 0) {
       data.labels.forEach(label => {
-        printDymoLabel(
-          label.kid_name,
-          label.event_name,
-          label.event_date,
-          label.checkin_time,
-          label.checkout_code
-        );
+        setTimeout(() => {
+          printDymoLabel(
+            label.kid_name,
+            label.event_name,
+            label.event_date,
+            label.checkin_time,
+            label.checkout_code
+          );
+        }, 0);
       });
     }
     

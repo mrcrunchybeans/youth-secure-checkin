@@ -274,20 +274,22 @@ function showFamilyModal(data) {
                 if (resp.success) {
                     modal.hide();
                     
-                    // Print labels if any were returned
+                    // Print labels if any were returned (deferred to prevent UI blocking)
                     if (resp.labels && resp.labels.length > 0) {
                         resp.labels.forEach(label => {
-                            printDymoLabel(
-                                label.kid_name,
-                                label.event_name,
-                                label.event_date,
-                                label.checkin_time,
-                                label.checkout_code
-                            );
+                            setTimeout(() => {
+                                printDymoLabel(
+                                    label.kid_name,
+                                    label.event_name,
+                                    label.event_date,
+                                    label.checkin_time,
+                                    label.checkout_code
+                                );
+                            }, 0);
                         });
                     }
                     
-                    // Add check-ins to the page dynamically
+                    // Add check-ins to the page dynamically first (for immediate feedback)
                     if (resp.checkins && resp.checkins.length > 0) {
                         const checkedInDiv = document.getElementById('checked-in-list');
                         const eventId = document.querySelector('[name="event_id"]').value;
