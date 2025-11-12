@@ -207,6 +207,15 @@
       </div>
       <div class="modal-body" style="padding: 0.9rem;">
         <p class="text-center mb-2" style="font-size: 0.95rem; font-weight: 600; color: #333;" id="checkout-kid-name"></p>
+        
+        <!-- Siblings section -->
+        <div id="siblings-section" style="display: none;">
+          <div class="mb-2" style="padding: 0.6rem; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+            <div class="text-muted mb-1" style="font-size: 0.8rem; font-weight: 600;">Also check out:</div>
+            <div id="siblings-list"></div>
+          </div>
+        </div>
+        
         <form id="checkout-code-form">
           <div class="mb-2">
             <input type="text" class="form-control text-center" id="checkout-code-input" 
@@ -408,36 +417,71 @@ document.addEventListener('click', function(e) {
     // Store data for later use
     currentCheckoutData = { kidId, kidName, eventId };
     
-    // First, check out without code to see if code is required
-    const formData = new FormData();
-    formData.append('event_id', eventId);
+    // First, fetch siblings to show in modal
+    const siblingFormData = new FormData();
+    siblingFormData.append('event_id', eventId);
     
-    fetch(`/checkout/${kidId}`, {
+    fetch(`/get_siblings/${kidId}`, {
       method: 'POST',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      body: formData
+      body: siblingFormData
     })
     .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        location.reload();
-      } else if (data.code_required) {
-        // Show modal for checkout code
-        document.getElementById('checkout-kid-name').textContent = kidName;
-        document.getElementById('checkout-code-input').value = '';
-        const modal = new bootstrap.Modal(document.getElementById('checkoutCodeModal'));
-        modal.show();
-        // Focus input after modal is shown
-        document.getElementById('checkoutCodeModal').addEventListener('shown.bs.modal', function() {
-          document.getElementById('checkout-code-input').focus();
-        }, { once: true });
-      } else {
-        alert(data.message || 'Checkout failed');
-      }
+    .then(siblingData => {
+      // Store sibling data for use in form submission
+      currentCheckoutData.siblings = siblingData.siblings || [];
+      
+      // Try checkout without code to see if code is required
+      const formData = new FormData();
+      formData.append('event_id', eventId);
+      
+      fetch(`/checkout/${kidId}`, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else if (data.code_required) {
+          // Show modal for checkout code
+          document.getElementById('checkout-kid-name').textContent = kidName;
+          document.getElementById('checkout-code-input').value = '';
+          
+          // Show siblings if any
+          const siblingsSection = document.getElementById('siblings-section');
+          const siblingsList = document.getElementById('siblings-list');
+          if (currentCheckoutData.siblings.length > 0) {
+            siblingsList.innerHTML = '';
+            currentCheckoutData.siblings.forEach(sibling => {
+              const div = document.createElement('div');
+              div.className = 'form-check';
+              div.innerHTML = `
+                <input class="form-check-input sibling-checkbox" type="checkbox" value="${sibling.id}" id="sib-${sibling.id}">
+                <label class="form-check-label" for="sib-${sibling.id}" style="font-size: 0.9rem;">${sibling.name}</label>
+              `;
+              siblingsList.appendChild(div);
+            });
+            siblingsSection.style.display = 'block';
+          } else {
+            siblingsSection.style.display = 'none';
+          }
+          
+          const modal = new bootstrap.Modal(document.getElementById('checkoutCodeModal'));
+          modal.show();
+          // Focus input after modal is shown
+          document.getElementById('checkoutCodeModal').addEventListener('shown.bs.modal', function() {
+            document.getElementById('checkout-code-input').focus();
+          }, { once: true });
+        } else {
+          alert(data.message || 'Checkout failed');
+        }
+      })
+      .catch(error => console.error('Error:', error));
     })
-    .catch(error => console.error('Error:', error));
+    .catch(error => console.error('Error fetching siblings:', error));
   }
 });
 
@@ -482,6 +526,12 @@ document.getElementById('checkout-code-form').addEventListener('submit', functio
   const codeFormData = new FormData();
   codeFormData.append('event_id', currentCheckoutData.eventId);
   codeFormData.append('checkout_code', code);
+  
+  // Add selected siblings
+  const selectedSiblings = document.querySelectorAll('.sibling-checkbox:checked');
+  selectedSiblings.forEach(checkbox => {
+    codeFormData.append('additional_kid_ids', checkbox.value);
+  });
   
   fetch(`/checkout/${currentCheckoutData.kidId}`, {
     method: 'POST',

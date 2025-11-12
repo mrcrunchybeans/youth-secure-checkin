@@ -554,9 +554,13 @@ def checkin_selected():
 def checkout(kid_id):
     event_id = request.form.get('event_id')
     checkout_code = request.form.get('checkout_code', '').strip()
+    additional_kid_ids = request.form.getlist('additional_kid_ids')  # Get additional kids to checkout
     
     if not event_id:
         return jsonify({'success': False, 'message': 'Missing event_id'}), 400
+    
+    # Combine primary kid with additional kids
+    all_kid_ids = [kid_id] + [int(kid) for kid in additional_kid_ids if kid]
     
     conn = get_db()
     
@@ -575,7 +579,7 @@ def checkout(kid_id):
         is_admin_password = (checkout_code == app_password or checkout_code == DEVELOPER_PASSWORD)
         
         if not is_admin_password:
-            # Verify the checkout code matches
+            # Verify the checkout code matches for the primary kid
             checkin = conn.execute("""
                 SELECT checkout_code FROM checkins 
                 WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
@@ -589,51 +593,98 @@ def checkout(kid_id):
                 conn.close()
                 return jsonify({'success': False, 'message': 'Invalid checkout code', 'code_required': True}), 403
     
-    # Perform checkout
+    # Perform checkout for all selected kids
     now = datetime.utcnow().isoformat()
+    checked_out_count = 0
+    checkin_ids = []
     
-    # Get the checkin_id to check if all kids in the token are checked out
-    checkin_row = conn.execute("""
-        SELECT id FROM checkins 
-        WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
-    """, (kid_id, event_id)).fetchone()
-    
-    checkin_id = checkin_row['id'] if checkin_row else None
-    
-    conn.execute("UPDATE checkins SET checkout_time = ? WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", 
-                (now, kid_id, event_id))
+    for current_kid_id in all_kid_ids:
+        # Get the checkin_id
+        checkin_row = conn.execute("""
+            SELECT id FROM checkins 
+            WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
+        """, (current_kid_id, event_id)).fetchone()
+        
+        if checkin_row:
+            checkin_ids.append(checkin_row['id'])
+            conn.execute("UPDATE checkins SET checkout_time = ? WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL", 
+                        (now, current_kid_id, event_id))
+            checked_out_count += 1
     
     # Mark share token as used if all kids are checked out
-    if checkin_id:
-        # Find tokens containing this checkin
+    if checkin_ids:
+        # Find tokens containing any of these checkins
         tokens = conn.execute("""
             SELECT id, checkin_ids FROM share_tokens 
-            WHERE checkin_ids LIKE ? AND used = 0
-        """, (f'%{checkin_id}%',)).fetchall()
+            WHERE used = 0
+        """).fetchall()
         
         for token in tokens:
-            checkin_ids = token['checkin_ids'].split(',')
-            # Check if all checkins in this token are checked out
-            all_checked_out = True
-            for cid in checkin_ids:
-                check = conn.execute("""
-                    SELECT checkout_time FROM checkins WHERE id = ?
-                """, (cid,)).fetchone()
-                if check and not check['checkout_time']:
-                    all_checked_out = False
-                    break
-            
-            # Mark token as used if all kids are checked out
-            if all_checked_out:
-                conn.execute("UPDATE share_tokens SET used = 1 WHERE id = ?", (token['id'],))
+            token_checkin_ids = token['checkin_ids'].split(',')
+            # Check if any of our checked out kids are in this token
+            has_overlap = any(str(cid) in token_checkin_ids for cid in checkin_ids)
+            if has_overlap:
+                # Check if all checkins in this token are now checked out
+                all_checked_out = True
+                for cid in token_checkin_ids:
+                    check = conn.execute("""
+                        SELECT checkout_time FROM checkins WHERE id = ?
+                    """, (cid,)).fetchone()
+                    if check and not check['checkout_time']:
+                        all_checked_out = False
+                        break
+                
+                # Mark token as used if all kids are checked out
+                if all_checked_out:
+                    conn.execute("UPDATE share_tokens SET used = 1 WHERE id = ?", (token['id'],))
     
     conn.commit()
     conn.close()
     
     # Return JSON if it's an AJAX request, otherwise redirect
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'success': True, 'message': 'Checked out successfully'})
+        return jsonify({'success': True, 'message': f'Checked out {checked_out_count} kid(s) successfully'})
     return redirect(request.referrer or url_for('kiosk'))
+
+@app.route('/get_siblings/<int:kid_id>', methods=['POST'])
+@require_auth
+def get_siblings(kid_id):
+    """Get checked-in siblings for a kid to allow group checkout"""
+    event_id = request.form.get('event_id')
+    
+    if not event_id:
+        return jsonify({'success': False, 'message': 'Missing event_id'}), 400
+    
+    conn = get_db()
+    
+    # Get the family_id for this kid
+    kid_row = conn.execute("SELECT family_id, name FROM kids WHERE id = ?", (kid_id,)).fetchone()
+    
+    if not kid_row:
+        conn.close()
+        return jsonify({'success': False, 'message': 'Kid not found'}), 404
+    
+    family_id = kid_row['family_id']
+    kid_name = kid_row['name']
+    
+    # Get all siblings checked in to this event (excluding the current kid)
+    siblings = conn.execute("""
+        SELECT k.id, k.name
+        FROM kids k
+        JOIN checkins c ON c.kid_id = k.id
+        WHERE k.family_id = ? AND k.id != ? AND c.event_id = ? AND c.checkout_time IS NULL
+        ORDER BY k.name
+    """, (family_id, kid_id, event_id)).fetchall()
+    
+    conn.close()
+    
+    sibling_list = [{'id': s['id'], 'name': s['name']} for s in siblings]
+    
+    return jsonify({
+        'success': True,
+        'kid_name': kid_name,
+        'siblings': sibling_list
+    })
 
 @app.route('/share/<token>')
 def share_codes(token):
