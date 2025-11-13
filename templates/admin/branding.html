@@ -54,6 +54,17 @@
                        value="{{ branding.group_term }}" placeholder="e.g., Troop, Class, Team">
                 <div class="text-muted" style="font-size: 0.7rem;">What you call groups</div>
               </div>
+              <div class="col-md-4">
+                <label for="event_date_range_months" class="form-label small fw-semibold mb-1">Event Date Range</label>
+                <select class="form-select form-select-sm" id="event_date_range_months" name="event_date_range_months">
+                  <option value="1" {% if event_date_range_months == 1 %}selected{% endif %}>±1 month</option>
+                  <option value="2" {% if event_date_range_months == 2 %}selected{% endif %}>±2 months</option>
+                  <option value="3" {% if event_date_range_months == 3 %}selected{% endif %}>±3 months</option>
+                  <option value="6" {% if event_date_range_months == 6 %}selected{% endif %}>±6 months</option>
+                  <option value="12" {% if event_date_range_months == 12 %}selected{% endif %}>±1 year</option>
+                </select>
+                <div class="text-muted" style="font-size: 0.7rem;">Events to show in dropdown</div>
+              </div>
             </div>
             <h6 class="mt-4 mb-3 pb-2 border-bottom small fw-bold text-muted">Brand Colors</h6>
             <div class="row g-3">

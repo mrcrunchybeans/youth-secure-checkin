@@ -229,6 +229,20 @@ def set_branding_setting(key, value):
     conn.commit()
     conn.close()
 
+def get_event_date_range_months():
+    """Get the number of months (past and future) to show events for. Default is 1 month."""
+    conn = get_db()
+    cur = conn.execute("SELECT value FROM settings WHERE key = 'event_date_range_months'")
+    row = cur.fetchone()
+    conn.close()
+    
+    if row and row['value']:
+        try:
+            return int(row['value'])
+        except (ValueError, TypeError):
+            return 1
+    return 1
+
 def require_auth(f):
     """Decorator to require authentication"""
     from functools import wraps
@@ -385,6 +399,7 @@ def setup():
         org_name = request.form.get('organization_name', '').strip()
         org_type = request.form.get('organization_type', 'other')
         group_term = request.form.get('group_term', 'Group').strip()
+        event_date_range_months = request.form.get('event_date_range_months', '1')
         primary_color = request.form.get('primary_color', '#667eea')
         secondary_color = request.form.get('secondary_color', '#764ba2')
         accent_color = request.form.get('accent_color', '#48bb78')
@@ -411,6 +426,7 @@ def setup():
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('organization_type', ?)", (org_type,))
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('group_term', ?)", (group_term,))
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('group_term_lower', ?)", (group_term.lower(),))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('event_date_range_months', ?)", (event_date_range_months,))
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('primary_color', ?)", (primary_color,))
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('secondary_color', ?)", (secondary_color,))
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('accent_color', ?)", (accent_color,))
@@ -482,9 +498,10 @@ def index():
     if not event_id:
         # Redirect to select event
         conn = get_db()
-        cur = conn.execute("""
+        months = get_event_date_range_months()
+        cur = conn.execute(f"""
             SELECT id, name FROM events
-            WHERE start_time >= datetime('now', '-1 month') AND start_time <= datetime('now', '+1 month')
+            WHERE start_time >= datetime('now', '-{months} month') AND start_time <= datetime('now', '+{months} month')
             ORDER BY ABS(strftime('%s', start_time) - strftime('%s', 'now')) ASC
             LIMIT 1
         """)
@@ -515,7 +532,8 @@ def index():
         dt = datetime.fromisoformat(checkin['checkin_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
         checkin['formatted_time'] = dt.strftime('%b %d %I:%M %p')
 
-    cur2 = conn.execute("SELECT id, name, start_time FROM events WHERE start_time >= datetime('now', '-1 month') AND start_time <= datetime('now', '+1 month') ORDER BY start_time DESC")
+    months = get_event_date_range_months()
+    cur2 = conn.execute(f"SELECT id, name, start_time FROM events WHERE start_time >= datetime('now', '-{months} month') AND start_time <= datetime('now', '+{months} month') ORDER BY start_time DESC")
     events = cur2.fetchall()
     conn.close()
 
@@ -958,9 +976,10 @@ def kiosk():
     if not event_id:
         # Redirect to select event
         conn = get_db()
-        cur = conn.execute("""
+        months = get_event_date_range_months()
+        cur = conn.execute(f"""
             SELECT id, name FROM events
-            WHERE start_time >= datetime('now', '-1 month') AND start_time <= datetime('now', '+1 month')
+            WHERE start_time >= datetime('now', '-{months} month') AND start_time <= datetime('now', '+{months} month')
             ORDER BY ABS(strftime('%s', start_time) - strftime('%s', 'now')) ASC
             LIMIT 1
         """)
@@ -984,7 +1003,8 @@ def kiosk():
     """, (event_id,))
     checked_in = cur.fetchall()
 
-    cur2 = conn.execute("SELECT id, name, start_time FROM events WHERE start_time >= datetime('now', '-1 month') AND start_time <= datetime('now', '+1 month') ORDER BY start_time DESC")
+    months = get_event_date_range_months()
+    cur2 = conn.execute(f"SELECT id, name, start_time FROM events WHERE start_time >= datetime('now', '-{months} month') AND start_time <= datetime('now', '+{months} month') ORDER BY start_time DESC")
     events = cur2.fetchall()
     current_event = next((e for e in events if e['id'] == int(event_id)), None)
     if current_event:
@@ -1168,6 +1188,7 @@ def admin_branding():
             primary_color = request.form.get('primary_color', '#79060d').strip()
             secondary_color = request.form.get('secondary_color', '#003b59').strip()
             accent_color = request.form.get('accent_color', '#4a582d').strip()
+            event_date_range_months = request.form.get('event_date_range_months', '1').strip()
             
             if organization_name:
                 set_branding_setting('organization_name', organization_name)
@@ -1177,6 +1198,12 @@ def admin_branding():
                 set_branding_setting('primary_color', primary_color)
                 set_branding_setting('secondary_color', secondary_color)
                 set_branding_setting('accent_color', accent_color)
+                
+                # Save event date range setting
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('event_date_range_months', ?)", 
+                           (event_date_range_months,))
+                conn.commit()
+                
                 flash('Organization branding updated successfully!', 'success')
             else:
                 flash('Organization name is required', 'danger')
@@ -1265,11 +1292,13 @@ def admin_branding():
     # GET request - fetch current settings
     current_logo = get_logo_filename()
     current_favicon = get_favicon_filename()
+    event_date_range_months = get_event_date_range_months()
     conn.close()
     
     return render_template('admin/branding.html',
                          current_logo=current_logo,
-                         current_favicon=current_favicon)
+                         current_favicon=current_favicon,
+                         event_date_range_months=event_date_range_months)
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @require_auth
