@@ -2056,6 +2056,204 @@ def admin_import_events():
         return redirect(url_for('admin_events'))
     return render_template('admin/import_events.html')
 
+@app.route('/admin/events/add', methods=['GET', 'POST'])
+@require_auth
+def admin_add_event():
+    """Manually add a new event"""
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        date = request.form.get('date', '').strip()
+        time = request.form.get('time', '').strip()
+        end_time = request.form.get('end_time', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        if not name or not date:
+            flash('Event name and date are required', 'danger')
+            return redirect(request.url)
+        
+        try:
+            # Combine date and time into ISO format
+            if time:
+                start_datetime = f"{date}T{time}:00"
+            else:
+                start_datetime = f"{date}T00:00:00"
+            
+            if end_time:
+                end_datetime = f"{date}T{end_time}:00"
+            else:
+                end_datetime = None
+            
+            conn = get_db()
+            conn.execute("INSERT INTO events (name, start_time, end_time, description) VALUES (?, ?, ?, ?)",
+                        (name, start_datetime, end_datetime, description))
+            conn.commit()
+            conn.close()
+            
+            flash(f'Event "{name}" added successfully!', 'success')
+            return redirect(url_for('admin_events'))
+            
+        except Exception as e:
+            flash(f'Error adding event: {str(e)}', 'danger')
+            return redirect(request.url)
+    
+    return render_template('admin/add_event.html')
+
+@app.route('/admin/events/edit/<int:event_id>', methods=['GET', 'POST'])
+@require_auth
+def admin_edit_event(event_id):
+    """Edit an existing event"""
+    conn = get_db()
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        date = request.form.get('date', '').strip()
+        time = request.form.get('time', '').strip()
+        end_time = request.form.get('end_time', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        if not name or not date:
+            flash('Event name and date are required', 'danger')
+            return redirect(request.url)
+        
+        try:
+            # Combine date and time
+            if time:
+                start_datetime = f"{date}T{time}:00"
+            else:
+                start_datetime = f"{date}T00:00:00"
+            
+            if end_time:
+                end_datetime = f"{date}T{end_time}:00"
+            else:
+                end_datetime = None
+            
+            conn.execute("UPDATE events SET name = ?, start_time = ?, end_time = ?, description = ? WHERE id = ?",
+                        (name, start_datetime, end_datetime, description, event_id))
+            conn.commit()
+            conn.close()
+            
+            flash(f'Event "{name}" updated successfully!', 'success')
+            return redirect(url_for('admin_events'))
+            
+        except Exception as e:
+            flash(f'Error updating event: {str(e)}', 'danger')
+            conn.close()
+            return redirect(request.url)
+    
+    # GET request - load event data
+    event = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+    conn.close()
+    
+    if not event:
+        flash('Event not found', 'danger')
+        return redirect(url_for('admin_events'))
+    
+    return render_template('admin/edit_event.html', event=event)
+
+@app.route('/admin/events/delete/<int:event_id>', methods=['POST'])
+@require_auth
+def admin_delete_event(event_id):
+    """Delete an event"""
+    conn = get_db()
+    event = conn.execute("SELECT name FROM events WHERE id = ?", (event_id,)).fetchone()
+    
+    if event:
+        conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
+        conn.commit()
+        flash(f'Event "{event["name"]}" deleted successfully!', 'success')
+    else:
+        flash('Event not found', 'danger')
+    
+    conn.close()
+    return redirect(url_for('admin_events'))
+
+@app.route('/admin/events/clear', methods=['POST'])
+@require_auth
+def admin_clear_events():
+    """Delete all events"""
+    conn = get_db()
+    conn.execute("DELETE FROM events")
+    conn.commit()
+    conn.close()
+    flash('All events cleared!', 'info')
+    return redirect(url_for('admin_events'))
+
+@app.route('/admin/history/export')
+@require_auth
+def export_checkin_history():
+    """Export all check-in history to CSV"""
+    conn = get_db()
+    
+    # Fetch all check-ins with family and kid information
+    history = conn.execute("""
+        SELECT 
+            c.id,
+            c.kid_id,
+            k.name as kid_name,
+            f.phone,
+            f.troop,
+            e.name as event_name,
+            e.start_time as event_date,
+            c.checkin_time,
+            c.checkout_time,
+            c.checkout_code
+        FROM checkins c
+        JOIN kids k ON c.kid_id = k.id
+        JOIN families f ON k.family_id = f.id
+        LEFT JOIN events e ON c.event_id = e.id
+        ORDER BY c.checkin_time DESC
+    """).fetchall()
+    
+    conn.close()
+    
+    # Build CSV data
+    csv_data = []
+    csv_data.append(['Check-in ID', 'Kid Name', 'Phone', 'Group', 'Event', 'Event Date', 
+                     'Check-in Time', 'Check-out Time', 'Checkout Code', 'Status'])
+    
+    for record in history:
+        # Parse timestamps
+        checkin_time = record['checkin_time']
+        checkout_time = record['checkout_time'] or ''
+        
+        # Format event date
+        event_date = ''
+        if record['event_date']:
+            try:
+                dt = datetime.fromisoformat(record['event_date'])
+                event_date = dt.strftime('%Y-%m-%d %H:%M')
+            except:
+                event_date = record['event_date'][:16]
+        
+        # Determine status
+        status = 'Checked Out' if record['checkout_time'] else 'Checked In'
+        
+        csv_data.append([
+            record['id'],
+            record['kid_name'],
+            record['phone'] or '',
+            record['troop'] or '',
+            record['event_name'] or 'No Event',
+            event_date,
+            checkin_time,
+            checkout_time,
+            record['checkout_code'] or '',
+            status
+        ])
+    
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerows(csv_data)
+    
+    response = app.response_class(
+        response=output.getvalue(),
+        status=200,
+        mimetype='text/csv'
+    )
+    response.headers['Content-Disposition'] = f'attachment; filename=checkin_history_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    return response
+
 if __name__ == '__main__':
     # ensure DB exists when running the server directly
     ensure_db()

@@ -46,7 +46,8 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ### 📊 Event Management
 - **iCal Import**: Auto-import from Google Calendar, Outlook, etc.
-- **Manual Entry**: Create events directly in the system
+- **Manual Entry**: Create, edit, and delete events directly in the system
+- **Bulk Operations**: Clear all events with one click
 - **Date Range Control**: Configurable event dropdown (±1 to ±12 months)
 - **Event History**: Track attendance across events
 
@@ -54,6 +55,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Configuration Export**: JSON backup of all settings
 - **Configuration Import**: Restore settings from backup
 - **Family Export**: CSV export of all family data
+- **History Export**: CSV export of all check-in/check-out records
 - **Disaster Recovery**: Complete backup/restore workflow
 
 ## 🚀 Quick Start
@@ -112,8 +114,27 @@ A secure, flexible check-in/check-out system for youth organizations including T
    - Complete the setup wizard
    - Start checking in families!
 
+### Docker Deployment
+
+For containerized deployment with Docker:
+
+```bash
+# Clone and configure
+git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
+cd youth-secure-checkin
+cp .env.docker .env
+
+# Build and run
+docker-compose up -d
+
+# Access at http://localhost:5000
+```
+
+See **[DOCKER.md](DOCKER.md)** for complete Docker deployment guide including production setup with Nginx and SSL.
+
 ## 📖 Documentation
 
+- **[Docker Guide](DOCKER.md)** - Complete containerized deployment
 - **[Deployment Guide](DEPLOYMENT.md)** - Production deployment instructions
 - **[Security Guide](SECURITY.md)** - Security best practices and configuration
 - **[Export Features](EXPORT_FEATURES.md)** - Backup and restore documentation
@@ -236,10 +257,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: [GitHub Issues](../../issues)
 - **Discussions**: [GitHub Discussions](../../discussions)
 - **Wiki**: [Project Wiki](../../wiki)
-
-## 🔐 Security
-
-For security concerns, please email security@example.com (update with your contact) or open a private security advisory.
 
 ---
 
