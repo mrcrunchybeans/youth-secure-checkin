@@ -918,17 +918,8 @@ def unlock_override():
     """Unlock the override password section with developer password"""
     dev_password = request.form.get('dev_password', '').strip()
     
-    # Debug logging to file
-    try:
-        with open('/tmp/unlock_debug.log', 'a') as f:
-            f.write(f"=== Unlock attempt at {datetime.now()} ===\n")
-            f.write(f"Received password: '{dev_password}' (len={len(dev_password)})\n")
-            f.write(f"Expected password: '{DEVELOPER_PASSWORD}' (len={len(DEVELOPER_PASSWORD) if DEVELOPER_PASSWORD else 0})\n")
-            f.write(f"DEVELOPER_PASSWORD is None: {DEVELOPER_PASSWORD is None}\n")
-            f.write(f"Passwords match: {dev_password == DEVELOPER_PASSWORD}\n")
-            f.write(f"Match result: {dev_password == DEVELOPER_PASSWORD}\n\n")
-    except Exception as e:
-        pass
+    # Always show this to confirm route is being called
+    flash(f'Route called! Password received (len={len(dev_password)}), Expected (len={len(DEVELOPER_PASSWORD) if DEVELOPER_PASSWORD else 0})', 'info')
     
     if DEVELOPER_PASSWORD is None:
         flash('Developer password not configured in .env file!', 'danger')
@@ -936,7 +927,7 @@ def unlock_override():
         session['override_unlocked'] = True
         flash('Override settings unlocked!', 'success')
     else:
-        flash('Invalid developer password!', 'danger')
+        flash(f'Invalid! Received: "{dev_password}" vs Expected: "{DEVELOPER_PASSWORD}"', 'danger')
     
     return redirect(url_for('admin_settings'))
 
