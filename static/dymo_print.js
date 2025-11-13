@@ -1,7 +1,7 @@
 // DYMO Label Printer - Client-Side Printing
 // This allows printing to a locally connected DYMO printer from the browser
 
-function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode) {
+function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode, labelSize = '30336') {
     try {
         // Check if DYMO framework is loaded
         if (typeof dymo === 'undefined') {
@@ -15,8 +15,152 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
             return false;
         }
 
-        // Create label XML for DYMO LabelWriter (1" x 2.125" label - 30336)
-        var labelXml = `<?xml version="1.0" encoding="utf-8"?>
+        // Select label XML based on label size
+        var labelXml;
+        
+        if (labelSize === '30334') {
+            // Dymo 30334 - 2¼" × 1¼" (Landscape)
+            labelXml = `<?xml version="1.0" encoding="utf-8"?>
+<DieCutLabel Version="8.0" Units="twips">
+    <PaperOrientation>Landscape</PaperOrientation>
+    <Id>Medium</Id>
+    <IsOutlined>false</IsOutlined>
+    <PaperName>30334 2-1/4 in x 1-1/4 in</PaperName>
+    <DrawCommands/>
+    <ObjectInfo>
+        <TextObject>
+            <Name>KidName</Name>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName/>
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>True</IsVariable>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String>${kidName}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="16" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="50" Y="50" Width="2200" Height="300" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <Name>EventInfo</Name>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName/>
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>True</IsVariable>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String>${eventName.substring(0, 25)}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="9" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="50" Y="340" Width="1400" Height="180" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <Name>DateTime</Name>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName/>
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>True</IsVariable>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String>${eventDate} ${checkinTime}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="50" Y="510" Width="1400" Height="160" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <Name>CodeLabel</Name>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName/>
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>True</IsVariable>
+            <HorizontalAlignment>Right</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String>Code:</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="10" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="1450" Y="340" Width="800" Height="330" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <Name>CheckoutCode</Name>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName/>
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>True</IsVariable>
+            <HorizontalAlignment>Center</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String>${checkoutCode}</String>
+                    <Attributes>
+                        <Font Family="Courier New" Size="22" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="1450" Y="50" Width="800" Height="300" />
+    </ObjectInfo>
+</DieCutLabel>`;
+        } else {
+            // Dymo 30336 - 1" × 2⅛" (Portrait) - Default
+            labelXml = `<?xml version="1.0" encoding="utf-8"?>
 <DieCutLabel Version="8.0" Units="twips">
     <PaperOrientation>Portrait</PaperOrientation>
     <Id>Small</Id>
@@ -154,6 +298,7 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
         <Bounds X="50" Y="830" Width="1340" Height="400" />
     </ObjectInfo>
 </DieCutLabel>`;
+        }
 
         // Load the label
         var label = dymo.label.framework.openLabelXml(labelXml);

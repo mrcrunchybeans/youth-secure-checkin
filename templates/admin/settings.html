@@ -103,16 +103,14 @@
               </select>
             </div>
 
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label for="label_width" class="form-label" style="font-weight: 600; color: #333;">Label Width (inches)</label>
-              <input type="number" step="0.1" class="form-control form-control-lg" id="label_width" name="label_width" 
-                     value="{{ label_settings.label_width or '2.0' }}" style="border: 2px solid #dee2e6;">
-            </div>
-            <div class="col-md-6 mb-3">
-              <label for="label_height" class="form-label" style="font-weight: 600; color: #333;">Label Height (inches)</label>
-              <input type="number" step="0.1" class="form-control form-control-lg" id="label_height" name="label_height" 
-                     value="{{ label_settings.label_height or '1.0' }}" style="border: 2px solid #dee2e6;">
+          <div class="mb-3">
+            <label for="label_size" class="form-label" style="font-weight: 600; color: #333;">Label Size</label>
+            <select class="form-select form-select-lg" id="label_size" name="label_size" style="border: 2px solid #dee2e6;">
+              <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>Dymo 30336 - 1" × 2⅛" (Small, Portrait)</option>
+              <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>Dymo 30334 - 2¼" × 1¼" (Medium, Landscape)</option>
+            </select>
+            <div class="form-text" style="font-size: 0.9rem;">
+              Select the Dymo label size you're using. The label layout will automatically adjust.
             </div>
           </div>
           </div>

@@ -413,13 +413,12 @@ def checkin_selected():
     checkout_method = checkout_method_setting[0] if checkout_method_setting else 'qr'  # Default to QR
     
     # Get label printer settings if printing is needed
+    label_size = '30336'  # Default
     if require_codes and checkout_method in ['label', 'both'] and LABEL_PRINTING_AVAILABLE:
         printer_type = conn.execute("SELECT value FROM settings WHERE key = 'label_printer_type'").fetchone()
-        label_width = conn.execute("SELECT value FROM settings WHERE key = 'label_width'").fetchone()
-        label_height = conn.execute("SELECT value FROM settings WHERE key = 'label_height'").fetchone()
+        label_size_setting = conn.execute("SELECT value FROM settings WHERE key = 'label_size'").fetchone()
         printer_type = printer_type[0] if printer_type else 'dymo'
-        label_width = float(label_width[0]) if label_width else 2.0
-        label_height = float(label_height[0]) if label_height else 1.0
+        label_size = label_size_setting[0] if label_size_setting else '30336'
         
         # Get event info for label
         event_row = conn.execute("SELECT name, start_time FROM events WHERE id = ?", (event_id,)).fetchone()
@@ -554,6 +553,7 @@ def checkin_selected():
         'success': True, 
         'message': f'Checked in {checked_in_count} kid(s)',
         'labels': labels_to_print,
+        'label_size': label_size,
         'checkins': checked_in_data,
         'share_token': share_token,
         'qr_code': qr_code_data,
@@ -946,19 +946,17 @@ def admin_settings():
                 flash('App password updated successfully!', 'success')
         
         # Handle label printing settings (check if any label setting fields are present)
-        elif 'label_printer_type' in request.form or 'label_width' in request.form or 'checkout_code_method' in request.form:
+        elif 'label_printer_type' in request.form or 'label_size' in request.form or 'checkout_code_method' in request.form:
             # Checkbox only appears in form data if checked, so we check explicitly
             require_codes = 'true' if request.form.get('require_checkout_code') == 'on' else 'false'
             checkout_code_method = request.form.get('checkout_code_method', 'qr').strip()
             printer_type = request.form.get('label_printer_type', 'dymo').strip()
-            label_width = request.form.get('label_width', '2.0').strip()
-            label_height = request.form.get('label_height', '1.0').strip()
+            label_size = request.form.get('label_size', '30336').strip()
             
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_codes,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_code_method', ?)", (checkout_code_method,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_width', ?)", (label_width,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_height', ?)", (label_height,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_size', ?)", (label_size,))
             conn.commit()
             flash('Checkout code settings updated successfully!', 'success')
         
@@ -971,7 +969,7 @@ def admin_settings():
     
     # Fetch label printing settings
     label_settings = {}
-    for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_width', 'label_height']:
+    for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         label_settings[key] = row[0] if row else None
     
