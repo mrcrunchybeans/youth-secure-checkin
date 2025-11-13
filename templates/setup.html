@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Setup - Check-In System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .setup-container {
+            max-width: 700px;
+            width: 100%;
+        }
+        .setup-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .setup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .setup-body {
+            padding: 2rem;
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dee2e6;
+            transition: all 0.3s;
+        }
+        .step-dot.active {
+            background: #667eea;
+            width: 30px;
+            border-radius: 6px;
+        }
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+        }
+        .color-preview {
+            width: 100%;
+            height: 60px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-top: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn-setup {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        .btn-setup:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+        .feature-badge {
+            display: inline-block;
+            background: #e7f3ff;
+            color: #0066cc;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-card">
+            <div class="setup-header">
+                <i class="bi bi-gear-fill" style="font-size: 3rem;"></i>
+                <h2 class="mt-3 mb-2">Welcome to Check-In System</h2>
+                <p class="mb-0">Let's get your organization set up in just a few steps</p>
+            </div>
+            
+            <div class="setup-body">
+                <div class="step-indicator">
+                    <div class="step-dot active"></div>
+                    <div class="step-dot"></div>
+                    <div class="step-dot"></div>
+                    <div class="step-dot"></div>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, msg in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ msg }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" enctype="multipart/form-data">
+                    <!-- Step 1: Organization Info -->
+                    <div class="mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-building"></i> Organization Details
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label for="organization_name" class="form-label">Organization Name *</label>
+                            <input type="text" class="form-control form-control-lg" id="organization_name" 
+                                   name="organization_name" required 
+                                   placeholder="e.g., First Baptist Church, Trail Life Troop 4603">
+                            <small class="text-muted">This will appear on login and throughout the system</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="organization_type" class="form-label">Organization Type *</label>
+                                <select class="form-select form-select-lg" id="organization_type" name="organization_type" required>
+                                    <option value="">Choose...</option>
+                                    <option value="church">Church / Ministry</option>
+                                    <option value="youth_group">Youth Group / Scouts</option>
+                                    <option value="troop">Troop / Unit</option>
+                                    <option value="sports_team">Sports Team / Club</option>
+                                    <option value="school">School / Education</option>
+                                    <option value="daycare">Daycare / Childcare</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="group_term" class="form-label">What do you call your groups? *</label>
+                                <input type="text" class="form-control form-control-lg" id="group_term" 
+                                       name="group_term" required value="Group"
+                                       placeholder="e.g., Troop, Class, Team, Group">
+                                <small class="text-muted">Singular form (e.g., "Class" not "Classes")</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Brand Colors -->
+                    <div class="mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-palette-fill"></i> Brand Colors
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="primary_color" class="form-label">Primary Color *</label>
+                                <input type="color" class="form-control form-control-color w-100" 
+                                       id="primary_color" name="primary_color" value="#667eea" required
+                                       style="height: 50px;">
+                                <small class="text-muted">Main brand color</small>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <label for="secondary_color" class="form-label">Secondary Color *</label>
+                                <input type="color" class="form-control form-control-color w-100" 
+                                       id="secondary_color" name="secondary_color" value="#764ba2" required
+                                       style="height: 50px;">
+                                <small class="text-muted">Accent color</small>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <label for="accent_color" class="form-label">Additional Accent *</label>
+                                <input type="color" class="form-control form-control-color w-100" 
+                                       id="accent_color" name="accent_color" value="#48bb78" required
+                                       style="height: 50px;">
+                                <small class="text-muted">Third color</small>
+                            </div>
+                        </div>
+
+                        <div id="color-preview" class="color-preview">
+                            <span>Preview: Your Brand Colors</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Branding Assets (Optional) -->
+                    <div class="mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-image-fill"></i> Branding Assets
+                            <small class="text-muted">(Optional)</small>
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label for="favicon" class="form-label">Favicon</label>
+                            <input type="file" class="form-control" id="favicon" name="favicon" 
+                                   accept="image/x-icon,image/png,image/jpeg">
+                            <small class="text-muted">Upload a .ico, .png, or .jpg file (recommended: 32x32 pixels)</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="logo" class="form-label">Logo</label>
+                            <input type="file" class="form-control" id="logo" name="logo" 
+                                   accept="image/png,image/jpeg">
+                            <small class="text-muted">Upload a .png or .jpg file for your organization's logo</small>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Security -->
+                    <div class="mb-4">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-shield-lock-fill"></i> Security Settings
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label for="admin_password" class="form-label">Admin Access Code *</label>
+                            <input type="password" class="form-control form-control-lg" id="admin_password" 
+                                   name="admin_password" required minlength="4"
+                                   placeholder="Create a secure access code">
+                            <small class="text-muted">4+ characters. This will be used to access the admin panel.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="admin_password_confirm" class="form-label">Confirm Access Code *</label>
+                            <input type="password" class="form-control form-control-lg" id="admin_password_confirm" 
+                                   name="admin_password_confirm" required minlength="4"
+                                   placeholder="Re-enter your access code">
+                        </div>
+                    </div>
+
+                    <!-- Features Overview -->
+                    <div class="alert alert-info mb-4">
+                        <h6 class="mb-2"><i class="bi bi-check-circle-fill"></i> What's Included</h6>
+                        <div>
+                            <span class="feature-badge"><i class="bi bi-qr-code"></i> QR Check-Out Codes</span>
+                            <span class="feature-badge"><i class="bi bi-printer"></i> Label Printing</span>
+                            <span class="feature-badge"><i class="bi bi-people"></i> Family Management</span>
+                            <span class="feature-badge"><i class="bi bi-calendar-event"></i> Event Scheduling</span>
+                            <span class="feature-badge"><i class="bi bi-clock-history"></i> Check-In History</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-setup btn-lg">
+                            <i class="bi bi-rocket-takeoff-fill me-2"></i>
+                            Complete Setup & Launch System
+                        </button>
+                    </div>
+
+                    <p class="text-center text-muted mt-3 mb-0">
+                        <small>You can change these settings anytime in Admin → Settings</small>
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        <div class="text-center mt-3">
+            <small class="text-white">
+                <i class="bi bi-github"></i> 
+                Open Source Check-In System • Customizable for any organization
+            </small>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Live color preview
+        const primaryColor = document.getElementById('primary_color');
+        const secondaryColor = document.getElementById('secondary_color');
+        const preview = document.getElementById('color-preview');
+
+        function updatePreview() {
+            preview.style.background = `linear-gradient(135deg, ${primaryColor.value} 0%, ${secondaryColor.value} 100%)`;
+        }
+
+        primaryColor.addEventListener('input', updatePreview);
+        secondaryColor.addEventListener('input', updatePreview);
+        updatePreview();
+
+        // Password confirmation validation
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            const password = document.getElementById('admin_password').value;
+            const confirm = document.getElementById('admin_password_confirm').value;
+            
+            if (password !== confirm) {
+                e.preventDefault();
+                alert('Access codes do not match. Please try again.');
+                document.getElementById('admin_password_confirm').focus();
+            }
+        });
+    </script>
+</body>
+</html>

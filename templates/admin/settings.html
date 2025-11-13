@@ -230,6 +230,7 @@
               <select class="form-select form-select-sm" id="organization_type" name="organization_type">
                 <option value="church" {% if branding.organization_type == 'church' %}selected{% endif %}>Church</option>
                 <option value="youth_group" {% if branding.organization_type == 'youth_group' %}selected{% endif %}>Youth Group</option>
+                <option value="troop" {% if branding.organization_type == 'troop' %}selected{% endif %}>Troop</option>
                 <option value="sports_team" {% if branding.organization_type == 'sports_team' %}selected{% endif %}>Sports Team</option>
                 <option value="school" {% if branding.organization_type == 'school' %}selected{% endif %}>School</option>
                 <option value="daycare" {% if branding.organization_type == 'daycare' %}selected{% endif %}>Daycare</option>
@@ -316,6 +317,39 @@
                 </button>
                 {% if current_logo %}
                 <button type="submit" name="action" value="remove_logo" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove logo?');">
+                  <i class="bi bi-trash"></i> Remove
+                </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <form method="POST" enctype="multipart/form-data">
+          <h6 class="mb-3 pb-2 border-bottom small fw-bold text-muted">Favicon</h6>
+          <div class="row g-3">
+            {% if current_favicon %}
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold mb-1">Current Favicon</label>
+              <div class="border rounded p-2 text-center bg-light">
+                <img src="{{ url_for('static', filename='uploads/' + current_favicon) }}" alt="Favicon" style="max-height: 32px; max-width: 32px;">
+              </div>
+            </div>
+            <div class="col-md-8">
+            {% else %}
+            <div class="col-12">
+            {% endif %}
+              <label for="favicon_file" class="form-label small fw-semibold mb-1">
+                {% if current_favicon %}Replace Favicon{% else %}Upload Favicon{% endif %}
+              </label>
+              <input type="file" class="form-control form-control-sm" id="favicon_file" name="favicon_file" accept="image/x-icon,image/png,image/jpeg,image/jpg">
+              <div class="text-muted small mt-1">ICO, PNG, or JPG • Recommended 32x32 pixels</div>
+              <div class="mt-2">
+                <button type="submit" name="action" value="upload_favicon" class="btn btn-sm" style="background: {{ branding.secondary_color }}; color: white;">
+                  <i class="bi bi-{% if current_favicon %}arrow-repeat{% else %}upload{% endif %}"></i> {% if current_favicon %}Replace{% else %}Upload{% endif %}
+                </button>
+                {% if current_favicon %}
+                <button type="submit" name="action" value="remove_favicon" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove favicon?');">
                   <i class="bi bi-trash"></i> Remove
                 </button>
                 {% endif %}

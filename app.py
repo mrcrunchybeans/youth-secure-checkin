@@ -134,9 +134,11 @@ def check_authenticated():
     """Check if user is authenticated"""
     return session.get('authenticated', False)
 
-def allowed_file(filename):
+def allowed_file(filename, allowed_extensions=None):
     """Check if file extension is allowed"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    if allowed_extensions is None:
+        allowed_extensions = ALLOWED_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def get_logo_filename():
     """Get the current logo filename from settings"""
@@ -156,6 +158,24 @@ def set_logo_filename(filename):
     conn.commit()
     conn.close()
 
+def get_favicon_filename():
+    """Get the current favicon filename from settings"""
+    conn = get_db()
+    cur = conn.execute("SELECT value FROM settings WHERE key = 'favicon_filename'")
+    row = cur.fetchone()
+    conn.close()
+    return row['value'] if row else None
+
+def set_favicon_filename(filename):
+    """Set the favicon filename in settings"""
+    conn = get_db()
+    if filename:
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('favicon_filename', ?)", (filename,))
+    else:
+        conn.execute("DELETE FROM settings WHERE key = 'favicon_filename'")
+    conn.commit()
+    conn.close()
+
 def get_branding_settings():
     """Get all branding/customization settings for templates"""
     conn = get_db()
@@ -168,6 +188,7 @@ def get_branding_settings():
         'accent_color': '#4a582d',
         'group_term': 'Group',
         'group_term_lower': 'group',
+        'favicon_filename': None,
     }
     
     for key, default in defaults.items():
@@ -1032,6 +1053,45 @@ def admin_settings():
                 set_logo_filename(None)
                 flash('Logo removed successfully!', 'success')
         
+        # Handle favicon upload
+        elif action == 'upload_favicon':
+            if 'favicon_file' not in request.files:
+                flash('No file selected', 'danger')
+            else:
+                file = request.files['favicon_file']
+                if file.filename == '':
+                    flash('No file selected', 'danger')
+                elif not allowed_file(file.filename, allowed_extensions={'png', 'jpg', 'jpeg', 'ico'}):
+                    flash('Invalid file type. Please upload ICO, PNG, or JPG.', 'danger')
+                else:
+                    # Delete old favicon if exists
+                    old_favicon = get_favicon_filename()
+                    if old_favicon:
+                        old_path = app.config['UPLOAD_FOLDER'] / old_favicon
+                        if old_path.exists():
+                            old_path.unlink()
+                    
+                    # Save new favicon
+                    filename = secure_filename(file.filename)
+                    # Add timestamp to avoid caching issues
+                    name, ext = os.path.splitext(filename)
+                    filename = f"favicon_{int(time.time())}{ext}"
+                    filepath = app.config['UPLOAD_FOLDER'] / filename
+                    file.save(str(filepath))
+                    
+                    set_favicon_filename(filename)
+                    flash('Favicon uploaded successfully!', 'success')
+        
+        # Handle favicon removal
+        elif action == 'remove_favicon':
+            old_favicon = get_favicon_filename()
+            if old_favicon:
+                old_path = app.config['UPLOAD_FOLDER'] / old_favicon
+                if old_path.exists():
+                    old_path.unlink()
+                set_favicon_filename(None)
+                flash('Favicon removed successfully!', 'success')
+        
         # Handle password changes
         elif request.form.get('new_password') or request.form.get('new_override_password'):
             # Update login access code
@@ -1068,6 +1128,7 @@ def admin_settings():
     current_password = get_app_password()
     current_override_password = get_override_password()
     current_logo = get_logo_filename()
+    current_favicon = get_favicon_filename()
     
     # Check if override section is unlocked (persists during session)
     override_unlocked = session.get('override_unlocked', False)
@@ -1086,7 +1147,8 @@ def admin_settings():
                          override_unlocked=override_unlocked,
                          dev_password_set=bool(DEVELOPER_PASSWORD),
                          label_settings=label_settings,
-                         current_logo=current_logo)
+                         current_logo=current_logo,
+                         current_favicon=current_favicon)
 
 @app.route('/admin/families')
 @require_auth
