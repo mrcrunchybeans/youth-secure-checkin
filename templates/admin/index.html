@@ -41,8 +41,73 @@
         </div>
       </div>
     </div>
+    <div class="col-md-4">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h5>Backup & Restore</h5>
+          <p>Export and restore configuration backups.</p>
+          <div class="d-flex gap-2">
+            <a href="/admin/backup/export" class="btn btn-success flex-fill">
+              <i class="bi bi-download"></i> Export
+            </a>
+            <button type="button" class="btn btn-warning flex-fill" data-bs-toggle="modal" data-bs-target="#restoreBackupModal">
+              <i class="bi bi-upload"></i> Restore
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <a href="/" class="btn btn-outline-secondary mt-3">← Back to Check-in</a>
   <a href="/logout" class="btn btn-outline-danger mt-3 ms-2">🔒 Logout</a>
 </div>
+
+<!-- Restore Backup Modal -->
+<div class="modal fade" id="restoreBackupModal" tabindex="-1" aria-labelledby="restoreBackupModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="restoreBackupModalLabel">
+          <i class="bi bi-upload"></i> Restore Configuration Backup
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="/admin/backup/import" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>Warning:</strong> This will overwrite your current configuration settings including:
+            <ul class="mb-0 mt-2">
+              <li>Organization branding and colors</li>
+              <li>Access codes and passwords</li>
+              <li>Event date range settings</li>
+              <li>Label printing settings</li>
+            </ul>
+          </div>
+          
+          <div class="mb-3">
+            <label for="backup_file" class="form-label">Select Backup File</label>
+            <input type="file" class="form-control" id="backup_file" name="backup_file" 
+                   accept=".json" required>
+            <div class="form-text">
+              Upload a JSON backup file previously exported from this system.
+            </div>
+          </div>
+          
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Tip:</strong> Export a current backup before restoring to have a rollback option.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-upload"></i> Restore Backup
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

@@ -1154,16 +1154,16 @@ def import_configuration():
     """Import/restore configuration settings from JSON backup"""
     if 'backup_file' not in request.files:
         flash('No file selected', 'danger')
-        return redirect(url_for('admin_security'))
+        return redirect(url_for('admin_index'))
     
     file = request.files['backup_file']
     if file.filename == '':
         flash('No file selected', 'danger')
-        return redirect(url_for('admin_security'))
+        return redirect(url_for('admin_index'))
     
     if not file.filename.endswith('.json'):
         flash('Invalid file type. Please upload a JSON backup file.', 'danger')
-        return redirect(url_for('admin_security'))
+        return redirect(url_for('admin_index'))
     
     try:
         # Read and parse JSON
@@ -1173,7 +1173,7 @@ def import_configuration():
         # Validate backup structure
         if 'settings' not in backup:
             flash('Invalid backup file format', 'danger')
-            return redirect(url_for('admin_security'))
+            return redirect(url_for('admin_index'))
         
         settings = backup['settings']
         conn = get_db()
@@ -1200,7 +1200,7 @@ def import_configuration():
     except Exception as e:
         flash(f'Error importing configuration: {str(e)}', 'danger')
     
-    return redirect(url_for('admin_security'))
+    return redirect(url_for('admin_index'))
 
 @app.route('/admin/unlock_override', methods=['POST'])
 @require_auth
