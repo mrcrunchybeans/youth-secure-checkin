@@ -1089,7 +1089,187 @@ def unlock_override():
     else:
         flash('Invalid developer password!', 'danger')
     
-    return redirect(url_for('admin_settings'))
+    return redirect(url_for('admin_security'))
+
+@app.route('/admin/security', methods=['GET', 'POST'])
+@require_auth
+def admin_security():
+    """Security settings page - access codes and checkout settings"""
+    conn = get_db()
+    
+    if request.method == 'POST':
+        # Handle password changes
+        if request.form.get('new_password') or request.form.get('new_override_password'):
+            # Update login access code
+            new_password = request.form.get('new_password', '').strip()
+            if new_password:
+                set_app_password(new_password)
+                flash('Login access code updated successfully!', 'success')
+            
+            # Update admin override checkout code
+            new_override = request.form.get('new_override_password', '').strip()
+            if new_override:
+                set_override_password(new_override)
+                flash('Admin override checkout code updated successfully!', 'success')
+        
+        # Handle label printing settings
+        elif 'require_checkout_code' in request.form or 'checkout_code_method' in request.form:
+            require_codes = 'true' if request.form.get('require_checkout_code') else 'false'
+            checkout_code_method = request.form.get('checkout_code_method', 'qr')
+            printer_type = request.form.get('label_printer_type', 'dymo')
+            label_size = request.form.get('label_size', '30336')
+            
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_codes,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_code_method', ?)", (checkout_code_method,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_size', ?)", (label_size,))
+            conn.commit()
+            flash('Checkout code settings updated successfully!', 'success')
+        
+        conn.close()
+        return redirect(url_for('admin_security'))
+    
+    # GET request - fetch current settings
+    current_password = get_app_password()
+    current_override_password = get_override_password()
+    
+    # Check if override section is unlocked (persists during session)
+    override_unlocked = session.get('override_unlocked', False)
+    
+    # Fetch label printing settings
+    label_settings = {}
+    for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        label_settings[key] = row[0] if row else None
+    
+    conn.close()
+    
+    return render_template('admin/security.html', 
+                         current_password=current_password,
+                         current_override_password=current_override_password,
+                         override_unlocked=override_unlocked,
+                         dev_password_set=bool(DEVELOPER_PASSWORD),
+                         label_settings=label_settings)
+
+@app.route('/admin/branding', methods=['GET', 'POST'])
+@require_auth
+def admin_branding():
+    """Branding settings page - organization details, colors, logo, favicon"""
+    conn = get_db()
+    
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        
+        # Handle branding updates
+        if action == 'update_branding':
+            organization_name = request.form.get('organization_name', '').strip()
+            organization_type = request.form.get('organization_type', 'other')
+            group_term = request.form.get('group_term', 'Group').strip()
+            primary_color = request.form.get('primary_color', '#79060d').strip()
+            secondary_color = request.form.get('secondary_color', '#003b59').strip()
+            accent_color = request.form.get('accent_color', '#4a582d').strip()
+            
+            if organization_name:
+                set_branding_setting('organization_name', organization_name)
+                set_branding_setting('organization_type', organization_type)
+                set_branding_setting('group_term', group_term)
+                set_branding_setting('group_term_lower', group_term.lower())
+                set_branding_setting('primary_color', primary_color)
+                set_branding_setting('secondary_color', secondary_color)
+                set_branding_setting('accent_color', accent_color)
+                flash('Organization branding updated successfully!', 'success')
+            else:
+                flash('Organization name is required', 'danger')
+            
+            return redirect(url_for('admin_branding'))
+        
+        # Handle logo upload
+        elif action == 'upload_logo':
+            if 'logo_file' not in request.files:
+                flash('No file selected', 'danger')
+            else:
+                file = request.files['logo_file']
+                if file.filename == '':
+                    flash('No file selected', 'danger')
+                elif not allowed_file(file.filename):
+                    flash('Invalid file type. Please upload PNG, JPG, or SVG.', 'danger')
+                else:
+                    # Delete old logo if exists
+                    old_logo = get_logo_filename()
+                    if old_logo:
+                        old_path = app.config['UPLOAD_FOLDER'] / old_logo
+                        if old_path.exists():
+                            old_path.unlink()
+                    
+                    # Save new logo
+                    filename = secure_filename(file.filename)
+                    name, ext = os.path.splitext(filename)
+                    filename = f"logo_{int(time.time())}{ext}"
+                    filepath = app.config['UPLOAD_FOLDER'] / filename
+                    file.save(str(filepath))
+                    
+                    set_logo_filename(filename)
+                    flash('Logo uploaded successfully!', 'success')
+        
+        # Handle logo removal
+        elif action == 'remove_logo':
+            old_logo = get_logo_filename()
+            if old_logo:
+                old_path = app.config['UPLOAD_FOLDER'] / old_logo
+                if old_path.exists():
+                    old_path.unlink()
+                set_logo_filename(None)
+                flash('Logo removed successfully!', 'success')
+        
+        # Handle favicon upload
+        elif action == 'upload_favicon':
+            if 'favicon_file' not in request.files:
+                flash('No file selected', 'danger')
+            else:
+                file = request.files['favicon_file']
+                if file.filename == '':
+                    flash('No file selected', 'danger')
+                elif not allowed_file(file.filename, allowed_extensions={'png', 'jpg', 'jpeg', 'ico'}):
+                    flash('Invalid file type. Please upload ICO, PNG, or JPG.', 'danger')
+                else:
+                    # Delete old favicon if exists
+                    old_favicon = get_favicon_filename()
+                    if old_favicon:
+                        old_path = app.config['UPLOAD_FOLDER'] / old_favicon
+                        if old_path.exists():
+                            old_path.unlink()
+                    
+                    # Save new favicon
+                    filename = secure_filename(file.filename)
+                    name, ext = os.path.splitext(filename)
+                    filename = f"favicon_{int(time.time())}{ext}"
+                    filepath = app.config['UPLOAD_FOLDER'] / filename
+                    file.save(str(filepath))
+                    
+                    set_favicon_filename(filename)
+                    flash('Favicon uploaded successfully!', 'success')
+        
+        # Handle favicon removal
+        elif action == 'remove_favicon':
+            old_favicon = get_favicon_filename()
+            if old_favicon:
+                old_path = app.config['UPLOAD_FOLDER'] / old_favicon
+                if old_path.exists():
+                    old_path.unlink()
+                set_favicon_filename(None)
+                flash('Favicon removed successfully!', 'success')
+        
+        conn.close()
+        return redirect(url_for('admin_branding'))
+    
+    # GET request - fetch current settings
+    current_logo = get_logo_filename()
+    current_favicon = get_favicon_filename()
+    conn.close()
+    
+    return render_template('admin/branding.html',
+                         current_logo=current_logo,
+                         current_favicon=current_favicon)
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @require_auth
@@ -1322,6 +1502,29 @@ def admin_add_family():
             conn.close()
     return render_template('admin/add_family.html')
 
+@app.route('/admin/families/import/template')
+@require_auth
+def download_import_template():
+    """Download a CSV template for family imports"""
+    csv_content = """Last Name,First Name,Youth,Mobile Phone,Address Line 1
+Smith,John,,555-1234,123 Main St
+Smith,Jane,,555-1234,123 Main St
+Smith,Tommy,Y,555-1234,123 Main St
+Smith,Sally,Y,555-1234,123 Main St
+Johnson,Mike,,555-5678,456 Oak Ave
+Johnson,Lisa,,555-5678,456 Oak Ave
+Johnson,Emma,Y,555-5678,456 Oak Ave
+Williams,Sarah,,555-9012,789 Pine Rd
+Williams,Jake,Y,555-9012,789 Pine Rd"""
+    
+    response = app.response_class(
+        response=csv_content,
+        status=200,
+        mimetype='text/csv'
+    )
+    response.headers['Content-Disposition'] = 'attachment; filename=family_import_template.csv'
+    return response
+
 @app.route('/admin/families/import', methods=['GET', 'POST'])
 @require_auth
 def admin_import_families():
@@ -1329,60 +1532,107 @@ def admin_import_families():
         troop = request.form.get('troop', '').strip()
         file = request.files.get('file')
         if not troop or not file:
-            flash('Troop and file required', 'danger')
+            flash(f'{get_branding_settings()["group_term"]} ID and file are required', 'danger')
             return redirect(request.url)
         try:
             stream = io.StringIO(file.stream.read().decode("utf-8"), newline=None)
             reader = csv.DictReader(stream)
             families = {}
+            
+            # Support multiple column name variations
             for row in reader:
-                last_name = row.get('Last Name', '').strip()
-                first_name = row.get('First Name', '').strip()
-                youth = row.get('Youth', '').strip().upper() == 'Y'
-                mobile = row.get('Mobile Phone', '').strip()
-                home = row.get('Home Phone', '').strip()
-                work = row.get('Work Phone', '').strip()
-                phone = mobile or home or work
-                address = row.get('Address Line 1', '').strip()
+                # Try to find last name column (case insensitive, flexible naming)
+                last_name = (row.get('Last Name') or row.get('LastName') or 
+                           row.get('last_name') or row.get('Surname') or '').strip()
+                
+                # Try to find first name column
+                first_name = (row.get('First Name') or row.get('FirstName') or 
+                            row.get('first_name') or row.get('Given Name') or '').strip()
+                
+                # Try to find youth indicator (Y/N, Yes/No, True/False, 1/0, or "Child"/"Adult")
+                youth_val = (row.get('Youth') or row.get('Is Youth') or row.get('Child') or 
+                           row.get('IsYouth') or row.get('Type') or '').strip().upper()
+                youth = youth_val in ['Y', 'YES', 'TRUE', '1', 'CHILD']
+                
+                # Try to find phone number (support various column names)
+                phone = (row.get('Mobile Phone') or row.get('Phone') or row.get('Mobile') or 
+                        row.get('Cell Phone') or row.get('Home Phone') or row.get('Work Phone') or 
+                        row.get('Contact Phone') or '').strip()
+                
+                # Try to find address
+                address = (row.get('Address Line 1') or row.get('Address') or 
+                         row.get('Street Address') or row.get('Street') or '').strip()
+                
+                # Skip rows with missing required data
                 if not last_name or not first_name or not address:
                     continue
+                
+                # Group by normalized address + last name
                 norm_addr = normalize_address(address)
                 key = (last_name, norm_addr)
+                
                 if key not in families:
                     families[key] = {'phones': [], 'troop': troop, 'adults': [], 'kids': []}
+                
                 name = f"{first_name} {last_name}"
                 if youth:
                     families[key]['kids'].append(name)
                 else:
                     families[key]['adults'].append(name)
                     if phone:
-                        families[key]['phones'].append(phone)
+                        # Clean phone number - remove formatting
+                        clean_phone = re.sub(r'[^\d]', '', phone)
+                        if clean_phone and clean_phone not in families[key]['phones']:
+                            families[key]['phones'].append(clean_phone)
+            
             conn = get_db()
             imported = 0
+            skipped = 0
+            
             for fam_data in families.values():
+                # Use last 4 digits of first phone, or None if no phones
                 if not fam_data['phones']:
                     last4 = None
                 else:
                     last4 = fam_data['phones'][0][-4:] if len(fam_data['phones'][0]) >= 4 else fam_data['phones'][0]
+                
                 try:
                     # Insert new family
-                    cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", (last4, fam_data['troop']))
+                    cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", 
+                                     (last4, fam_data['troop']))
                     family_id = cur.lastrowid
+                    
+                    # Add adults
                     for adult in fam_data['adults']:
-                        conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult))
+                        conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", 
+                                   (family_id, adult))
+                    
+                    # Add kids
                     for kid in fam_data['kids']:
-                        conn.execute("INSERT INTO kids (family_id, name) VALUES (?, ?)", (family_id, kid))
+                        conn.execute("INSERT INTO kids (family_id, name) VALUES (?, ?)", 
+                                   (family_id, kid))
+                    
                     imported += 1
                 except Exception as e:
-                    flash(f'Error importing family {fam_data["adults"][0] if fam_data["adults"] else "unknown"}: {e}', 'danger')
+                    skipped += 1
+                    family_name = fam_data["adults"][0] if fam_data["adults"] else "unknown"
+                    flash(f'Error importing family {family_name}: {e}', 'warning')
                     continue
+            
             conn.commit()
-            flash(f'Imported {imported} families', 'success')
-        except Exception as e:
-            flash(f'Error parsing CSV: {e}', 'danger')
-        finally:
             conn.close()
+            
+            if imported > 0:
+                flash(f'Successfully imported {imported} families!', 'success')
+            if skipped > 0:
+                flash(f'Skipped {skipped} families due to errors.', 'warning')
+            
+        except Exception as e:
+            flash(f'Error parsing CSV file: {e}. Please check the file format.', 'danger')
+            return redirect(request.url)
+        
         return redirect(url_for('admin_families'))
+    
     return render_template('admin/import_families.html')
 
 @app.route('/admin/families/edit/<int:family_id>', methods=['GET', 'POST'])

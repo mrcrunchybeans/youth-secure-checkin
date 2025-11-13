@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Branding Settings</h2>
+    <div>
+      <a href="/admin" class="btn btn-outline-secondary">← Admin Panel</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="row">
+    <div class="col-lg-8">
+      
+      <!-- Organization Details -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            <i class="bi bi-building"></i> Organization Details
+          </h5>
+          <form method="POST">
+            <h6 class="mb-3 pb-2 border-bottom small fw-bold text-muted">Organization</h6>
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label for="organization_name" class="form-label small fw-semibold mb-1">Organization Name</label>
+                <input type="text" class="form-control form-control-sm" id="organization_name" name="organization_name" 
+                       value="{{ branding.organization_name }}" placeholder="e.g., First Baptist Church">
+              </div>
+              <div class="col-md-4">
+                <label for="organization_type" class="form-label small fw-semibold mb-1">Type</label>
+                <select class="form-select form-select-sm" id="organization_type" name="organization_type">
+                  <option value="church" {% if branding.organization_type == 'church' %}selected{% endif %}>Church</option>
+                  <option value="youth_group" {% if branding.organization_type == 'youth_group' %}selected{% endif %}>Youth Group</option>
+                  <option value="troop" {% if branding.organization_type == 'troop' %}selected{% endif %}>Troop</option>
+                  <option value="sports_team" {% if branding.organization_type == 'sports_team' %}selected{% endif %}>Sports Team</option>
+                  <option value="school" {% if branding.organization_type == 'school' %}selected{% endif %}>School</option>
+                  <option value="daycare" {% if branding.organization_type == 'daycare' %}selected{% endif %}>Daycare</option>
+                  <option value="other" {% if branding.organization_type == 'other' %}selected{% endif %}>Other</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label for="group_term" class="form-label small fw-semibold mb-1">Group Term</label>
+                <input type="text" class="form-control form-control-sm" id="group_term" name="group_term" 
+                       value="{{ branding.group_term }}" placeholder="e.g., Troop, Class, Team">
+                <div class="text-muted" style="font-size: 0.7rem;">What you call groups</div>
+              </div>
+            </div>
+            <h6 class="mt-4 mb-3 pb-2 border-bottom small fw-bold text-muted">Brand Colors</h6>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label for="primary_color" class="form-label small fw-semibold mb-1">Primary Color</label>
+                <div class="d-flex gap-2">
+                  <input type="color" class="form-control form-control-color flex-shrink-0" 
+                         id="primary_color" name="primary_color" value="{{ branding.primary_color }}" 
+                         style="width: 60px; height: 38px;">
+                  <input type="text" class="form-control form-control-sm" 
+                         value="{{ branding.primary_color }}" readonly 
+                         style="font-family: monospace; font-size: 0.85rem;">
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label for="secondary_color" class="form-label small fw-semibold mb-1">Secondary Color</label>
+                <div class="d-flex gap-2">
+                  <input type="color" class="form-control form-control-color flex-shrink-0" 
+                         id="secondary_color" name="secondary_color" value="{{ branding.secondary_color }}" 
+                         style="width: 60px; height: 38px;">
+                  <input type="text" class="form-control form-control-sm" 
+                         value="{{ branding.secondary_color }}" readonly 
+                         style="font-family: monospace; font-size: 0.85rem;">
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label for="accent_color" class="form-label small fw-semibold mb-1">Accent Color</label>
+                <div class="d-flex gap-2">
+                  <input type="color" class="form-control form-control-color flex-shrink-0" 
+                         id="accent_color" name="accent_color" value="{{ branding.accent_color }}" 
+                         style="width: 60px; height: 38px;">
+                  <input type="text" class="form-control form-control-sm" 
+                         value="{{ branding.accent_color }}" readonly 
+                         style="font-family: monospace; font-size: 0.85rem;">
+                </div>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="preview-btn"
+                      style="background: {{ branding.primary_color }}; color: white;">
+                <i class="bi bi-eye"></i> Color Preview
+              </button>
+            </div>
+            <div class="mt-3">
+              <button type="submit" name="action" value="update_branding" class="btn btn-primary">
+                <i class="bi bi-check-lg"></i> Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Logo Upload -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            <i class="bi bi-image"></i> Logo
+          </h5>
+          <form method="POST" enctype="multipart/form-data">
+            <div class="row g-3">
+              {% if current_logo %}
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Current Logo</label>
+                <div class="border rounded p-2 text-center bg-light">
+                  <img src="{{ url_for('static', filename='uploads/' + current_logo) }}" alt="Logo" style="max-height: 80px; max-width: 100%;">
+                </div>
+              </div>
+              <div class="col-md-8">
+              {% else %}
+              <div class="col-12">
+              {% endif %}
+                <label for="logo_file" class="form-label small fw-semibold mb-1">
+                  {% if current_logo %}Replace Logo{% else %}Upload Logo{% endif %}
+                </label>
+                <input type="file" class="form-control form-control-sm" id="logo_file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/svg+xml">
+                <div class="text-muted small mt-1">PNG, JPG, or SVG • Max 200px height</div>
+                <div class="mt-2">
+                  <button type="submit" name="action" value="upload_logo" class="btn btn-sm" style="background: {{ branding.secondary_color }}; color: white;">
+                    <i class="bi bi-{% if current_logo %}arrow-repeat{% else %}upload{% endif %}"></i> {% if current_logo %}Replace{% else %}Upload{% endif %}
+                  </button>
+                  {% if current_logo %}
+                  <button type="submit" name="action" value="remove_logo" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove logo?');">
+                    <i class="bi bi-trash"></i> Remove
+                  </button>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Favicon Upload -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            <i class="bi bi-browser-chrome"></i> Favicon
+          </h5>
+          <form method="POST" enctype="multipart/form-data">
+            <div class="row g-3">
+              {% if current_favicon %}
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Current Favicon</label>
+                <div class="border rounded p-2 text-center bg-light">
+                  <img src="{{ url_for('static', filename='uploads/' + current_favicon) }}" alt="Favicon" style="max-height: 32px; max-width: 32px;">
+                </div>
+              </div>
+              <div class="col-md-8">
+              {% else %}
+              <div class="col-12">
+              {% endif %}
+                <label for="favicon_file" class="form-label small fw-semibold mb-1">
+                  {% if current_favicon %}Replace Favicon{% else %}Upload Favicon{% endif %}
+                </label>
+                <input type="file" class="form-control form-control-sm" id="favicon_file" name="favicon_file" accept="image/x-icon,image/png,image/jpeg,image/jpg">
+                <div class="text-muted small mt-1">ICO, PNG, or JPG • Recommended 32x32 pixels</div>
+                <div class="mt-2">
+                  <button type="submit" name="action" value="upload_favicon" class="btn btn-sm" style="background: {{ branding.secondary_color }}; color: white;">
+                    <i class="bi bi-{% if current_favicon %}arrow-repeat{% else %}upload{% endif %}"></i> {% if current_favicon %}Replace{% else %}Upload{% endif %}
+                  </button>
+                  {% if current_favicon %}
+                  <button type="submit" name="action" value="remove_favicon" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove favicon?');">
+                    <i class="bi bi-trash"></i> Remove
+                  </button>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Help Panel -->
+    <div class="col-lg-4">
+      <div class="card mb-4 bg-light">
+        <div class="card-body">
+          <h6 class="card-title">
+            <i class="bi bi-info-circle"></i> Branding Tips
+          </h6>
+          <ul class="small mb-0">
+            <li class="mb-2">Choose colors that represent your organization's identity</li>
+            <li class="mb-2">Primary color appears in headers and buttons</li>
+            <li class="mb-2">Secondary color is used for accents</li>
+            <li class="mb-2">Logos should be PNG or SVG for best quality</li>
+            <li class="mb-2">Favicon appears in browser tabs (32x32px recommended)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Sync color pickers with hex inputs
+  ['primary', 'secondary', 'accent'].forEach(colorType => {
+    const picker = document.getElementById(colorType + '_color');
+    const textInput = picker.nextElementSibling.nextElementSibling;
+    
+    picker.addEventListener('input', function() {
+      textInput.value = this.value.toUpperCase();
+    });
+  });
+</script>
+{% endblock %}

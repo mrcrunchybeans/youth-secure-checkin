@@ -1,19 +1,71 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container">
-  <h2>Import Families</h2>
-  <p>Upload a CSV file exported from your troop system. The format should match the example provided.</p>
-  <form method="post" enctype="multipart/form-data">
-    <div class="mb-3">
-      <label class="form-label">Troop Name</label>
-      <input name="troop" class="form-control" required />
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Import Families</h2>
+    <a href="/admin/families" class="btn btn-outline-secondary">← Back</a>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            <i class="bi bi-upload"></i> Upload CSV File
+          </h5>
+          
+          <form method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label for="troop" class="form-label">{{ branding.group_term }} ID / Name</label>
+              <input type="text" name="troop" id="troop" class="form-control" required 
+                     placeholder="e.g., Class A, Team Blue, Troop 101">
+              <div class="form-text">
+                This identifies which {{ branding.group_term_lower }} these families belong to.
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="file" class="form-label">CSV File</label>
+              <input type="file" name="file" id="file" class="form-control" accept=".csv" required />
+              <div class="form-text">
+                Select a .csv file with your family data. See format requirements below.
+              </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-cloud-upload"></i> Import Families
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">CSV File</label>
-      <input type="file" name="file" class="form-control" accept=".csv" required />
+
+    <div class="col-lg-4">
+      <div class="card bg-light mb-4">
+        <div class="card-body">
+          <h6 class="card-title">
+            <i class="bi bi-info-circle"></i> CSV Format
+          </h6>
+          <p class="small mb-2">Your CSV file should have these columns:</p>
+          <ul class="small mb-3">
+            <li><strong>Last Name</strong> - Family last name</li>
+            <li><strong>First Name</strong> - Person's first name</li>
+            <li><strong>Youth</strong> - Enter "Y" for children, leave blank for adults</li>
+            <li><strong>Mobile Phone</strong> - Contact phone number</li>
+            <li><strong>Address Line 1</strong> - Street address</li>
+          </ul>
+          <a href="/admin/families/import/template" class="btn btn-sm btn-outline-primary w-100">
+            <i class="bi bi-download"></i> Download Template
+          </a>
+        </div>
+      </div>
+
+      <div class="alert alert-info small">
+        <i class="bi bi-lightbulb"></i>
+        <strong>Tip:</strong> The system groups people into families by matching last name and address. 
+        All adults with phone numbers will be added as pickup contacts.
+      </div>
     </div>
-    <button type="submit" class="btn btn-primary">Import</button>
-  </form>
-  <a href="/admin/families" class="btn btn-secondary mt-3">Back</a>
+  </div>
 </div>
 {% endblock %}

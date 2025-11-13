@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Security Settings</h2>
+    <div>
+      <a href="/admin" class="btn btn-outline-secondary">← Admin Panel</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="row">
+    <div class="col-lg-8">
+      
+      <!-- Access Codes -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            <i class="bi bi-key"></i> Access Codes
+          </h5>
+          
+          <!-- Login Access Code -->
+          <form method="POST" class="mb-4 pb-4 border-bottom">
+            <h6 class="mb-3">Login Access Code</h6>
+            <p class="text-muted small">This code is required to access the check-in system.</p>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="new_password" class="form-label">New Access Code</label>
+                <input type="text" class="form-control" id="new_password" name="new_password"
+                       placeholder="Enter new code (min 4 characters)" minlength="4">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Current Code</label>
+                <div class="form-control bg-light">
+                  <code style="font-size: 1.1em;">{{ current_password }}</code>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-shield-check"></i> Update Login Code
+              </button>
+            </div>
+          </form>
+          
+          <!-- Admin Override Code - Protected -->
+          <div id="override-section">
+            <h6 class="mb-3">
+              <i class="bi bi-lock-fill text-warning"></i> Admin Override Code
+              {% if override_unlocked %}
+              <span class="badge bg-success ms-2">Unlocked</span>
+              {% else %}
+              <span class="badge bg-warning text-dark ms-2">Protected</span>
+              {% endif %}
+            </h6>
+            <p class="text-muted small">This code allows administrators to override checkout requirements.</p>
+            
+            {% if override_unlocked %}
+            <!-- Show override code management when unlocked -->
+            <form method="POST" class="mb-3">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="new_override_password" class="form-label">New Override Code</label>
+                  <input type="text" class="form-control" id="new_override_password" name="new_override_password"
+                         placeholder="Enter new override code" minlength="4">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Current Override Code</label>
+                  <div class="form-control bg-light">
+                    <code style="font-size: 1.1em;">{{ current_override_password }}</code>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-shield-check"></i> Update Override Code
+                </button>
+                <a href="{{ url_for('admin_security') }}" class="btn btn-outline-secondary ms-2">
+                  <i class="bi bi-lock"></i> Lock Override Settings
+                </a>
+              </div>
+            </form>
+            {% else %}
+            <!-- Show unlock form when locked -->
+            <form method="POST" action="{{ url_for('unlock_override') }}">
+              <div class="alert alert-warning">
+                <i class="bi bi-shield-exclamation"></i>
+                <strong>Developer password required</strong> to view or edit this setting.
+              </div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="dev_password" class="form-label">Developer Password</label>
+                  <input type="password" class="form-control" name="dev_password" id="dev_password"
+                         placeholder="Enter developer password" required>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                  <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-unlock"></i> Unlock Override Settings
+                  </button>
+                </div>
+              </div>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Checkout Settings -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            <i class="bi bi-qr-code"></i> Checkout Code Settings
+          </h5>
+          <form method="POST">
+            <div class="mb-3">
+              <div class="form-check form-switch">
+                <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
+                       {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="require_checkout_code">
+                  Require checkout codes
+                </label>
+              </div>
+              <div class="text-muted small mt-1">
+                When enabled, families must present a 5-digit code to check out their children. 
+                Administrators can override with their admin code.
+              </div>
+            </div>
+
+            <div id="code-method-section" style="{% if label_settings.require_checkout_code != 'true' %}opacity: 0.5; pointer-events: none;{% endif %}">
+              <div class="mb-3">
+                <label for="checkout_code_method" class="form-label fw-semibold">Code Delivery Method</label>
+                <select class="form-select" id="checkout_code_method" name="checkout_code_method">
+                  <option value="qr" {% if label_settings.checkout_code_method == 'qr' or not label_settings.checkout_code_method %}selected{% endif %}>
+                    📱 QR Code Only (Free - Show on screen)
+                  </option>
+                  <option value="label" {% if label_settings.checkout_code_method == 'label' %}selected{% endif %}>
+                    🖨️ Print Labels (Requires label printer)
+                  </option>
+                  <option value="both" {% if label_settings.checkout_code_method == 'both' %}selected{% endif %}>
+                    📱🖨️ Both QR Code and Print Label
+                  </option>
+                </select>
+                <div class="text-muted small mt-1">
+                  <strong>QR Code:</strong> Parents scan with their phone to view/share the code<br>
+                  <strong>Print Labels:</strong> Automatically prints on check-in (requires label printer setup)<br>
+                  <strong>Both:</strong> Shows QR code on screen AND prints a label
+                </div>
+              </div>
+
+              <div id="printer-settings" style="{% if label_settings.checkout_code_method == 'qr' %}display: none;{% endif %}">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="label_printer_type" class="form-label fw-semibold">Printer Type</label>
+                    <select class="form-select" id="label_printer_type" name="label_printer_type">
+                      <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO LabelWriter</option>
+                      <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL Series</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label for="label_size" class="form-label fw-semibold">Label Size</label>
+                    <select class="form-select" id="label_size" name="label_size">
+                      <optgroup label="Portrait Labels">
+                        <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>30336 (1" × 2⅛")</option>
+                      </optgroup>
+                      <optgroup label="Small Landscape">
+                        <option value="30330" {% if label_settings.label_size == '30330' %}selected{% endif %}>30330 (¾" × 2")</option>
+                        <option value="11352" {% if label_settings.label_size == '11352' %}selected{% endif %}>11352 (⅞" × 2¾")</option>
+                      </optgroup>
+                      <optgroup label="Medium Landscape">
+                        <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>30334 (2¼" × 1¼")</option>
+                        <option value="30252" {% if label_settings.label_size == '30252' %}selected{% endif %}>30252 (1⅛" × 3½")</option>
+                      </optgroup>
+                      <optgroup label="Large Landscape">
+                        <option value="30323" {% if label_settings.label_size == '30323' %}selected{% endif %}>30323 (2⅛" × 4")</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Save Checkout Settings
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Help Panel -->
+    <div class="col-lg-4">
+      <div class="card bg-light mb-4">
+        <div class="card-body">
+          <h6 class="card-title">
+            <i class="bi bi-info-circle"></i> Security Tips
+          </h6>
+          <ul class="small mb-0">
+            <li class="mb-2">Use a memorable but secure access code</li>
+            <li class="mb-2">Change codes regularly for better security</li>
+            <li class="mb-2">Admin override code should be different from login code</li>
+            <li class="mb-2">Developer password is set via .env file for extra protection</li>
+          </ul>
+        </div>
+      </div>
+
+      {% if dev_password_set %}
+      <div class="alert alert-success small">
+        <i class="bi bi-check-circle"></i>
+        <strong>Developer password is configured</strong><br>
+        It can be used for both login and override access.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Toggle printer settings visibility based on method
+  const methodSelect = document.getElementById('checkout_code_method');
+  const printerSettings = document.getElementById('printer-settings');
+  
+  methodSelect.addEventListener('change', function() {
+    printerSettings.style.display = (this.value === 'label' || this.value === 'both') ? 'block' : 'none';
+  });
+  
+  // Enable/disable method section based on require codes checkbox
+  const requireCheckbox = document.getElementById('require_checkout_code');
+  const methodSection = document.getElementById('code-method-section');
+  
+  requireCheckbox.addEventListener('change', function() {
+    if (this.checked) {
+      methodSection.style.opacity = '1';
+      methodSection.style.pointerEvents = 'auto';
+    } else {
+      methodSection.style.opacity = '0.5';
+      methodSection.style.pointerEvents = 'none';
+    }
+  });
+</script>
+{% endblock %}
