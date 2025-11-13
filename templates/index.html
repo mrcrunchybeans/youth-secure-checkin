@@ -217,14 +217,14 @@
         </div>
         
         <form id="checkout-code-form">
-          <div class="mb-2">
+          <div class="mb-2" id="checkout-code-section" {% if not require_codes %}style="display: none;"{% endif %}>
             <input type="text" class="form-control text-center" id="checkout-code-input" 
                    style="font-size: 1.4rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid {{ branding.primary_color }}; font-weight: bold; padding: 0.35rem;"
-                   maxlength="10" required autocomplete="off" inputmode="none" placeholder="Code">
+                   maxlength="10" {% if require_codes %}required{% endif %} autocomplete="off" inputmode="none" placeholder="Code">
           </div>
           
           <!-- On-screen keypad -->
-          <div id="checkout-keypad" class="mb-2">
+          <div id="checkout-keypad" class="mb-2" {% if not require_codes %}style="display: none;"{% endif %}>
             <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 0.35rem; display: grid;">
               <button type="button" class="btn btn-outline-secondary checkout-key" data-value="1" style="font-size: 1.2rem; padding: 0.4rem; font-weight: 600;">1</button>
               <button type="button" class="btn btn-outline-secondary checkout-key" data-value="2" style="font-size: 1.2rem; padding: 0.4rem; font-weight: 600;">2</button>
@@ -432,32 +432,54 @@ document.addEventListener('click', function(e) {
       // Store sibling data for use in form submission
       currentCheckoutData.siblings = (siblingData.success && siblingData.siblings) ? siblingData.siblings : [];
       
-      // If there are siblings, always show the modal to allow selection
-      if (currentCheckoutData.siblings.length > 0) {
+      const requireCodes = {{ 'true' if require_codes else 'false' }};
+      
+      // If there are siblings OR codes are required, show the modal
+      if (currentCheckoutData.siblings.length > 0 || requireCodes) {
         // Show modal with siblings for checkout
         document.getElementById('checkout-kid-name').textContent = kidName;
         document.getElementById('checkout-code-input').value = '';
         
-        // Show siblings section
+        // Show/hide siblings section based on whether there are siblings
         const siblingsSection = document.getElementById('siblings-section');
         const siblingsList = document.getElementById('siblings-list');
-        siblingsList.innerHTML = '';
-        currentCheckoutData.siblings.forEach(sibling => {
-          const div = document.createElement('div');
-          div.className = 'form-check';
-          div.innerHTML = `
-            <input class="form-check-input sibling-checkbox" type="checkbox" value="${sibling.kid_id}" id="sib-${sibling.kid_id}" checked>
-            <label class="form-check-label" for="sib-${sibling.kid_id}" style="font-size: 0.9rem;">${sibling.name}</label>
-          `;
-          siblingsList.appendChild(div);
-        });
-        siblingsSection.style.display = 'block';
+        if (currentCheckoutData.siblings.length > 0) {
+          siblingsList.innerHTML = '';
+          currentCheckoutData.siblings.forEach(sibling => {
+            const div = document.createElement('div');
+            div.className = 'form-check';
+            div.innerHTML = `
+              <input class="form-check-input sibling-checkbox" type="checkbox" value="${sibling.kid_id}" id="sib-${sibling.kid_id}" checked>
+              <label class="form-check-label" for="sib-${sibling.kid_id}" style="font-size: 0.9rem;">${sibling.name}</label>
+            `;
+            siblingsList.appendChild(div);
+          });
+          siblingsSection.style.display = 'block';
+        } else {
+          siblingsSection.style.display = 'none';
+        }
+        
+        // Show/hide code section based on requireCodes setting
+        const codeSection = document.getElementById('checkout-code-section');
+        const keypad = document.getElementById('checkout-keypad');
+        const codeInput = document.getElementById('checkout-code-input');
+        if (requireCodes) {
+          codeSection.style.display = 'block';
+          keypad.style.display = 'block';
+          codeInput.required = true;
+        } else {
+          codeSection.style.display = 'none';
+          keypad.style.display = 'none';
+          codeInput.required = false;
+        }
         
         const modal = new bootstrap.Modal(document.getElementById('checkoutCodeModal'));
         modal.show();
         // Focus input after modal is shown
         document.getElementById('checkoutCodeModal').addEventListener('shown.bs.modal', function() {
-          document.getElementById('checkout-code-input').focus();
+          if (requireCodes) {
+            document.getElementById('checkout-code-input').focus();
+          }
         }, { once: true });
       } else {
         // No siblings, proceed with normal checkout flow

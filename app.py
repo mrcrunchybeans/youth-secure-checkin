@@ -541,9 +541,14 @@ def index():
     months = get_event_date_range_months()
     cur2 = conn.execute(f"SELECT id, name, start_time FROM events WHERE start_time >= datetime('now', '-{months} month') AND start_time <= datetime('now', '+{months} month') ORDER BY start_time DESC")
     events = cur2.fetchall()
+    
+    # Get require_codes setting
+    setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
+    require_codes = setting and setting[0] == 'true'
+    
     conn.close()
 
-    return render_template('index.html', checked_in=checked_in, events=events, current_event_id=int(event_id))
+    return render_template('index.html', checked_in=checked_in, events=events, current_event_id=int(event_id), require_codes=require_codes)
 
 @app.route('/checkin_last4', methods=['POST'])
 @require_auth
