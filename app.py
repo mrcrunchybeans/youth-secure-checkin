@@ -7,6 +7,7 @@ from icalendar import Calendar
 import pytz
 import csv
 import io
+import json
 import re
 import threading
 import time
@@ -1095,6 +1096,58 @@ def history():
 def admin_index():
     return render_template('admin/index.html')
 
+@app.route('/admin/backup/export')
+@require_auth
+def export_configuration():
+    """Export all configuration settings as JSON backup"""
+    conn = get_db()
+    
+    # Collect all settings
+    settings = {}
+    
+    # Branding settings
+    branding_keys = ['organization_name', 'organization_type', 'group_term', 'group_term_lower',
+                     'primary_color', 'secondary_color', 'accent_color', 
+                     'logo_filename', 'favicon_filename']
+    for key in branding_keys:
+        val = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if val:
+            settings[key] = val['value']
+    
+    # Security/access settings (exclude developer_password as it's env-only)
+    security_keys = ['app_password', 'admin_override_password', 'checkout_code']
+    for key in security_keys:
+        val = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if val:
+            settings[key] = val['value']
+    
+    # Other settings
+    other_keys = ['event_date_range_months', 'label_line_1', 'label_line_2', 'label_line_3']
+    for key in other_keys:
+        val = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if val:
+            settings[key] = val['value']
+    
+    conn.close()
+    
+    # Add metadata
+    backup = {
+        'export_date': datetime.now().isoformat(),
+        'app_version': '1.0',
+        'settings': settings
+    }
+    
+    # Generate JSON
+    output = json.dumps(backup, indent=2)
+    
+    response = app.response_class(
+        response=output,
+        status=200,
+        mimetype='application/json'
+    )
+    response.headers['Content-Disposition'] = f'attachment; filename=configuration_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+    return response
+
 @app.route('/admin/unlock_override', methods=['POST'])
 @require_auth
 def unlock_override():
@@ -1535,16 +1588,16 @@ def admin_add_family():
 @require_auth
 def download_import_template():
     """Download a CSV template for family imports"""
-    csv_content = """Last Name,First Name,Youth,Mobile Phone,Address Line 1
-Smith,John,,555-1234,123 Main St
-Smith,Jane,,555-1234,123 Main St
-Smith,Tommy,Y,555-1234,123 Main St
-Smith,Sally,Y,555-1234,123 Main St
-Johnson,Mike,,555-5678,456 Oak Ave
-Johnson,Lisa,,555-5678,456 Oak Ave
-Johnson,Emma,Y,555-5678,456 Oak Ave
-Williams,Sarah,,555-9012,789 Pine Rd
-Williams,Jake,Y,555-9012,789 Pine Rd"""
+    csv_content = """Last Name,First Name,Youth,Mobile Phone,Address Line 1,Authorized Adults,Notes
+Smith,John,,555-1234,123 Main St,"John Smith, Jane Smith",
+Smith,Jane,,555-1234,123 Main St,"John Smith, Jane Smith",
+Smith,Tommy,Y,555-1234,123 Main St,"John Smith, Jane Smith",Allergic to peanuts
+Smith,Sally,Y,555-1234,123 Main St,"John Smith, Jane Smith",
+Johnson,Mike,,555-5678,456 Oak Ave,"Mike Johnson, Lisa Johnson",
+Johnson,Lisa,,555-5678,456 Oak Ave,"Mike Johnson, Lisa Johnson",
+Johnson,Emma,Y,555-5678,456 Oak Ave,"Mike Johnson, Lisa Johnson",Special needs - requires aide
+Williams,Sarah,,555-9012,789 Pine Rd,Sarah Williams,
+Williams,Jake,Y,555-9012,789 Pine Rd,Sarah Williams,"""
     
     response = app.response_class(
         response=csv_content,
@@ -1592,6 +1645,14 @@ def admin_import_families():
                 address = (row.get('Address Line 1') or row.get('Address') or 
                          row.get('Street Address') or row.get('Street') or '').strip()
                 
+                # Try to find authorized adults
+                authorized_adults = (row.get('Authorized Adults') or row.get('Authorized') or 
+                                   row.get('Pickup Adults') or row.get('Authorized Pickup') or '').strip()
+                
+                # Try to find notes (for kids only)
+                notes = (row.get('Notes') or row.get('Note') or row.get('Comments') or 
+                        row.get('Special Notes') or '').strip()
+                
                 # Skip rows with missing required data
                 if not last_name or not first_name or not address:
                     continue
@@ -1601,11 +1662,17 @@ def admin_import_families():
                 key = (last_name, norm_addr)
                 
                 if key not in families:
-                    families[key] = {'phones': [], 'troop': troop, 'adults': [], 'kids': []}
+                    families[key] = {
+                        'phones': [], 
+                        'troop': troop, 
+                        'adults': [], 
+                        'kids': [],
+                        'authorized_adults': authorized_adults
+                    }
                 
                 name = f"{first_name} {last_name}"
                 if youth:
-                    families[key]['kids'].append(name)
+                    families[key]['kids'].append({'name': name, 'notes': notes})
                 else:
                     families[key]['adults'].append(name)
                     if phone:
@@ -1613,6 +1680,10 @@ def admin_import_families():
                         clean_phone = re.sub(r'[^\d]', '', phone)
                         if clean_phone and clean_phone not in families[key]['phones']:
                             families[key]['phones'].append(clean_phone)
+                
+                # Update authorized adults if provided (use last non-empty value)
+                if authorized_adults and not families[key].get('authorized_adults'):
+                    families[key]['authorized_adults'] = authorized_adults
             
             conn = get_db()
             imported = 0
@@ -1626,9 +1697,10 @@ def admin_import_families():
                     last4 = fam_data['phones'][0][-4:] if len(fam_data['phones'][0]) >= 4 else fam_data['phones'][0]
                 
                 try:
-                    # Insert new family
-                    cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", 
-                                     (last4, fam_data['troop']))
+                    # Insert new family with authorized adults
+                    authorized = fam_data.get('authorized_adults', None)
+                    cur = conn.execute("INSERT INTO families (phone, troop, authorized_adults) VALUES (?, ?, ?)", 
+                                     (last4, fam_data['troop'], authorized))
                     family_id = cur.lastrowid
                     
                     # Add adults
@@ -1636,10 +1708,18 @@ def admin_import_families():
                         conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", 
                                    (family_id, adult))
                     
-                    # Add kids
-                    for kid in fam_data['kids']:
-                        conn.execute("INSERT INTO kids (family_id, name) VALUES (?, ?)", 
-                                   (family_id, kid))
+                    # Add kids with notes
+                    for kid_data in fam_data['kids']:
+                        if isinstance(kid_data, dict):
+                            kid_name = kid_data['name']
+                            kid_notes = kid_data.get('notes', None)
+                        else:
+                            # Backwards compatibility if kids is just a list of names
+                            kid_name = kid_data
+                            kid_notes = None
+                        
+                        conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
+                                   (family_id, kid_name, kid_notes))
                     
                     imported += 1
                 except Exception as e:
@@ -1663,6 +1743,74 @@ def admin_import_families():
         return redirect(url_for('admin_families'))
     
     return render_template('admin/import_families.html')
+
+@app.route('/admin/families/export')
+@require_auth
+def export_families():
+    """Export all families to CSV"""
+    conn = get_db()
+    
+    # Fetch all families with adults and kids
+    families = conn.execute("""
+        SELECT f.id, f.phone, f.troop, f.authorized_adults
+        FROM families f
+        ORDER BY f.troop, f.id
+    """).fetchall()
+    
+    # Build CSV data
+    csv_data = []
+    csv_data.append(['Last Name', 'First Name', 'Youth', 'Mobile Phone', 'Address Line 1', 'Authorized Adults', 'Notes', 'Group ID'])
+    
+    for family in families:
+        family_id = family['id']
+        phone_last4 = family['phone'] or ''
+        troop = family['troop'] or ''
+        authorized = family['authorized_adults'] or ''
+        
+        # Get adults
+        adults = conn.execute("SELECT name FROM adults WHERE family_id = ?", (family_id,)).fetchall()
+        
+        # Get kids
+        kids = conn.execute("SELECT name, notes FROM kids WHERE family_id = ?", (family_id,)).fetchall()
+        
+        # Determine last name and address (use first adult's name, use placeholder for address)
+        if adults:
+            first_adult_name = adults[0]['name']
+            name_parts = first_adult_name.split()
+            last_name = name_parts[-1] if name_parts else 'Unknown'
+        else:
+            last_name = 'Unknown'
+        
+        # We don't store full address, so use placeholder
+        address = f"Family {family_id}"
+        
+        # Add adults
+        for adult in adults:
+            name_parts = adult['name'].split()
+            first_name = ' '.join(name_parts[:-1]) if len(name_parts) > 1 else adult['name']
+            csv_data.append([last_name, first_name, '', phone_last4, address, authorized, '', troop])
+        
+        # Add kids
+        for kid in kids:
+            name_parts = kid['name'].split()
+            first_name = ' '.join(name_parts[:-1]) if len(name_parts) > 1 else kid['name']
+            notes = kid['notes'] or ''
+            csv_data.append([last_name, first_name, 'Y', phone_last4, address, authorized, notes, troop])
+    
+    conn.close()
+    
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerows(csv_data)
+    
+    response = app.response_class(
+        response=output.getvalue(),
+        status=200,
+        mimetype='text/csv'
+    )
+    response.headers['Content-Disposition'] = f'attachment; filename=families_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    return response
 
 @app.route('/admin/families/edit/<int:family_id>', methods=['GET', 'POST'])
 @require_auth
