@@ -85,10 +85,12 @@
                 <button type="submit" class="btn btn-primary">
                   <i class="bi bi-shield-check"></i> Update Override Code
                 </button>
-                <a href="{{ url_for('admin_security') }}" class="btn btn-outline-secondary ms-2">
-                  <i class="bi bi-lock"></i> Lock Override Settings
-                </a>
               </div>
+            </form>
+            <form method="POST" action="{{ url_for('lock_override') }}" class="mt-2">
+              <button type="submit" class="btn btn-outline-secondary">
+                <i class="bi bi-lock"></i> Lock Override Settings
+              </button>
             </form>
             {% else %}
             <!-- Show unlock form when locked -->

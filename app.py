@@ -1218,6 +1218,14 @@ def unlock_override():
     
     return redirect(url_for('admin_security'))
 
+@app.route('/admin/lock_override', methods=['POST'])
+@require_auth
+def lock_override():
+    """Lock the override password section"""
+    session.pop('override_unlocked', None)
+    flash('Override settings locked!', 'info')
+    return redirect(url_for('admin_security'))
+
 @app.route('/admin/security', methods=['GET', 'POST'])
 @require_auth
 def admin_security():
