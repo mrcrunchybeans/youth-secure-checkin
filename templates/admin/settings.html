@@ -23,11 +23,13 @@
       </div>
       <div class="card-body p-3">
         <form method="POST" class="needs-validation" novalidate>
-          <div class="row g-3 align-items-end">
+          <!-- Login Access Code -->
+          <div class="row g-2 align-items-end mb-3">
             <div class="col-md-5">
-              <label for="new_password" class="form-label mb-1 small fw-semibold">New Access Code</label>
-              <input type="text" class="form-control" id="new_password" name="new_password" required
+              <label for="new_password" class="form-label mb-1 small fw-semibold">Login Access Code</label>
+              <input type="text" class="form-control form-control-sm" id="new_password" name="new_password"
                      placeholder="Enter new code" minlength="4">
+              <div class="text-muted" style="font-size: 0.75rem;">For unlocking the check-in site</div>
             </div>
             <div class="col-md-4">
               <div class="small"><strong>Current:</strong> <code class="bg-light px-2 py-1 rounded">{{ current_password }}</code></div>
@@ -38,7 +40,26 @@
               </button>
             </div>
           </div>
-          <div class="text-muted small mt-2"><i class="bi bi-info-circle"></i> Min 4 chars. {% if dev_password_set %}Developer password provides backup access.{% endif %}</div>
+          
+          <!-- Admin Override Code -->
+          <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+              <label for="new_override_password" class="form-label mb-1 small fw-semibold">Admin Override Code</label>
+              <input type="text" class="form-control form-control-sm" id="new_override_password" name="new_override_password"
+                     placeholder="Enter new override code" minlength="4">
+              <div class="text-muted" style="font-size: 0.75rem;">For admin checkout override</div>
+            </div>
+            <div class="col-md-4">
+              <div class="small"><strong>Current:</strong> <code class="bg-light px-2 py-1 rounded">{{ current_override_password }}</code></div>
+            </div>
+            <div class="col-md-3">
+              <button type="submit" class="btn btn-sm w-100" style="background: #79060d; color: white;">
+                <i class="bi bi-shield-check"></i> Update
+              </button>
+            </div>
+          </div>
+          
+          <div class="text-muted small mt-2"><i class="bi bi-info-circle"></i> Min 4 chars each. {% if dev_password_set %}Developer password works for both.{% endif %}</div>
         </form>
       </div>
     </div>

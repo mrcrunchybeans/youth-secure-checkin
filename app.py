@@ -104,6 +104,22 @@ def set_app_password(password):
     conn.commit()
     conn.close()
 
+def get_override_password():
+    """Get the admin override checkout password from settings, or return app password as default"""
+    conn = get_db()
+    cur = conn.execute("SELECT value FROM settings WHERE key = 'admin_override_password'")
+    row = cur.fetchone()
+    conn.close()
+    # If no override password set, fall back to app password for backward compatibility
+    return row['value'] if row else get_app_password()
+
+def set_override_password(password):
+    """Set the admin override checkout password in settings"""
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_override_password', ?)", (password,))
+    conn.commit()
+    conn.close()
+
 def check_authenticated():
     """Check if user is authenticated"""
     return session.get('authenticated', False)
@@ -579,15 +595,15 @@ def checkout(kid_id):
     setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
     require_codes = setting and setting[0] == 'true'
     
-    # If codes are required, verify the code or admin password
+    # If codes are required, verify the code or admin override password
     if require_codes:
         if not checkout_code:
             conn.close()
             return jsonify({'success': False, 'message': 'Checkout code required', 'code_required': True}), 400
         
-        # Check if it's the admin password (override)
-        app_password = get_app_password()
-        is_admin_password = (checkout_code == app_password or checkout_code == DEVELOPER_PASSWORD)
+        # Check if it's the admin override password
+        override_password = get_override_password()
+        is_admin_password = (checkout_code == override_password or checkout_code == DEVELOPER_PASSWORD)
         
         if not is_admin_password:
             # Verify the checkout code matches for the primary kid
@@ -938,12 +954,19 @@ def admin_settings():
                 set_logo_filename(None)
                 flash('Logo removed successfully!', 'success')
         
-        # Handle password change
-        elif request.form.get('new_password'):
+        # Handle password changes
+        elif request.form.get('new_password') or request.form.get('new_override_password'):
+            # Update login access code
             new_password = request.form.get('new_password', '').strip()
             if new_password:
                 set_app_password(new_password)
-                flash('App password updated successfully!', 'success')
+                flash('Login access code updated successfully!', 'success')
+            
+            # Update admin override checkout code
+            new_override = request.form.get('new_override_password', '').strip()
+            if new_override:
+                set_override_password(new_override)
+                flash('Admin override checkout code updated successfully!', 'success')
         
         # Handle label printing settings (check if any label setting fields are present)
         elif 'label_printer_type' in request.form or 'label_size' in request.form or 'checkout_code_method' in request.form:
@@ -965,6 +988,7 @@ def admin_settings():
     
     # GET request - fetch current settings
     current_password = get_app_password()
+    current_override_password = get_override_password()
     current_logo = get_logo_filename()
     
     # Fetch label printing settings
@@ -976,7 +1000,8 @@ def admin_settings():
     conn.close()
     
     return render_template('admin/settings.html', 
-                         current_password=current_password, 
+                         current_password=current_password,
+                         current_override_password=current_override_password,
                          dev_password_set=bool(DEVELOPER_PASSWORD),
                          label_settings=label_settings,
                          current_logo=current_logo)
