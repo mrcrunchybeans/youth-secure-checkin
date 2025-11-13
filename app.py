@@ -731,10 +731,10 @@ def checkin_selected():
     
     conn.commit()
     
-    # Generate share token and QR code if codes were generated and method includes QR
+    # Generate share token and QR code ONLY if codes are required and method includes QR
     share_token = None
     qr_code_data = None
-    if checkout_method in ['qr', 'both'] and checked_in_data and len(checked_in_data) > 0 and any(c['id'] for c in checked_in_data):
+    if require_codes and checkout_method in ['qr', 'both'] and checked_in_data and len(checked_in_data) > 0 and any(c['id'] for c in checked_in_data):
         share_token = generate_share_token()
         expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
         checkin_ids = ','.join([str(c['id']) for c in checked_in_data])
