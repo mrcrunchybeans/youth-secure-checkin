@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-tools"></i> Database Utilities</h2>
+    <a href="/admin" class="btn btn-outline-secondary">← Back to Admin</a>
+  </div>
+
+  <!-- Statistics Overview -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Database Statistics</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-3">
+          <div class="text-center p-3 border rounded">
+            <h3 class="mb-0">{{ stats.total_checkins }}</h3>
+            <small class="text-muted">Total Check-ins</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-center p-3 border rounded">
+            <h3 class="mb-0">{{ stats.active_checkins }}</h3>
+            <small class="text-muted">Active Check-ins</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-center p-3 border rounded">
+            <h3 class="mb-0">{{ stats.total_families }}</h3>
+            <small class="text-muted">Families</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-center p-3 border rounded">
+            <h3 class="mb-0">{{ stats.db_size_mb }}</h3>
+            <small class="text-muted">Database Size (MB)</small>
+          </div>
+        </div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-md-3">
+          <div class="text-center p-3 border rounded">
+            <h3 class="mb-0">{{ stats.total_kids }}</h3>
+            <small class="text-muted">Kids</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-center p-3 border rounded">
+            <h3 class="mb-0">{{ stats.total_events }}</h3>
+            <small class="text-muted">Events</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-center p-3 border rounded">
+            <h3 class="mb-0 {% if stats.orphaned_checkins > 0 %}text-warning{% endif %}">{{ stats.orphaned_checkins }}</h3>
+            <small class="text-muted">Orphaned Check-ins</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cleanup Operations -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0"><i class="bi bi-trash"></i> Cleanup Operations</h5>
+    </div>
+    <div class="card-body">
+      
+      <!-- Cleanup Orphaned Check-ins -->
+      <div class="border rounded p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h6 class="mb-2"><i class="bi bi-recycle"></i> Cleanup Orphaned Check-ins</h6>
+            <p class="text-muted mb-2">
+              Remove check-in records where the associated child no longer exists in the database.
+              This can happen when families are deleted but their check-in history remains.
+            </p>
+            {% if stats.orphaned_checkins > 0 %}
+            <div class="alert alert-warning mb-0">
+              <i class="bi bi-exclamation-triangle"></i>
+              <strong>Found {{ stats.orphaned_checkins }} orphaned check-in(s)</strong> that can be cleaned up.
+            </div>
+            {% else %}
+            <div class="alert alert-success mb-0">
+              <i class="bi bi-check-circle"></i> No orphaned check-ins found.
+            </div>
+            {% endif %}
+          </div>
+          <button type="button" class="btn btn-warning ms-3" 
+                  data-bs-toggle="modal" 
+                  data-bs-target="#cleanupOrphanedModal"
+                  {% if stats.orphaned_checkins == 0 %}disabled{% endif %}>
+            <i class="bi bi-trash"></i> Cleanup
+          </button>
+        </div>
+      </div>
+
+      <!-- Clear Check-in History -->
+      <div class="border rounded p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h6 class="mb-2"><i class="bi bi-trash3"></i> Clear All Check-in History</h6>
+            <p class="text-muted mb-2">
+              Delete all check-in and check-out records from the database. This action cannot be undone.
+              Consider exporting history first from the Events page.
+            </p>
+            {% if stats.active_checkins > 0 %}
+            <div class="alert alert-danger mb-0">
+              <i class="bi bi-exclamation-octagon"></i>
+              <strong>Warning:</strong> {{ stats.active_checkins }} kid(s) are currently checked in!
+            </div>
+            {% endif %}
+          </div>
+          <button type="button" class="btn btn-danger ms-3" 
+                  data-bs-toggle="modal" 
+                  data-bs-target="#clearHistoryModal"
+                  {% if stats.total_checkins == 0 %}disabled{% endif %}>
+            <i class="bi bi-trash3"></i> Clear History
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Maintenance Operations -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0"><i class="bi bi-wrench"></i> Maintenance Operations</h5>
+    </div>
+    <div class="card-body">
+      
+      <!-- Reset Check-in IDs -->
+      <div class="border rounded p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h6 class="mb-2"><i class="bi bi-arrow-counterclockwise"></i> Reset Check-in ID Counter</h6>
+            <p class="text-muted mb-2">
+              Reset the auto-increment counter for check-in IDs. If check-ins exist, the next ID will be the highest current ID + 1.
+              Only resets to ID 1 if all check-in history has been cleared first.
+            </p>
+            {% if stats.total_checkins > 0 %}
+            <div class="alert alert-info mb-0">
+              <i class="bi bi-info-circle"></i>
+              Note: {{ stats.total_checkins }} check-in(s) exist. Clear history first to fully reset to ID 1.
+            </div>
+            {% endif %}
+          </div>
+          <button type="button" class="btn btn-secondary ms-3" 
+                  data-bs-toggle="modal" 
+                  data-bs-target="#resetIdsModal">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset Counter
+          </button>
+        </div>
+      </div>
+
+      <!-- Optimize Database -->
+      <div class="border rounded p-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h6 class="mb-2"><i class="bi bi-hdd"></i> Optimize Database</h6>
+            <p class="text-muted mb-0">
+              Run database optimization (VACUUM) to reclaim unused space and improve performance.
+              This rebuilds the database file and can take a few moments.
+            </p>
+          </div>
+          <button type="button" class="btn btn-primary ms-3" 
+                  data-bs-toggle="modal" 
+                  data-bs-target="#vacuumModal">
+            <i class="bi bi-hdd"></i> Optimize
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Cleanup Orphaned Modal -->
+<div class="modal fade" id="cleanupOrphanedModal" tabindex="-1" aria-labelledby="cleanupOrphanedModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title" id="cleanupOrphanedModalLabel">
+          <i class="bi bi-recycle"></i> Cleanup Orphaned Check-ins
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="/admin/utilities/cleanup-orphaned" id="cleanupOrphanedForm">
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>This will remove {{ stats.orphaned_checkins }} orphaned check-in record(s).</strong>
+          </div>
+          
+          <p>Orphaned check-ins occur when families or kids are deleted but their check-in history remains.
+             These records cannot be viewed or accessed in the normal interface.</p>
+          
+          <p>This operation is safe and only removes invalid data.</p>
+          
+          <div class="mb-3">
+            <label for="confirm_orphaned" class="form-label">
+              Type <strong>CLEANUP</strong> to confirm:
+            </label>
+            <input type="text" class="form-control" id="confirm_orphaned" name="confirm_orphaned" 
+                   required autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning" id="cleanupOrphanedBtn" disabled>
+            <i class="bi bi-trash"></i> Cleanup Orphaned Records
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Clear History Modal -->
+<div class="modal fade" id="clearHistoryModal" tabindex="-1" aria-labelledby="clearHistoryModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="clearHistoryModalLabel">
+          <i class="bi bi-trash3"></i> Clear All Check-in History
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="/admin/utilities/clear-history" id="clearHistoryForm">
+        <div class="modal-body">
+          <div class="alert alert-danger">
+            <i class="bi bi-exclamation-octagon"></i>
+            <strong>WARNING: This will permanently delete {{ stats.total_checkins }} check-in record(s)!</strong>
+          </div>
+          
+          <p><strong>This action cannot be undone.</strong></p>
+          
+          <p>Consider exporting the check-in history from the Events page before proceeding.</p>
+          
+          {% if stats.active_checkins > 0 %}
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            {{ stats.active_checkins }} kid(s) are currently checked in. They will be marked as checked out.
+          </div>
+          {% endif %}
+          
+          <div class="mb-3">
+            <label for="confirm_history" class="form-label">
+              Type <strong>DELETE ALL</strong> to confirm:
+            </label>
+            <input type="text" class="form-control" id="confirm_history" name="confirm_history" 
+                   required autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger" id="clearHistoryBtn" disabled>
+            <i class="bi bi-trash3"></i> Delete All History
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Reset IDs Modal -->
+<div class="modal fade" id="resetIdsModal" tabindex="-1" aria-labelledby="resetIdsModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="resetIdsModalLabel">
+          <i class="bi bi-arrow-counterclockwise"></i> Reset Check-in ID Counter
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="/admin/utilities/reset-checkin-ids" id="resetIdsForm">
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            This resets the auto-increment counter for check-in IDs.
+          </div>
+          
+          {% if stats.total_checkins > 0 %}
+          <p>Since {{ stats.total_checkins }} check-in(s) exist, the next check-in ID will be the highest current ID + 1.</p>
+          <p>To fully reset to ID 1, clear all check-in history first.</p>
+          {% else %}
+          <p>The next check-in will have ID 1.</p>
+          {% endif %}
+          
+          <div class="mb-3">
+            <label for="confirm_reset" class="form-label">
+              Type <strong>RESET</strong> to confirm:
+            </label>
+            <input type="text" class="form-control" id="confirm_reset" name="confirm_reset" 
+                   required autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="resetIdsBtn" disabled>
+            <i class="bi bi-arrow-counterclockwise"></i> Reset Counter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Vacuum Modal -->
+<div class="modal fade" id="vacuumModal" tabindex="-1" aria-labelledby="vacuumModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="vacuumModalLabel">
+          <i class="bi bi-hdd"></i> Optimize Database
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="POST" action="/admin/utilities/vacuum" id="vacuumForm">
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            This runs the VACUUM command to optimize the database.
+          </div>
+          
+          <p>This operation will:</p>
+          <ul>
+            <li>Reclaim unused disk space</li>
+            <li>Defragment the database file</li>
+            <li>Improve query performance</li>
+          </ul>
+          
+          <p class="mb-0">Current database size: <strong>{{ stats.db_size_mb }} MB</strong></p>
+          
+          <p class="text-muted mb-0 mt-2">This may take a few moments to complete.</p>
+          
+          <div class="mb-3 mt-3">
+            <label for="confirm_vacuum" class="form-label">
+              Type <strong>OPTIMIZE</strong> to confirm:
+            </label>
+            <input type="text" class="form-control" id="confirm_vacuum" name="confirm_vacuum" 
+                   required autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="vacuumBtn" disabled>
+            <i class="bi bi-hdd"></i> Optimize Database
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Enable submit buttons only when correct confirmation text is entered
+document.getElementById('confirm_orphaned').addEventListener('input', function() {
+  document.getElementById('cleanupOrphanedBtn').disabled = this.value !== 'CLEANUP';
+});
+
+document.getElementById('confirm_history').addEventListener('input', function() {
+  document.getElementById('clearHistoryBtn').disabled = this.value !== 'DELETE ALL';
+});
+
+document.getElementById('confirm_reset').addEventListener('input', function() {
+  document.getElementById('resetIdsBtn').disabled = this.value !== 'RESET';
+});
+
+document.getElementById('confirm_vacuum').addEventListener('input', function() {
+  document.getElementById('vacuumBtn').disabled = this.value !== 'OPTIMIZE';
+});
+
+// Clear inputs when modals are hidden
+document.querySelectorAll('.modal').forEach(function(modal) {
+  modal.addEventListener('hidden.bs.modal', function() {
+    const form = this.querySelector('form');
+    if (form) form.reset();
+    const buttons = this.querySelectorAll('button[type="submit"]');
+    buttons.forEach(btn => btn.disabled = true);
+  });
+});
+</script>
+
+{% endblock %}

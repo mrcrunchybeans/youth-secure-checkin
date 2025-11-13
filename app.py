@@ -2254,6 +2254,178 @@ def export_checkin_history():
     response.headers['Content-Disposition'] = f'attachment; filename=checkin_history_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
     return response
 
+@app.route('/admin/utilities')
+@require_auth
+def admin_utilities():
+    """Admin utilities page for database maintenance and cleanup operations"""
+    conn = get_db()
+    
+    # Get statistics
+    stats = {}
+    
+    # Check-in statistics
+    cursor = conn.execute("SELECT COUNT(*) FROM checkins")
+    stats['total_checkins'] = cursor.fetchone()[0]
+    
+    cursor = conn.execute("SELECT COUNT(*) FROM checkins WHERE checkout_time IS NULL")
+    stats['active_checkins'] = cursor.fetchone()[0]
+    
+    # Orphaned check-ins (kid_id doesn't exist)
+    cursor = conn.execute("""
+        SELECT COUNT(*) 
+        FROM checkins c 
+        LEFT JOIN kids k ON c.kid_id = k.id 
+        WHERE k.id IS NULL
+    """)
+    stats['orphaned_checkins'] = cursor.fetchone()[0]
+    
+    # Family statistics
+    cursor = conn.execute("SELECT COUNT(*) FROM families")
+    stats['total_families'] = cursor.fetchone()[0]
+    
+    cursor = conn.execute("SELECT COUNT(*) FROM kids")
+    stats['total_kids'] = cursor.fetchone()[0]
+    
+    # Event statistics
+    cursor = conn.execute("SELECT COUNT(*) FROM events")
+    stats['total_events'] = cursor.fetchone()[0]
+    
+    # Database size
+    cursor = conn.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+    stats['db_size_bytes'] = cursor.fetchone()[0]
+    stats['db_size_mb'] = round(stats['db_size_bytes'] / (1024 * 1024), 2)
+    
+    conn.close()
+    
+    return render_template('admin/utilities.html', stats=stats)
+
+@app.route('/admin/utilities/cleanup-orphaned', methods=['POST'])
+@require_auth
+def admin_cleanup_orphaned():
+    """Remove orphaned check-in records (where kid no longer exists)"""
+    confirm = request.form.get('confirm_orphaned')
+    if confirm != 'CLEANUP':
+        flash('Confirmation text did not match. Operation cancelled.', 'danger')
+        return redirect(url_for('admin_utilities'))
+    
+    conn = get_db()
+    
+    # Find orphaned check-ins first
+    cursor = conn.execute("""
+        SELECT c.id 
+        FROM checkins c 
+        LEFT JOIN kids k ON c.kid_id = k.id 
+        WHERE k.id IS NULL
+    """)
+    orphaned = cursor.fetchall()
+    orphaned_count = len(orphaned)
+    
+    if orphaned_count == 0:
+        flash('No orphaned check-ins found.', 'info')
+    else:
+        # Delete orphaned check-ins
+        conn.execute("""
+            DELETE FROM checkins 
+            WHERE id IN (
+                SELECT c.id 
+                FROM checkins c 
+                LEFT JOIN kids k ON c.kid_id = k.id 
+                WHERE k.id IS NULL
+            )
+        """)
+        conn.commit()
+        flash(f'Successfully removed {orphaned_count} orphaned check-in record(s).', 'success')
+    
+    conn.close()
+    return redirect(url_for('admin_utilities'))
+
+@app.route('/admin/utilities/clear-history', methods=['POST'])
+@require_auth
+def admin_clear_history():
+    """Clear all check-in history from database"""
+    confirm = request.form.get('confirm_history')
+    if confirm != 'DELETE ALL':
+        flash('Confirmation text did not match. Operation cancelled.', 'danger')
+        return redirect(url_for('admin_utilities'))
+    
+    conn = get_db()
+    cursor = conn.execute("SELECT COUNT(*) FROM checkins")
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        flash('No check-in history to clear.', 'info')
+    else:
+        conn.execute("DELETE FROM checkins")
+        conn.commit()
+        flash(f'Successfully deleted {count} check-in record(s).', 'success')
+    
+    conn.close()
+    return redirect(url_for('admin_utilities'))
+
+@app.route('/admin/utilities/reset-checkin-ids', methods=['POST'])
+@require_auth
+def admin_reset_checkin_ids():
+    """Reset the auto-increment counter for check-in IDs"""
+    confirm = request.form.get('confirm_reset')
+    if confirm != 'RESET':
+        flash('Confirmation text did not match. Operation cancelled.', 'danger')
+        return redirect(url_for('admin_utilities'))
+    
+    conn = get_db()
+    
+    # Check current state
+    cursor = conn.execute("SELECT COUNT(*) FROM checkins")
+    count = cursor.fetchone()[0]
+    
+    # Reset the auto-increment counter
+    conn.execute("DELETE FROM sqlite_sequence WHERE name='checkins'")
+    conn.commit()
+    
+    if count == 0:
+        flash('Auto-increment counter reset successfully. Next check-in will have ID 1.', 'success')
+    else:
+        cursor = conn.execute("SELECT MAX(id) FROM checkins")
+        max_id = cursor.fetchone()[0]
+        flash(f'Counter reset. Note: {count} check-in(s) still exist. Next ID will be {max_id + 1}.', 'warning')
+    
+    conn.close()
+    return redirect(url_for('admin_utilities'))
+
+@app.route('/admin/utilities/vacuum', methods=['POST'])
+@require_auth
+def admin_vacuum_database():
+    """Optimize and compact the database file"""
+    confirm = request.form.get('confirm_vacuum')
+    if confirm != 'OPTIMIZE':
+        flash('Confirmation text did not match. Operation cancelled.', 'danger')
+        return redirect(url_for('admin_utilities'))
+    
+    conn = get_db()
+    
+    # Get size before
+    cursor = conn.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+    size_before = cursor.fetchone()[0]
+    
+    # Run VACUUM to optimize database
+    conn.execute("VACUUM")
+    conn.commit()
+    
+    # Get size after
+    cursor = conn.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+    size_after = cursor.fetchone()[0]
+    
+    size_saved = size_before - size_after
+    size_saved_mb = round(size_saved / (1024 * 1024), 2)
+    
+    conn.close()
+    
+    if size_saved > 0:
+        flash(f'Database optimized successfully. Reclaimed {size_saved_mb} MB of space.', 'success')
+    else:
+        flash('Database optimized successfully.', 'success')
+    
+    return redirect(url_for('admin_utilities'))
+
 if __name__ == '__main__':
     # ensure DB exists when running the server directly
     ensure_db()
