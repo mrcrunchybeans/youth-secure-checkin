@@ -106,8 +106,20 @@
           <div class="mb-3">
             <label for="label_size" class="form-label" style="font-weight: 600; color: #333;">Label Size</label>
             <select class="form-select form-select-lg" id="label_size" name="label_size" style="border: 2px solid #dee2e6;">
-              <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>Dymo 30336 - 1" × 2⅛" (Small, Portrait)</option>
-              <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>Dymo 30334 - 2¼" × 1¼" (Medium, Landscape)</option>
+              <optgroup label="Small Labels (Portrait)">
+                <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>Dymo 30336 - 1" × 2⅛"</option>
+              </optgroup>
+              <optgroup label="Small Labels (Landscape)">
+                <option value="30330" {% if label_settings.label_size == '30330' %}selected{% endif %}>Dymo 30330 - ¾" × 2"</option>
+                <option value="11352" {% if label_settings.label_size == '11352' %}selected{% endif %}>Dymo 11352 - ⅞" × 2¾"</option>
+              </optgroup>
+              <optgroup label="Medium Labels (Landscape)">
+                <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>Dymo 30334 - 2¼" × 1¼"</option>
+                <option value="30252" {% if label_settings.label_size == '30252' %}selected{% endif %}>Dymo 30252 - 1⅛" × 3½" (Address)</option>
+              </optgroup>
+              <optgroup label="Large Labels (Landscape)">
+                <option value="30323" {% if label_settings.label_size == '30323' %}selected{% endif %}>Dymo 30323 - 2⅛" × 4" (Shipping)</option>
+              </optgroup>
             </select>
             <div class="form-text" style="font-size: 0.9rem;">
               Select the Dymo label size you're using. The label layout will automatically adjust.
