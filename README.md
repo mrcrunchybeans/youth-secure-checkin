@@ -258,6 +258,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Discussions**: [GitHub Discussions](../../discussions)
 - **Wiki**: [Project Wiki](../../wiki)
 
+## 🔐 Security
+
+For security concerns, please email security@example.com (update with your contact) or open a private security advisory.
+
 ---
 
 **Made with ❤️ for youth organizations everywhere**
