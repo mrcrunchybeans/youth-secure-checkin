@@ -94,6 +94,29 @@ def inject_branding():
     """Make branding settings available to all templates"""
     return {'branding': get_branding_settings()}
 
+@app.before_request
+def check_setup():
+    """Check if initial setup is needed and redirect if necessary"""
+    # Skip check for static files and setup route itself
+    if request.endpoint and (request.endpoint == 'static' or request.endpoint == 'setup'):
+        return
+    
+    # Check if setup is complete
+    try:
+        conn = get_db()
+        cur = conn.execute("SELECT value FROM settings WHERE key = 'is_setup_complete'")
+        row = cur.fetchone()
+        conn.close()
+        
+        is_complete = row['value'] if row else 'false'
+        
+        # Redirect to setup if not complete
+        if is_complete != 'true':
+            return redirect(url_for('setup'))
+    except:
+        # If database doesn't exist or there's an error, allow access to continue
+        pass
+
 def ensure_db():
     # kept for manual invocation; do not run at import time so tests can control DB_PATH
     if not DB_PATH.exists():
@@ -342,6 +365,91 @@ def auto_sync_ical():
 # Start background sync thread
 sync_thread = threading.Thread(target=auto_sync_ical, daemon=True)
 sync_thread.start()
+
+@app.route('/setup', methods=['GET', 'POST'])
+def setup():
+    """First-time setup wizard"""
+    # Check if setup is already complete
+    conn = get_db()
+    cur = conn.execute("SELECT value FROM settings WHERE key = 'is_setup_complete'")
+    row = cur.fetchone()
+    is_complete = row['value'] if row else 'false'
+    
+    if is_complete == 'true':
+        # Setup already done, redirect to login
+        conn.close()
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        # Validate required fields
+        org_name = request.form.get('organization_name', '').strip()
+        org_type = request.form.get('organization_type', 'other')
+        group_term = request.form.get('group_term', 'Group').strip()
+        primary_color = request.form.get('primary_color', '#667eea')
+        secondary_color = request.form.get('secondary_color', '#764ba2')
+        accent_color = request.form.get('accent_color', '#48bb78')
+        admin_password = request.form.get('admin_password', '').strip()
+        admin_password_confirm = request.form.get('admin_password_confirm', '').strip()
+        
+        # Validate
+        errors = []
+        if not org_name:
+            errors.append('Organization name is required')
+        if len(admin_password) < 4:
+            errors.append('Admin password must be at least 4 characters')
+        if admin_password != admin_password_confirm:
+            errors.append('Admin passwords do not match')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            conn.close()
+            return render_template('setup.html')
+        
+        # Save organization settings
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('organization_name', ?)", (org_name,))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('organization_type', ?)", (org_type,))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('group_term', ?)", (group_term,))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('group_term_lower', ?)", (group_term.lower(),))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('primary_color', ?)", (primary_color,))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('secondary_color', ?)", (secondary_color,))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('accent_color', ?)", (accent_color,))
+        
+        # Handle favicon upload if provided
+        if 'favicon' in request.files:
+            file = request.files['favicon']
+            if file and file.filename and allowed_file(file.filename, allowed_extensions={'png', 'jpg', 'jpeg', 'ico'}):
+                filename = secure_filename(file.filename)
+                name, ext = os.path.splitext(filename)
+                filename = f"favicon_{int(time.time())}{ext}"
+                filepath = app.config['UPLOAD_FOLDER'] / filename
+                file.save(str(filepath))
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('favicon_filename', ?)", (filename,))
+        
+        # Handle logo upload if provided
+        if 'logo' in request.files:
+            file = request.files['logo']
+            if file and file.filename and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                name, ext = os.path.splitext(filename)
+                filename = f"logo_{int(time.time())}{ext}"
+                filepath = app.config['UPLOAD_FOLDER'] / filename
+                file.save(str(filepath))
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('logo_filename', ?)", (filename,))
+        
+        # Set admin password (store as plain text for now, matching existing pattern)
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('app_password', ?)", (admin_password,))
+        
+        # Mark setup as complete
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('is_setup_complete', ?)", ('true',))
+        conn.commit()
+        conn.close()
+        
+        flash('Setup completed successfully! Please log in.', 'success')
+        return redirect(url_for('login'))
+    
+    conn.close()
+    return render_template('setup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
