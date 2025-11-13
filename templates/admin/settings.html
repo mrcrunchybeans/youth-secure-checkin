@@ -1,153 +1,124 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-3">
   <!-- Page Header -->
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-        <div>
-          <h1 class="mb-2" style="color: #79060d; font-weight: 700;">⚙️ Settings</h1>
-          <p class="text-muted mb-0" style="font-size: 1.05rem;">Configure your check-in system, security, and branding</p>
-        </div>
-        <div class="d-flex gap-2">
-          <a href="{{ url_for('admin_index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Back to Admin
-          </a>
-          <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
-            <i class="bi bi-lock"></i> Logout
-          </a>
-        </div>
-      </div>
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h2 class="mb-1" style="color: #79060d; font-weight: 700;"><i class="bi bi-gear-fill"></i> Settings</h2>
+      <p class="text-muted mb-0">Configure security, checkout, and branding</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('admin_index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger"><i class="bi bi-lock"></i> Logout</a>
     </div>
   </div>
 
-<div class="row">
-  <div class="col-lg-9 col-12">
+<div class="row g-3">
+  <!-- Left Column -->
+  <div class="col-lg-8">
     <!-- Security Settings Card -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header" style="background: linear-gradient(135deg, #79060d 0%, #8d0710 100%); color: white; padding: 1.25rem;">
-        <h5 class="mb-0" style="font-weight: 600;"><i class="bi bi-shield-lock"></i> Security Settings</h5>
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background: linear-gradient(135deg, #79060d 0%, #8d0710 100%); color: white;">
+        <h6 class="mb-0"><i class="bi bi-shield-lock"></i> Security</h6>
       </div>
-      <div class="card-body" style="padding: 1.5rem;">
-        <h5 class="mb-2" style="color: #79060d; font-weight: 600;">Change Access Code</h5>
-        <p class="text-muted mb-4" style="font-size: 0.95rem;">Set the access code that users must enter to unlock the check-in system.</p>
-
+      <div class="card-body p-3">
         <form method="POST" class="needs-validation" novalidate>
-          <div class="mb-4">
-            <label for="new_password" class="form-label" style="font-weight: 600; color: #333;">New Access Code</label>
-            <input type="text" class="form-control form-control-lg" id="new_password" name="new_password" required
-                   placeholder="Enter new access code" minlength="4" style="border: 2px solid #dee2e6;">
-            <div class="form-text"><i class="bi bi-info-circle"></i> Minimum 4 characters. Make it memorable for your team.</div>
-          </div>
-
-          <div class="alert" style="background-color: #f8f9fa; border-left: 4px solid #79060d; border-radius: 8px;">
-            <div class="d-flex align-items-center gap-2">
-              <i class="bi bi-key-fill" style="color: #79060d; font-size: 1.3rem;"></i>
-              <div>
-                <strong style="color: #79060d;">Current Access Code:</strong> 
-                <code style="background-color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 1.1rem;">{{ current_password }}</code>
-              </div>
+          <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+              <label for="new_password" class="form-label mb-1 small fw-semibold">New Access Code</label>
+              <input type="text" class="form-control" id="new_password" name="new_password" required
+                     placeholder="Enter new code" minlength="4">
+            </div>
+            <div class="col-md-4">
+              <div class="small"><strong>Current:</strong> <code class="bg-light px-2 py-1 rounded">{{ current_password }}</code></div>
+            </div>
+            <div class="col-md-3">
+              <button type="submit" class="btn btn-sm w-100" style="background: #79060d; color: white;">
+                <i class="bi bi-shield-check"></i> Update
+              </button>
             </div>
           </div>
-
-          <button type="submit" class="btn btn-lg px-4" style="background: linear-gradient(135deg, #79060d 0%, #8d0710 100%); color: white; border: none; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <i class="bi bi-shield-check"></i> Update Access Code
-          </button>
+          <div class="text-muted small mt-2"><i class="bi bi-info-circle"></i> Min 4 chars. {% if dev_password_set %}Developer password provides backup access.{% endif %}</div>
         </form>
       </div>
     </div>
 
     <!-- Checkout Codes Card -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header" style="background: linear-gradient(135deg, #4a582d 0%, #5a6c38 100%); color: white; padding: 1.25rem;">
-        <h5 class="mb-0" style="font-weight: 600;"><i class="bi bi-qr-code"></i> Label Printing & Checkout Codes</h5>
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background: linear-gradient(135deg, #4a582d 0%, #5a6c38 100%); color: white;">
+        <h6 class="mb-0"><i class="bi bi-qr-code"></i> Checkout Codes & Printing</h6>
       </div>
-      <div class="card-body" style="padding: 1.5rem;">
-        <h5 class="mb-2" style="color: #4a582d; font-weight: 600;">Checkout Code Settings</h5>
-        <p class="text-muted mb-4" style="font-size: 0.95rem;">Control whether checkout codes are required and how parents receive them.</p>
-
+      <div class="card-body p-3">
         <form method="POST">
-          <div class="mb-4 p-3" style="background-color: #f8f9fa; border-radius: 8px; border: 2px solid #dee2e6;">
-            <div class="form-check form-switch" style="font-size: 1.15rem;">
-              <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
-                     {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}
-                     style="width: 3.5em; height: 1.75em; cursor: pointer;">
-              <label class="form-check-label" for="require_checkout_code" style="cursor: pointer; font-weight: 600; color: #333;">
-                Require checkout codes
-              </label>
-            </div>
-            <div class="form-text ms-5 mt-2"><i class="bi bi-info-circle"></i> When enabled, parents must enter a code to check out their child. One code is generated per family check-in.</div>
-          </div>
-
-          <div id="code-method-section" style="{% if label_settings.require_checkout_code != 'true' %}opacity: 0.5; pointer-events: none;{% endif %}">
-            <div class="mb-4">
-              <label for="checkout_code_method" class="form-label" style="font-weight: 600; color: #333;">How should parents receive the checkout code?</label>
-              <select class="form-select form-select-lg" id="checkout_code_method" name="checkout_code_method" style="border: 2px solid #dee2e6;">
-                <option value="qr" {% if label_settings.checkout_code_method == 'qr' or not label_settings.checkout_code_method %}selected{% endif %}>📱 QR Code - Scan with phone (Free)</option>
-                <option value="label" {% if label_settings.checkout_code_method == 'label' %}selected{% endif %}>🖨️ Print Labels - Physical printout</option>
-                <option value="both" {% if label_settings.checkout_code_method == 'both' %}selected{% endif %}>📱🖨️ Both QR Code and Print</option>
-              </select>
-              <div class="form-text mt-2" style="font-size: 0.9rem;">
-                <div class="mb-1"><i class="bi bi-phone"></i> <strong>QR Code:</strong> Parent scans QR code with phone camera to view code and share via text/email/any app.</div>
-                <div class="mb-1"><i class="bi bi-printer"></i> <strong>Print Labels:</strong> Code prints automatically on label printer (requires label printer hardware).</div>
-                <div><i class="bi bi-collection"></i> <strong>Both:</strong> Show QR code on screen and print labels simultaneously.</div>
+          <div class="row g-3">
+            <!-- Require Codes Toggle -->
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
+                       {% if label_settings.require_checkout_code == 'true' %}checked{% endif %} style="cursor: pointer;">
+                <label class="form-check-label fw-semibold" for="require_checkout_code" style="cursor: pointer;">
+                  Require checkout codes
+                </label>
+                <div class="text-muted small">One 5-digit code per family. Admins can override with password.</div>
               </div>
             </div>
 
-          <div id="printer-settings" style="{% if label_settings.checkout_code_method == 'qr' %}display: none;{% endif %}">
-            <div class="mb-4">
-              <label for="label_printer_type" class="form-label" style="font-weight: 600; color: #333;">Printer Type</label>
-              <select class="form-select form-select-lg" id="label_printer_type" name="label_printer_type" style="border: 2px solid #dee2e6;">
-                <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO Label Printer</option>
-                <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL Series</option>
+            <!-- Code Delivery Method -->
+            <div class="col-md-6" id="code-method-section" style="{% if label_settings.require_checkout_code != 'true' %}opacity: 0.5; pointer-events: none;{% endif %}">
+              <label for="checkout_code_method" class="form-label small fw-semibold mb-1">Code Delivery</label>
+              <select class="form-select form-select-sm" id="checkout_code_method" name="checkout_code_method">
+                <option value="qr" {% if label_settings.checkout_code_method == 'qr' or not label_settings.checkout_code_method %}selected{% endif %}>📱 QR Code (Free)</option>
+                <option value="label" {% if label_settings.checkout_code_method == 'label' %}selected{% endif %}>🖨️ Print Labels</option>
+                <option value="both" {% if label_settings.checkout_code_method == 'both' %}selected{% endif %}>📱🖨️ Both</option>
               </select>
             </div>
 
-          <div class="mb-3">
-            <label for="label_size" class="form-label" style="font-weight: 600; color: #333;">Label Size</label>
-            <select class="form-select form-select-lg" id="label_size" name="label_size" style="border: 2px solid #dee2e6;">
-              <optgroup label="Small Labels (Portrait)">
-                <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>Dymo 30336 - 1" × 2⅛"</option>
-              </optgroup>
-              <optgroup label="Small Labels (Landscape)">
-                <option value="30330" {% if label_settings.label_size == '30330' %}selected{% endif %}>Dymo 30330 - ¾" × 2"</option>
-                <option value="11352" {% if label_settings.label_size == '11352' %}selected{% endif %}>Dymo 11352 - ⅞" × 2¾"</option>
-              </optgroup>
-              <optgroup label="Medium Labels (Landscape)">
-                <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>Dymo 30334 - 2¼" × 1¼"</option>
-                <option value="30252" {% if label_settings.label_size == '30252' %}selected{% endif %}>Dymo 30252 - 1⅛" × 3½" (Address)</option>
-              </optgroup>
-              <optgroup label="Large Labels (Landscape)">
-                <option value="30323" {% if label_settings.label_size == '30323' %}selected{% endif %}>Dymo 30323 - 2⅛" × 4" (Shipping)</option>
-              </optgroup>
-            </select>
-            <div class="form-text" style="font-size: 0.9rem;">
-              Select the Dymo label size you're using. The label layout will automatically adjust.
-            </div>
-          </div>
-          </div>
+            <!-- Printer Settings -->
+            <div id="printer-settings" style="{% if label_settings.checkout_code_method == 'qr' %}display: none;{% endif %}">
+              <div class="col-md-3">
+                <label for="label_printer_type" class="form-label small fw-semibold mb-1">Printer</label>
+                <select class="form-select form-select-sm" id="label_printer_type" name="label_printer_type">
+                  <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO</option>
+                  <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL</option>
+                </select>
+              </div>
 
-          <div class="alert" style="background-color: #e7f3ff; border-left: 4px solid #4a582d; border-radius: 8px;">
-            <div class="d-flex gap-2">
-              <i class="bi bi-info-circle-fill" style="color: #4a582d; font-size: 1.3rem; margin-top: 2px;"></i>
-              <div>
-                <strong style="color: #4a582d;">How it works:</strong>
-                <ul class="mb-0 mt-2" style="font-size: 0.95rem; line-height: 1.6;">
-                  <li>When checking in, <strong>one unique 5-digit code is generated per family</strong> (even if checking in multiple siblings)</li>
-                  <li><strong>QR Code:</strong> Parent scans QR code with phone to view all kids and the checkout code, then shares via text/email/any app</li>
-                  <li><strong>Labels:</strong> Code prints on label for each child (all show same family code)</li>
-                  <li>To check out any child, parent enters the same family code</li>
-                  <li>Admins can override with the app password</li>
-                </ul>
+              <div class="col-md-3">
+                <label for="label_size" class="form-label small fw-semibold mb-1">Label Size</label>
+                <select class="form-select form-select-sm" id="label_size" name="label_size">
+                  <optgroup label="Portrait">
+                    <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>30336 (1×2⅛")</option>
+                  </optgroup>
+                  <optgroup label="Small Landscape">
+                    <option value="30330" {% if label_settings.label_size == '30330' %}selected{% endif %}>30330 (¾×2")</option>
+                    <option value="11352" {% if label_settings.label_size == '11352' %}selected{% endif %}>11352 (⅞×2¾")</option>
+                  </optgroup>
+                  <optgroup label="Medium Landscape">
+                    <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>30334 (2¼×1¼")</option>
+                    <option value="30252" {% if label_settings.label_size == '30252' %}selected{% endif %}>30252 (1⅛×3½")</option>
+                  </optgroup>
+                  <optgroup label="Large Landscape">
+                    <option value="30323" {% if label_settings.label_size == '30323' %}selected{% endif %}>30323 (2⅛×4")</option>
+                  </optgroup>
+                </select>
               </div>
             </div>
-          </div>
 
-          <button type="submit" class="btn btn-lg px-4" style="background: linear-gradient(135deg, #4a582d 0%, #5a6c38 100%); color: white; border: none; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <i class="bi bi-check-circle"></i> Update Checkout Settings
-          </button>
+            <!-- Info Box -->
+            <div class="col-12">
+              <div class="alert alert-info p-2 mb-0 small">
+                <i class="bi bi-info-circle"></i> <strong>QR:</strong> Parent scans to view/share code. <strong>Labels:</strong> Auto-prints on check-in. <strong>Both:</strong> Show QR + print.
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="col-12">
+              <button type="submit" class="btn btn-sm" style="background: #4a582d; color: white;">
+                <i class="bi bi-check-circle"></i> Update Checkout Settings
+              </button>
+            </div>
+          </div>
         </form>
-
       </div>
     </div>
 
@@ -174,83 +145,70 @@
 
 
     <!-- Branding & Logo -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header" style="background: linear-gradient(135deg, #003b59 0%, #004a6e 100%); color: white; padding: 1.25rem;">
-        <h5 class="mb-0" style="font-weight: 600;"><i class="bi bi-palette"></i> Branding & Logo</h5>
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background: linear-gradient(135deg, #003b59 0%, #004a6e 100%); color: white;">
+        <h6 class="mb-0"><i class="bi bi-palette"></i> Branding</h6>
       </div>
-      <div class="card-body" style="padding: 1.5rem;">
-        <p class="text-muted mb-4" style="font-size: 0.95rem;">Upload your troop logo to display on checkout pages and the kiosk.</p>
-
+      <div class="card-body p-3">
         <form method="POST" enctype="multipart/form-data">
-          {% if current_logo %}
-          <div class="mb-4">
-            <label class="form-label" style="font-weight: 600; color: #333;">Current Logo</label>
-            <div class="border rounded p-4 text-center" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px solid #dee2e6 !important;">
-              <img src="{{ url_for('static', filename='uploads/' + current_logo) }}" alt="Current Logo" style="max-height: 120px; max-width: 100%; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
-            </div>
-          </div>
-          {% endif %}
-
-          <div class="mb-4">
-            <label for="logo_file" class="form-label" style="font-weight: 600; color: #333;">
-              {% if current_logo %}<i class="bi bi-arrow-repeat"></i> Replace Logo{% else %}<i class="bi bi-upload"></i> Upload Logo{% endif %}
-            </label>
-            <input type="file" class="form-control form-control-lg" id="logo_file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/svg+xml" style="border: 2px solid #dee2e6;">
-            <div class="form-text mt-2"><i class="bi bi-info-circle"></i> PNG, JPG, or SVG • Recommended: transparent PNG, max 200px height</div>
-          </div>
-
-          <div class="d-flex gap-2 flex-wrap">
-            <button type="submit" name="action" value="upload_logo" class="btn btn-lg px-4" style="background: linear-gradient(135deg, #003b59 0%, #004a6e 100%); color: white; border: none; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <i class="bi bi-{% if current_logo %}arrow-repeat{% else %}upload{% endif %}"></i> {% if current_logo %}Replace Logo{% else %}Upload Logo{% endif %}
-            </button>
+          <div class="row g-3">
             {% if current_logo %}
-            <button type="submit" name="action" value="remove_logo" class="btn btn-outline-danger btn-lg px-4" onclick="return confirm('Remove current logo?');" style="font-weight: 600;">
-              <i class="bi bi-trash"></i> Remove
-            </button>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold mb-1">Current Logo</label>
+              <div class="border rounded p-2 text-center bg-light">
+                <img src="{{ url_for('static', filename='uploads/' + current_logo) }}" alt="Logo" style="max-height: 80px; max-width: 100%;">
+              </div>
+            </div>
+            <div class="col-md-8">
+            {% else %}
+            <div class="col-12">
             {% endif %}
+              <label for="logo_file" class="form-label small fw-semibold mb-1">
+                {% if current_logo %}Replace Logo{% else %}Upload Logo{% endif %}
+              </label>
+              <input type="file" class="form-control form-control-sm" id="logo_file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/svg+xml">
+              <div class="text-muted small mt-1">PNG, JPG, or SVG • Max 200px height</div>
+              <div class="mt-2">
+                <button type="submit" name="action" value="upload_logo" class="btn btn-sm" style="background: #003b59; color: white;">
+                  <i class="bi bi-{% if current_logo %}arrow-repeat{% else %}upload{% endif %}"></i> {% if current_logo %}Replace{% else %}Upload{% endif %}
+                </button>
+                {% if current_logo %}
+                <button type="submit" name="action" value="remove_logo" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove logo?');">
+                  <i class="bi bi-trash"></i> Remove
+                </button>
+                {% endif %}
+              </div>
+            </div>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- Sidebar -->
-  <div class="col-lg-3 col-12 mt-4 mt-lg-0">
-    <!-- Info Cards -->
-    <div class="card shadow-sm mb-3" style="border: 2px solid #f8f9fa;">
-      <div class="card-header" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-bottom: 2px solid #dee2e6; padding: 1rem;">
-        <h6 class="mb-0" style="font-weight: 600; color: #333;"><i class="bi bi-lightbulb"></i> Security Tips</h6>
+  <!-- Right Sidebar -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2 bg-light">
+        <h6 class="mb-0 small fw-semibold"><i class="bi bi-lightbulb"></i> Tips</h6>
       </div>
-      <div class="card-body" style="padding: 1rem;">
-        <ul class="mb-0 ps-3" style="font-size: 0.9rem; line-height: 1.7;">
-          <li class="mb-2">Choose a memorable but secure access code</li>
-          <li class="mb-2">Share codes only with authorized team members</li>
-          <li class="mb-2">Change the access code periodically</li>
-          <li>Developer password provides backup access</li>
+      <div class="card-body p-3">
+        <ul class="mb-0 ps-3 small lh-sm" style="font-size: 0.85rem;">
+          <li class="mb-2">Choose memorable access codes</li>
+          <li class="mb-2">Share codes only with authorized staff</li>
+          <li class="mb-2">Change codes periodically for security</li>
+          <li class="mb-2">QR codes auto-expire after 24 hours</li>
+          <li>Labels print automatically on check-in</li>
         </ul>
       </div>
     </div>
 
-    <div class="card shadow-sm mb-3" style="border: 2px solid #e7f3ff;">
-      <div class="card-header" style="background: linear-gradient(135deg, #e7f3ff 0%, #d4e9ff 100%); border-bottom: 2px solid #4a582d; padding: 1rem;">
-        <h6 class="mb-0" style="font-weight: 600; color: #333;"><i class="bi bi-arrow-repeat"></i> Data Cleanup</h6>
-      </div>
-      <div class="card-body" style="padding: 1rem;">
-        <p class="mb-0" style="font-size: 0.9rem; line-height: 1.6;">Checkout code links are automatically deleted after 24 hours or when kids are checked out. Your server stays clean - no manual cleanup needed!</p>
-      </div>
-    </div>
-
     {% if dev_password_set %}
-    <div class="card shadow-sm mb-3" style="border: 2px solid #ffc107;">
-      <div class="card-header" style="background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%); border-bottom: 2px solid #ffc107; padding: 1rem;">
-        <h6 class="mb-0" style="font-weight: 600; color: #856404;"><i class="bi bi-shield-check"></i> Developer Access</h6>
-      </div>
-      <div class="card-body" style="padding: 1rem;">
-        <p class="mb-0" style="font-size: 0.9rem; line-height: 1.6; color: #856404;">A hard-coded developer password provides backup admin access if the access code is lost.</p>
-      </div>
+    <div class="alert alert-warning p-2 mb-3 small">
+      <i class="bi bi-shield-check"></i> <strong>Developer Access:</strong> Hard-coded backup password is active.
     </div>
     {% endif %}
   </div>
 </div>
+
 </div>
 {% endblock %}
