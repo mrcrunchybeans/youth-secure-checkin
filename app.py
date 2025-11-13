@@ -918,16 +918,13 @@ def unlock_override():
     """Unlock the override password section with developer password"""
     dev_password = request.form.get('dev_password', '').strip()
     
-    # Always show this to confirm route is being called
-    flash(f'Route called! Password received (len={len(dev_password)}), Expected (len={len(DEVELOPER_PASSWORD) if DEVELOPER_PASSWORD else 0})', 'info')
-    
     if DEVELOPER_PASSWORD is None:
         flash('Developer password not configured in .env file!', 'danger')
     elif dev_password == DEVELOPER_PASSWORD:
         session['override_unlocked'] = True
         flash('Override settings unlocked!', 'success')
     else:
-        flash(f'Invalid! Received: "{dev_password}" vs Expected: "{DEVELOPER_PASSWORD}"', 'danger')
+        flash('Invalid developer password!', 'danger')
     
     return redirect(url_for('admin_settings'))
 
