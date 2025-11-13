@@ -16,6 +16,10 @@ from io import BytesIO
 import base64
 import os
 from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Optional label printing support
 try:
@@ -68,7 +72,7 @@ def init_db():
     conn.close()
 
 app = Flask(__name__)
-app.secret_key = 'dev-key-for-local'  # override in prod with env var
+app.secret_key = os.getenv('SECRET_KEY', 'dev-key-for-local')  # override in prod with env var
 
 # File upload configuration
 UPLOAD_FOLDER = Path(__file__).parent / 'static' / 'uploads'
@@ -81,8 +85,9 @@ UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
 local_tz = pytz.timezone('America/Chicago')  # Adjust to your local timezone
 
-# Hard-coded developer password - CHANGE THIS!
-DEVELOPER_PASSWORD = 'dev2024secure'
+# Developer password from environment variable for security
+# Falls back to None if not set (disables developer override features)
+DEVELOPER_PASSWORD = os.getenv('DEVELOPER_PASSWORD', None)
 
 def ensure_db():
     # kept for manual invocation; do not run at import time so tests can control DB_PATH
