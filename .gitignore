@@ -61,34 +61,40 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Old test and migration files (kept locally for reference)
-test_env.py
-check_db.py
-check_route.py
-add_override_setting.py
-migrate_*.py
-replace_*.py
-RENAME_INSTRUCTIONS.md
-MIGRATION_DEFAULT_ADULT.md
-HOSTINGER_DEPLOYMENT.md
-FEATURE_KID_NOTES.md
-EXPORT_FEATURES.md
-LABEL_PRINTING_FEATURE.md
-troop_checkin.code-workspace
-tests/test_app.py
+# Local scripts folder (development and maintenance scripts)
+local-scripts/
 
-# Old test and migration files (kept locally for reference)
-test_env.py
-check_db.py
-check_route.py
+# Data directory (used by Docker)
+data/
+
+# Uploads directory
+uploads/
+
+# Local development files (personal use only)
+local-dev-files/
+DOCKER_TESTING.md
+DOCKER_PUBLISHING.md
+GITHUB_ACTIONS_SETUP.md
+GITHUB_ACTIONS_QUICKSTART.md
+publish-to-dockerhub.ps1
+quick-publish.ps1
+cleanup-repo.ps1
+cleanup-personal-files.ps1
+
+# Migration scripts (already applied)
 add_override_setting.py
 migrate_*.py
+mark_setup_complete.py
+MIGRATION_*.md
+
+# Development utility scripts
+check_db.py
+check_route.py
+cleanup_orphaned_checkins.py
+clear_checkin_history.py
 replace_*.py
-RENAME_INSTRUCTIONS.md
-MIGRATION_DEFAULT_ADULT.md
-HOSTINGER_DEPLOYMENT.md
-FEATURE_KID_NOTES.md
-EXPORT_FEATURES.md
-LABEL_PRINTING_FEATURE.md
-troop_checkin.code-workspace
-tests/test_app.py
+reset_checkin_ids.py
+test_env.py
+
+# Old deployment documentation
+DEPLOYMENT.md
