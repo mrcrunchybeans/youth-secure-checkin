@@ -55,7 +55,7 @@
           <input type="date" name="end_date" id="end_date" class="form-control form-control-sm" value="{{ end_date or '' }}">
         </div>
         <div class="col-md-2 col-12 d-flex align-items-end filter-buttons">
-          <button type="submit" class="btn btn-sm me-2" style="background-color: #79060d; color: white; border: none;">Filter</button>
+          <button type="submit" class="btn btn-sm me-2" style="background-color: {{ branding.primary_color }}; color: white; border: none;">Filter</button>
           <a href="/history" class="btn btn-sm btn-outline-secondary">Clear</a>
         </div>
       </form>

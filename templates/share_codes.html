@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #79060d 0%, #003b59 100%);
+            background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -27,7 +27,7 @@
             min-height: 100vh;
         }
         .event-title {
-            color: #79060d;
+            color: {{ branding.primary_color }};
             font-weight: bold;
             margin-bottom: 10px;
             font-size: 1.8rem;
@@ -42,7 +42,7 @@
             border-radius: 15px;
             padding: 25px;
             margin-bottom: 20px;
-            border: 3px solid #79060d;
+            border: 3px solid {{ branding.primary_color }};
             transition: all 0.3s ease;
         }
         .kid-name {
@@ -54,7 +54,7 @@
         .checkout-code {
             font-size: 2.5rem;
             font-weight: bold;
-            color: #79060d;
+            color: {{ branding.primary_color }};
             font-family: 'Courier New', monospace;
             letter-spacing: 8px;
             text-align: center;
@@ -62,7 +62,7 @@
             background: white;
             border-radius: 10px;
             margin: 15px 0;
-            border: 2px solid #79060d;
+            border: 2px solid {{ branding.primary_color }};
         }
         .checked-out {
             opacity: 0.5;
@@ -84,7 +84,7 @@
             padding: 18px;
             font-size: 1.2rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #79060d 0%, #003b59 100%);
+            background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%);
             border: none;
             border-radius: 15px;
             color: white;

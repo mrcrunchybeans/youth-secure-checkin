@@ -33,7 +33,7 @@
 <div class="row">
   <div class="col-lg-8 col-12">
     <div class="card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="background-color: #79060d; color: white;">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="background-color: {{ branding.primary_color }}; color: white;">
         <strong class="mb-1 mb-sm-0">Family Lookup</strong>
         <!-- Desktop: dropdown select -->
         <select id="event-select" class="form-select form-select-sm d-none d-sm-inline-block" style="width: auto; max-width: 300px;">
@@ -54,14 +54,14 @@
             <input id="last4" class="form-control" maxlength="4" pattern="\d{4}" required placeholder="0000" inputmode="numeric" />
           </div>
           <div class="col-auto col-md-4">
-            <button type="submit" class="btn" style="background-color: #79060d; color: white; border: none; padding: 0.5rem 2rem;">Search</button>
+            <button type="submit" class="btn" style="background-color: {{ branding.primary_color }}; color: white; border: none; padding: 0.5rem 2rem;">Search</button>
           </div>
         </form>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header" style="background-color: #4a582d; color: white;"><strong>Currently Checked In - {{ checked_in|length }}</strong></div>
+      <div class="card-header" style="background-color: {{ branding.accent_color }}; color: white;"><strong>Currently Checked In - {{ checked_in|length }}</strong></div>
       <ul class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
         {% for row in checked_in %}
           <li class="list-group-item d-flex justify-content-between align-items-center py-2">
@@ -82,7 +82,7 @@
               </div>
               <small class="text-muted d-block">Phone: {{ row['phone'] }} · {{ row['formatted_time'] }}</small>
             </div>
-            <button class="btn btn-sm checkout-btn" style="color: #79060d; border-color: #79060d; white-space: nowrap;" 
+            <button class="btn btn-sm checkout-btn" style="color: {{ branding.primary_color }}; border-color: {{ branding.primary_color }}; white-space: nowrap;" 
                     data-kid-id="{{ row['kid_id'] }}" 
                     data-kid-name="{{ row['kid_name'] }}" 
                     data-event-id="{{ current_event_id }}">Check Out</button>
@@ -96,13 +96,13 @@
 
   <div class="col-lg-4 col-12 mt-3 mt-lg-0">
     <div class="card mb-3">
-      <div class="card-header" style="background-color: #003b59; color: white;"><strong>Quick Actions</strong></div>
+      <div class="card-header" style="background-color: {{ branding.secondary_color }}; color: white;"><strong>Quick Actions</strong></div>
       <div class="card-body">
         <div class="d-grid gap-2">
-          <a href="/kiosk" class="btn" style="background-color: #79060d; color: white; border: none;">
+          <a href="/kiosk" class="btn" style="background-color: {{ branding.primary_color }}; color: white; border: none;">
             <span style="font-size: 1.2rem;">📱</span> Kiosk Mode
           </a>
-          <a href="/admin" class="btn" style="background-color: #003b59; color: white; border: none;">
+          <a href="/admin" class="btn" style="background-color: {{ branding.secondary_color }}; color: white; border: none;">
             <span style="font-size: 1.2rem;">⚙️</span> Admin Panel
           </a>
           <a href="/history" class="btn btn-outline-secondary">
@@ -126,7 +126,7 @@
 <div class="modal fade" id="eventModalIndex" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header" style="background-color: #79060d; color: white;">
+      <div class="modal-header" style="background-color: {{ branding.primary_color }}; color: white;">
         <h5 class="modal-title">Select Event</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
@@ -147,13 +147,13 @@
 <div class="modal fade" id="familyModal" tabindex="-1" aria-labelledby="familyModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header" style="background-color: #79060d; color: white;">
+      <div class="modal-header" style="background-color: {{ branding.primary_color }}; color: white;">
         <h5 class="modal-title" id="familyModalLabel">Select Kids to Check In</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <p><strong>Phone:</strong> <span id="modal-phone"></span></p>
-        <p><strong>Troop:</strong> <span id="modal-troop"></span></p>
+        <p><strong>{{ branding.group_term }}:</strong> <span id="modal-troop"></span></p>
         <form id="select-kids-form">
           <input type="hidden" id="family-id" name="family_id">
           <input type="hidden" id="modal-event-id" name="event_id" value="{{ current_event_id }}">
@@ -167,8 +167,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn" style="background-color: #003b59; color: white; border: none;" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" form="select-kids-form" class="btn" style="background-color: #4a582d; color: white; border: none;">Check In Selected</button>
+        <button type="button" class="btn" style="background-color: {{ branding.secondary_color }}; color: white; border: none;" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="select-kids-form" class="btn" style="background-color: {{ branding.accent_color }}; color: white; border: none;">Check In Selected</button>
       </div>
     </div>
   </div>
@@ -177,21 +177,21 @@
 <!-- QR Code Modal -->
 <div class="modal fade" id="qrCodeModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
-    <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid #79060d;">
-      <div class="modal-header" style="background: linear-gradient(135deg, #79060d 0%, #003b59 100%); color: white; border: none; padding: 1rem;">
+    <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid {{ branding.primary_color }};">
+      <div class="modal-header" style="background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%); color: white; border: none; padding: 1rem;">
         <h5 class="modal-title" style="font-size: 1.3rem; font-weight: 700;">📱 Scan for Checkout Code</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center" style="padding: 1.5rem;">
         <img id="qr-code-img" src="" alt="QR Code" style="max-width: 250px; width: 100%; border: 5px solid #f8f9fa; border-radius: 10px;">
-        <div class="mt-3 mb-2" style="background: #f8f9fa; border: 2px solid #79060d; border-radius: 10px; padding: 0.8rem;">
+        <div class="mt-3 mb-2" style="background: #f8f9fa; border: 2px solid {{ branding.primary_color }}; border-radius: 10px; padding: 0.8rem;">
           <div class="text-muted mb-1" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05rem;">Checkout Code</div>
-          <div id="qr-code-text" style="font-size: 1.8rem; font-weight: bold; color: #79060d; font-family: 'Courier New', monospace; letter-spacing: 0.3rem;"></div>
+          <div id="qr-code-text" style="font-size: 1.8rem; font-weight: bold; color: {{ branding.primary_color }}; font-family: 'Courier New', monospace; letter-spacing: 0.3rem;"></div>
         </div>
         <p class="text-muted mb-0" style="font-size: 0.85rem; line-height: 1.4;">Scan QR code or write down the code above</p>
       </div>
       <div class="modal-footer" style="border: none; justify-content: center; padding: 1rem 1.5rem;">
-        <button type="button" class="btn" style="background: linear-gradient(135deg, #79060d 0%, #003b59 100%); color: white; border: none; border-radius: 10px; padding: 0.6rem 2rem; font-size: 1.1rem; font-weight: 600;" data-bs-dismiss="modal">Done</button>
+        <button type="button" class="btn" style="background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%); color: white; border: none; border-radius: 10px; padding: 0.6rem 2rem; font-size: 1.1rem; font-weight: 600;" data-bs-dismiss="modal">Done</button>
       </div>
     </div>
   </div>
@@ -200,8 +200,8 @@
 <!-- Checkout Code Entry Modal -->
 <div class="modal fade" id="checkoutCodeModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
-    <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid #79060d;">
-      <div class="modal-header" style="background: linear-gradient(135deg, #79060d 0%, #003b59 100%); color: white; border: none; padding: 0.6rem 0.9rem;">
+    <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid {{ branding.primary_color }};">
+      <div class="modal-header" style="background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%); color: white; border: none; padding: 0.6rem 0.9rem;">
         <h5 class="modal-title" style="font-size: 1.15rem; font-weight: 700;">🔒 Enter Code</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
@@ -219,7 +219,7 @@
         <form id="checkout-code-form">
           <div class="mb-2">
             <input type="text" class="form-control text-center" id="checkout-code-input" 
-                   style="font-size: 1.4rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid #79060d; font-weight: bold; padding: 0.35rem;"
+                   style="font-size: 1.4rem; letter-spacing: 0.3rem; font-family: 'Courier New', monospace; border: 2px solid {{ branding.primary_color }}; font-weight: bold; padding: 0.35rem;"
                    maxlength="10" required autocomplete="off" inputmode="none" placeholder="Code">
           </div>
           
@@ -242,7 +242,7 @@
           </div>
           
           <div class="d-grid" style="gap: 0.35rem;">
-            <button type="submit" class="btn" style="background: linear-gradient(135deg, #4a582d 0%, #79060d 100%); color: white; border: none; border-radius: 10px; padding: 0.5rem; font-size: 1rem; font-weight: 600;">
+            <button type="submit" class="btn" style="background: linear-gradient(135deg, {{ branding.accent_color }} 0%, {{ branding.primary_color }} 100%); color: white; border: none; border-radius: 10px; padding: 0.5rem; font-size: 1rem; font-weight: 600;">
               ✓ Check Out
             </button>
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" style="border-radius: 10px; padding: 0.3rem; font-size: 0.85rem;">

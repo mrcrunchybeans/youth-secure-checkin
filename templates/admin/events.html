@@ -4,7 +4,7 @@
   <h2>Events</h2>
 
   <div class="card mb-3">
-    <div class="card-header" style="background-color: #79060d; color: white;">
+    <div class="card-header" style="background-color: {{ branding.primary_color }}; color: white;">
       <strong>iCal Sync Configuration</strong>
     </div>
     <div class="card-body">
@@ -12,7 +12,7 @@
         <label class="form-label fw-bold">iCal URL</label>
         <div class="input-group mb-3">
           <input name="ical_url" class="form-control" value="{{ ical_url or '' }}" placeholder="https://example.com/calendar.ics" />
-          <button type="submit" class="btn" style="background-color: #79060d; color: white; border: none;">Save URL</button>
+          <button type="submit" class="btn" style="background-color: {{ branding.primary_color }}; color: white; border: none;">Save URL</button>
         </div>
       </form>
 
