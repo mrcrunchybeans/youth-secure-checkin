@@ -1148,6 +1148,60 @@ def export_configuration():
     response.headers['Content-Disposition'] = f'attachment; filename=configuration_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
     return response
 
+@app.route('/admin/backup/import', methods=['POST'])
+@require_auth
+def import_configuration():
+    """Import/restore configuration settings from JSON backup"""
+    if 'backup_file' not in request.files:
+        flash('No file selected', 'danger')
+        return redirect(url_for('admin_security'))
+    
+    file = request.files['backup_file']
+    if file.filename == '':
+        flash('No file selected', 'danger')
+        return redirect(url_for('admin_security'))
+    
+    if not file.filename.endswith('.json'):
+        flash('Invalid file type. Please upload a JSON backup file.', 'danger')
+        return redirect(url_for('admin_security'))
+    
+    try:
+        # Read and parse JSON
+        content = file.read().decode('utf-8')
+        backup = json.loads(content)
+        
+        # Validate backup structure
+        if 'settings' not in backup:
+            flash('Invalid backup file format', 'danger')
+            return redirect(url_for('admin_security'))
+        
+        settings = backup['settings']
+        conn = get_db()
+        imported_count = 0
+        
+        # Import all settings
+        for key, value in settings.items():
+            # Skip empty values
+            if value is None or value == '':
+                continue
+            
+            # Insert or update setting
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+            imported_count += 1
+        
+        conn.commit()
+        conn.close()
+        
+        flash(f'Configuration restored successfully! {imported_count} settings imported.', 'success')
+        flash('Please review your settings and restart the application if needed.', 'info')
+        
+    except json.JSONDecodeError:
+        flash('Invalid JSON file. Please upload a valid backup file.', 'danger')
+    except Exception as e:
+        flash(f'Error importing configuration: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin_security'))
+
 @app.route('/admin/unlock_override', methods=['POST'])
 @require_auth
 def unlock_override():

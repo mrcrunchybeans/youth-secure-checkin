@@ -74,6 +74,19 @@ The check-in system now supports exporting both family data and configuration ba
 4. JSON file downloads automatically
 5. Store in secure location for disaster recovery
 
+### Restoring Configuration
+1. Log in to admin panel
+2. Navigate to "Security Settings"
+3. Click "Restore Backup" button
+4. A modal dialog will appear with warnings
+5. Click "Choose File" and select your backup JSON file
+6. Review the warning about overwriting current settings
+7. Click "Restore Backup" to complete the import
+8. System will confirm successful restoration
+9. Review settings and restart application if needed
+
+**Important:** Always export a current backup before restoring to have a rollback option.
+
 ## Import/Export Round Trip
 
 The CSV export format is compatible with the CSV import format:
@@ -120,6 +133,14 @@ The CSV export format is compatible with the CSV import format:
 - Excludes developer password (environment-only)
 - Includes app version for compatibility checking
 
+### JSON Import Implementation
+- Validates JSON structure before importing
+- Supports INSERT OR REPLACE for all settings
+- Skips empty/null values
+- Provides detailed feedback on import success
+- Shows count of imported settings
+- Includes safety warnings before restoration
+
 ### File Naming
 Both exports use timestamps to prevent overwrites:
 - Format: `YYYYMMDD_HHMMSS` (e.g., `20240115_143022`)
@@ -129,7 +150,7 @@ Both exports use timestamps to prevent overwrites:
 ## Future Enhancements
 
 Potential additions for future versions:
-- [ ] Configuration import/restore functionality
+- [x] Configuration import/restore functionality
 - [ ] Scheduled automatic backups
 - [ ] Export event history with check-in/check-out data
 - [ ] Excel (.xlsx) export format option
