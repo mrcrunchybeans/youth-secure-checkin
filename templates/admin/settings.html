@@ -40,25 +40,27 @@
               </button>
             </div>
           </div>
-          
-          <!-- Admin Override Code - Protected -->
-          <div class="row g-2 align-items-end" id="override-section">
-            <div class="col-12">
-              <div class="border rounded p-3 bg-light">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                  <label class="form-label mb-0 small fw-semibold">
-                    <i class="bi bi-lock-fill text-warning"></i> Admin Override Code
-                  </label>
-                  {% if override_unlocked %}
-                  <span class="badge bg-success small">Unlocked</span>
-                  {% else %}
-                  <span class="badge bg-warning text-dark small">Protected</span>
-                  {% endif %}
-                </div>
-                
+        </form>
+        
+        <!-- Admin Override Code - Protected (separate form) -->
+        <div class="row g-2 align-items-end mt-3" id="override-section">
+          <div class="col-12">
+            <div class="border rounded p-3 bg-light">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <label class="form-label mb-0 small fw-semibold">
+                  <i class="bi bi-lock-fill text-warning"></i> Admin Override Code
+                </label>
                 {% if override_unlocked %}
-                <!-- Show override code management when unlocked -->
-                <div class="row g-2 align-items-end">
+                <span class="badge bg-success small">Unlocked</span>
+                {% else %}
+                <span class="badge bg-warning text-dark small">Protected</span>
+                {% endif %}
+              </div>
+              
+              {% if override_unlocked %}
+              <!-- Show override code management when unlocked -->
+              <form method="POST" class="needs-validation" novalidate>
+              <div class="row g-2 align-items-end">
                   <div class="col-md-5">
                     <input type="text" class="form-control form-control-sm" id="new_override_password" name="new_override_password"
                            placeholder="Enter new override code" minlength="4">
@@ -78,7 +80,8 @@
                     <i class="bi bi-lock"></i> Lock Override Settings
                   </a>
                 </div>
-                {% else %}
+              </form>
+              {% else %}
                 <!-- Show unlock form when locked -->
                 <form method="POST" action="{{ url_for('unlock_override') }}">
                   <div class="row g-2 align-items-end">
