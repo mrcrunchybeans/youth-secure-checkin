@@ -918,6 +918,12 @@ def unlock_override():
     """Unlock the override password section with developer password"""
     dev_password = request.form.get('dev_password', '').strip()
     
+    # Debug logging
+    print(f"DEBUG: Received password: '{dev_password}' (len={len(dev_password)})")
+    print(f"DEBUG: Expected password: '{DEVELOPER_PASSWORD}' (len={len(DEVELOPER_PASSWORD) if DEVELOPER_PASSWORD else 0})")
+    print(f"DEBUG: DEVELOPER_PASSWORD is None: {DEVELOPER_PASSWORD is None}")
+    print(f"DEBUG: Passwords match: {dev_password == DEVELOPER_PASSWORD}")
+    
     if dev_password == DEVELOPER_PASSWORD:
         session['override_unlocked'] = True
         flash('Override settings unlocked!', 'success')
