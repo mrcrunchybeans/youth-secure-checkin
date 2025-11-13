@@ -907,6 +907,20 @@ def history():
 def admin_index():
     return render_template('admin/index.html')
 
+@app.route('/admin/unlock_override', methods=['POST'])
+@require_auth
+def unlock_override():
+    """Unlock the override password section with developer password"""
+    dev_password = request.form.get('dev_password', '').strip()
+    
+    if dev_password == DEVELOPER_PASSWORD:
+        session['override_unlocked'] = True
+        flash('Override settings unlocked!', 'success')
+    else:
+        flash('Invalid developer password!', 'danger')
+    
+    return redirect(url_for('admin_settings'))
+
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @require_auth
 def admin_settings():
@@ -991,6 +1005,9 @@ def admin_settings():
     current_override_password = get_override_password()
     current_logo = get_logo_filename()
     
+    # Check if override section is unlocked (persists during session)
+    override_unlocked = session.get('override_unlocked', False)
+    
     # Fetch label printing settings
     label_settings = {}
     for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
@@ -1002,6 +1019,7 @@ def admin_settings():
     return render_template('admin/settings.html', 
                          current_password=current_password,
                          current_override_password=current_override_password,
+                         override_unlocked=override_unlocked,
                          dev_password_set=bool(DEVELOPER_PASSWORD),
                          label_settings=label_settings,
                          current_logo=current_logo)

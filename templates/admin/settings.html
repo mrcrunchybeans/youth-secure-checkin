@@ -41,21 +41,63 @@
             </div>
           </div>
           
-          <!-- Admin Override Code -->
-          <div class="row g-2 align-items-end">
-            <div class="col-md-5">
-              <label for="new_override_password" class="form-label mb-1 small fw-semibold">Admin Override Code</label>
-              <input type="text" class="form-control form-control-sm" id="new_override_password" name="new_override_password"
-                     placeholder="Enter new override code" minlength="4">
-              <div class="text-muted" style="font-size: 0.75rem;">For admin checkout override</div>
-            </div>
-            <div class="col-md-4">
-              <div class="small"><strong>Current:</strong> <code class="bg-light px-2 py-1 rounded">{{ current_override_password }}</code></div>
-            </div>
-            <div class="col-md-3">
-              <button type="submit" class="btn btn-sm w-100" style="background: #79060d; color: white;">
-                <i class="bi bi-shield-check"></i> Update
-              </button>
+          <!-- Admin Override Code - Protected -->
+          <div class="row g-2 align-items-end" id="override-section">
+            <div class="col-12">
+              <div class="border rounded p-3 bg-light">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <label class="form-label mb-0 small fw-semibold">
+                    <i class="bi bi-lock-fill text-warning"></i> Admin Override Code
+                  </label>
+                  {% if override_unlocked %}
+                  <span class="badge bg-success small">Unlocked</span>
+                  {% else %}
+                  <span class="badge bg-warning text-dark small">Protected</span>
+                  {% endif %}
+                </div>
+                
+                {% if override_unlocked %}
+                <!-- Show override code management when unlocked -->
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-5">
+                    <input type="text" class="form-control form-control-sm" id="new_override_password" name="new_override_password"
+                           placeholder="Enter new override code" minlength="4">
+                    <div class="text-muted" style="font-size: 0.75rem;">For admin checkout override</div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="small"><strong>Current:</strong> <code class="bg-white px-2 py-1 rounded border">{{ current_override_password }}</code></div>
+                  </div>
+                  <div class="col-md-3">
+                    <button type="submit" class="btn btn-sm w-100" style="background: #79060d; color: white;">
+                      <i class="bi bi-shield-check"></i> Update
+                    </button>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <a href="{{ url_for('admin_settings') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-lock"></i> Lock Override Settings
+                  </a>
+                </div>
+                {% else %}
+                <!-- Show unlock form when locked -->
+                <form method="POST" action="{{ url_for('unlock_override') }}">
+                  <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                      <input type="password" class="form-control form-control-sm" name="dev_password" 
+                             placeholder="Enter developer password" required autofocus>
+                      <div class="text-muted" style="font-size: 0.75rem;">
+                        <i class="bi bi-shield-exclamation"></i> Developer password required to view/edit
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <button type="submit" class="btn btn-sm btn-warning w-100">
+                        <i class="bi bi-unlock"></i> Unlock
+                      </button>
+                    </div>
+                  </div>
+                </form>
+                {% endif %}
+              </div>
             </div>
           </div>
           
