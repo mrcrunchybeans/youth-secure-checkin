@@ -99,3 +99,6 @@ test_env.py
 
 # Old deployment documentation
 DEPLOYMENT.md
+
+# GitHub Actions workflows (personal Docker Hub account)
+.github/
