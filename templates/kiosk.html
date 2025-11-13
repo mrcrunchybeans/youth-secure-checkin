@@ -579,7 +579,7 @@ document.addEventListener('click', function(e) {
                     const checkboxDiv = document.createElement('div');
                     checkboxDiv.className = 'form-check';
                     checkboxDiv.innerHTML = `
-                        <input class="form-check-input sibling-checkbox" type="checkbox" value="${sibling.kid_id}" id="sibling-${sibling.kid_id}">
+                        <input class="form-check-input sibling-checkbox" type="checkbox" value="${sibling.kid_id}" id="sibling-${sibling.kid_id}" checked>
                         <label class="form-check-label" for="sibling-${sibling.kid_id}" style="font-size: 0.9rem;">
                             ${sibling.name}
                         </label>

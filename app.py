@@ -429,6 +429,7 @@ def checkin_selected():
     checked_in_count = 0
     labels_to_print = []  # Collect label data for client-side printing
     checked_in_data = []  # Collect check-in data for UI update
+    kid_names_for_label = []  # Collect names for combined label
     
     # Get family info for the response
     family_row = conn.execute("""
@@ -501,19 +502,30 @@ def checkin_selected():
             'formatted_time': formatted_time
         })
         
-        # Prepare label data for client-side printing if method includes labels
-        if family_checkout_code and checkout_method in ['label', 'both']:
-            try:
-                # Add label data to list for client-side printing
-                labels_to_print.append({
-                    'kid_name': kid_name,
-                    'event_name': event_name,
-                    'event_date': event_date,
-                    'checkin_time': checkin_time,
-                    'checkout_code': family_checkout_code
-                })
-            except Exception as e:
-                print(f"Error preparing label data: {e}")
+        # Collect kid names for combined label
+        kid_names_for_label.append(kid_name)
+    
+    # Create a single combined label if multiple kids checked in together
+    if family_checkout_code and checkout_method in ['label', 'both'] and len(kid_names_for_label) > 0:
+        try:
+            # Combine all kid names for the label (comma separated)
+            combined_names = ', '.join(kid_names_for_label)
+            
+            # Convert UTC to CST for display
+            utc_time = datetime.fromisoformat(now).replace(tzinfo=pytz.UTC)
+            cst_time = utc_time.astimezone(pytz.timezone('America/Chicago'))
+            checkin_time = cst_time.strftime('%I:%M %p')
+            
+            # Add single label with all names
+            labels_to_print.append({
+                'kid_name': combined_names,
+                'event_name': event_name,
+                'event_date': event_date,
+                'checkin_time': checkin_time,
+                'checkout_code': family_checkout_code
+            })
+        except Exception as e:
+            print(f"Error preparing label data: {e}")
     
     conn.commit()
     
