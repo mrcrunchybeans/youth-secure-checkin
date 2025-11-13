@@ -15,13 +15,13 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
             return false;
         }
 
-        // Create label XML for DYMO LabelWriter (2" x 1" label)
+        // Create label XML for DYMO LabelWriter (1" x 2.125" label - 30336)
         var labelXml = `<?xml version="1.0" encoding="utf-8"?>
 <DieCutLabel Version="8.0" Units="twips">
-    <PaperOrientation>Landscape</PaperOrientation>
-    <Id>Address</Id>
+    <PaperOrientation>Portrait</PaperOrientation>
+    <Id>Small</Id>
     <IsOutlined>false</IsOutlined>
-    <PaperName>30252 Address</PaperName>
+    <PaperName>30336 1 in x 2-1/8 in</PaperName>
     <DrawCommands/>
     <ObjectInfo>
         <TextObject>
@@ -32,7 +32,7 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
             <Rotation>Rotation0</Rotation>
             <IsMirrored>False</IsMirrored>
             <IsVariable>True</IsVariable>
-            <HorizontalAlignment>Left</HorizontalAlignment>
+            <HorizontalAlignment>Center</HorizontalAlignment>
             <VerticalAlignment>Middle</VerticalAlignment>
             <TextFitMode>ShrinkToFit</TextFitMode>
             <UseFullFontHeight>True</UseFullFontHeight>
@@ -41,13 +41,13 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
                 <Element>
                     <String>${kidName}</String>
                     <Attributes>
-                        <Font Family="Arial" Size="18" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+                        <Font Family="Arial" Size="12" Bold="True" Italic="False" Underline="False" Strikeout="False" />
                         <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
                     </Attributes>
                 </Element>
             </StyledText>
         </TextObject>
-        <Bounds X="50" Y="50" Width="2000" Height="350" />
+        <Bounds X="50" Y="50" Width="1340" Height="320" />
     </ObjectInfo>
     <ObjectInfo>
         <TextObject>
@@ -58,22 +58,22 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
             <Rotation>Rotation0</Rotation>
             <IsMirrored>False</IsMirrored>
             <IsVariable>True</IsVariable>
-            <HorizontalAlignment>Left</HorizontalAlignment>
+            <HorizontalAlignment>Center</HorizontalAlignment>
             <VerticalAlignment>Middle</VerticalAlignment>
             <TextFitMode>ShrinkToFit</TextFitMode>
             <UseFullFontHeight>True</UseFullFontHeight>
             <Verticalized>False</Verticalized>
             <StyledText>
                 <Element>
-                    <String>${eventName.substring(0, 30)}</String>
+                    <String>${eventName.substring(0, 20)}</String>
                     <Attributes>
-                        <Font Family="Arial" Size="10" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <Font Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
                         <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
                     </Attributes>
                 </Element>
             </StyledText>
         </TextObject>
-        <Bounds X="50" Y="380" Width="2000" Height="200" />
+        <Bounds X="50" Y="360" Width="1340" Height="180" />
     </ObjectInfo>
     <ObjectInfo>
         <TextObject>
@@ -84,22 +84,22 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
             <Rotation>Rotation0</Rotation>
             <IsMirrored>False</IsMirrored>
             <IsVariable>True</IsVariable>
-            <HorizontalAlignment>Left</HorizontalAlignment>
+            <HorizontalAlignment>Center</HorizontalAlignment>
             <VerticalAlignment>Middle</VerticalAlignment>
             <TextFitMode>ShrinkToFit</TextFitMode>
             <UseFullFontHeight>True</UseFullFontHeight>
             <Verticalized>False</Verticalized>
             <StyledText>
                 <Element>
-                    <String>${eventDate} • ${checkinTime}</String>
+                    <String>${eventDate} ${checkinTime}</String>
                     <Attributes>
-                        <Font Family="Arial" Size="10" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <Font Family="Arial" Size="7" Bold="False" Italic="False" Underline="False" Strikeout="False" />
                         <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
                     </Attributes>
                 </Element>
             </StyledText>
         </TextObject>
-        <Bounds X="50" Y="560" Width="2000" Height="200" />
+        <Bounds X="50" Y="530" Width="1340" Height="160" />
     </ObjectInfo>
     <ObjectInfo>
         <TextObject>
@@ -110,22 +110,22 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
             <Rotation>Rotation0</Rotation>
             <IsMirrored>False</IsMirrored>
             <IsVariable>True</IsVariable>
-            <HorizontalAlignment>Left</HorizontalAlignment>
+            <HorizontalAlignment>Center</HorizontalAlignment>
             <VerticalAlignment>Middle</VerticalAlignment>
             <TextFitMode>ShrinkToFit</TextFitMode>
             <UseFullFontHeight>True</UseFullFontHeight>
             <Verticalized>False</Verticalized>
             <StyledText>
                 <Element>
-                    <String>Checkout Code:</String>
+                    <String>Code:</String>
                     <Attributes>
-                        <Font Family="Arial" Size="12" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <Font Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
                         <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
                     </Attributes>
                 </Element>
             </StyledText>
         </TextObject>
-        <Bounds X="50" Y="740" Width="2000" Height="220" />
+        <Bounds X="50" Y="680" Width="1340" Height="160" />
     </ObjectInfo>
     <ObjectInfo>
         <TextObject>
@@ -136,22 +136,22 @@ function printDymoLabel(kidName, eventName, eventDate, checkinTime, checkoutCode
             <Rotation>Rotation0</Rotation>
             <IsMirrored>False</IsMirrored>
             <IsVariable>True</IsVariable>
-            <HorizontalAlignment>Left</HorizontalAlignment>
+            <HorizontalAlignment>Center</HorizontalAlignment>
             <VerticalAlignment>Middle</VerticalAlignment>
             <TextFitMode>ShrinkToFit</TextFitMode>
             <UseFullFontHeight>True</UseFullFontHeight>
             <Verticalized>False</Verticalized>
             <StyledText>
                 <Element>
-                    <String>${checkoutCode.split('').join(' ')}</String>
+                    <String>${checkoutCode}</String>
                     <Attributes>
-                        <Font Family="Arial" Size="24" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+                        <Font Family="Courier New" Size="16" Bold="True" Italic="False" Underline="False" Strikeout="False" />
                         <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
                     </Attributes>
                 </Element>
             </StyledText>
         </TextObject>
-        <Bounds X="50" Y="940" Width="2000" Height="400" />
+        <Bounds X="50" Y="830" Width="1340" Height="400" />
     </ObjectInfo>
 </DieCutLabel>`;
 
