@@ -134,7 +134,7 @@ def get_app_password():
     cur = conn.execute("SELECT value FROM settings WHERE key = 'app_password'")
     row = cur.fetchone()
     conn.close()
-    return row['value'] if row else 'traillife2024'
+    return row['value'] if row else 'changeme'
 
 def set_app_password(password):
     """Set the app password in settings"""

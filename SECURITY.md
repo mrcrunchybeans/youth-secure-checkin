@@ -20,8 +20,9 @@ DEVELOPER_PASSWORD = 'dev2024secure'
 
 1. Start the application: `python app.py`
 2. Navigate to the login page
-3. Enter the default access code: `traillife2024` OR the developer password: `dev2024secure`
-4. Go to Admin → Settings to change the access code to something your team will remember
+3. Enter the default access code: `changeme` OR the developer password from your `.env` file
+4. **IMPORTANT**: Immediately go to Admin → Settings to change the access code to something secure
+5. Also change the developer password in your `.env` file
 
 ### Changing the Developer Password
 
