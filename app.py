@@ -918,11 +918,17 @@ def unlock_override():
     """Unlock the override password section with developer password"""
     dev_password = request.form.get('dev_password', '').strip()
     
-    # Debug logging
-    app.logger.info(f"DEBUG: Received password: '{dev_password}' (len={len(dev_password)})")
-    app.logger.info(f"DEBUG: Expected password: '{DEVELOPER_PASSWORD}' (len={len(DEVELOPER_PASSWORD) if DEVELOPER_PASSWORD else 0})")
-    app.logger.info(f"DEBUG: DEVELOPER_PASSWORD is None: {DEVELOPER_PASSWORD is None}")
-    app.logger.info(f"DEBUG: Passwords match: {dev_password == DEVELOPER_PASSWORD}")
+    # Debug logging to file
+    try:
+        with open('/tmp/unlock_debug.log', 'a') as f:
+            f.write(f"=== Unlock attempt at {datetime.now()} ===\n")
+            f.write(f"Received password: '{dev_password}' (len={len(dev_password)})\n")
+            f.write(f"Expected password: '{DEVELOPER_PASSWORD}' (len={len(DEVELOPER_PASSWORD) if DEVELOPER_PASSWORD else 0})\n")
+            f.write(f"DEVELOPER_PASSWORD is None: {DEVELOPER_PASSWORD is None}\n")
+            f.write(f"Passwords match: {dev_password == DEVELOPER_PASSWORD}\n")
+            f.write(f"Match result: {dev_password == DEVELOPER_PASSWORD}\n\n")
+    except Exception as e:
+        pass
     
     if DEVELOPER_PASSWORD is None:
         flash('Developer password not configured in .env file!', 'danger')
