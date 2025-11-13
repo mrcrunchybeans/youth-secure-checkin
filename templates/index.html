@@ -61,8 +61,8 @@
     </div>
 
     <div class="card">
-      <div class="card-header" style="background-color: {{ branding.accent_color }}; color: white;"><strong>Currently Checked In - {{ checked_in|length }}</strong></div>
-      <ul class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+      <div class="card-header" style="background-color: {{ branding.accent_color }}; color: white;"><strong>Currently Checked In - <span class="checked-in-count">{{ checked_in|length }}</span></strong></div>
+      <ul class="list-group list-group-flush" id="checked-in-list" style="max-height: 500px; overflow-y: auto;">
         {% for row in checked_in %}
           <li class="list-group-item d-flex justify-content-between align-items-center py-2">
             <div style="flex: 1;">
@@ -348,46 +348,46 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
     
     // Add check-ins to the page dynamically
     if (data.checkins && data.checkins.length > 0) {
-      const checkedInDiv = document.getElementById('checked-in-list');
+      const checkedInList = document.getElementById('checked-in-list');
       const eventId = document.querySelector('[name="event_id"]').value;
+      const primaryColor = '{{ branding.primary_color }}';
+      
+      // Remove "no one checked in" message if it exists
+      const emptyMessage = checkedInList.querySelector('.text-muted.text-center');
+      if (emptyMessage) {
+        emptyMessage.remove();
+      }
       
       data.checkins.forEach(checkin => {
-        const card = document.createElement('div');
-        card.className = 'card mb-2';
-        card.innerHTML = `
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <h5 class="card-title mb-1">${checkin.kid_name}
-                  ${checkin.kid_notes ? '<i class="bi bi-sticky text-muted" style="font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="' + checkin.kid_notes + '">📋</i>' : ''}
-                  ${checkin.authorized_adults ? '<i class="bi bi-person-check text-muted" style="font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="Authorized: ' + checkin.authorized_adults + '">👤</i>' : ''}
-                </h5>
-                <p class="card-text mb-0">
-                  <small class="text-muted">
-                    <strong>${checkin.adult_name}</strong> • ${checkin.phone}<br>
-                    ${checkin.formatted_time}
-                  </small>
-                </p>
-              </div>
-              <button class="btn btn-danger btn-sm checkout-btn" 
-                      data-kid-id="${checkin.kid_id}" 
-                      data-kid-name="${checkin.kid_name}"
-                      data-event-id="${eventId}">Check Out</button>
+        const listItem = document.createElement('li');
+        listItem.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+        listItem.innerHTML = `
+          <div style="flex: 1;">
+            <div>
+              <strong style="font-size: 1.1rem;">${checkin.kid_name}</strong>
+              ${checkin.kid_notes ? '<span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="' + checkin.kid_notes + '">ℹ️</span>' : ''}
+              ${checkin.authorized_adults ? '<span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="Authorized: ' + checkin.authorized_adults + '">👤</span>' : ''}
+              <span class="text-muted d-block d-sm-inline">— ${checkin.adult_name}</span>
             </div>
+            <small class="text-muted d-block">Phone: ${checkin.phone} · ${checkin.formatted_time}</small>
           </div>
+          <button class="btn btn-sm checkout-btn" style="color: ${primaryColor}; border-color: ${primaryColor}; white-space: nowrap;" 
+                  data-kid-id="${checkin.kid_id}" 
+                  data-kid-name="${checkin.kid_name}"
+                  data-event-id="${eventId}">Check Out</button>
         `;
-        checkedInDiv.insertBefore(card, checkedInDiv.firstChild);
+        checkedInList.insertBefore(listItem, checkedInList.firstChild);
         
-        // Initialize tooltips for this card
-        const tooltips = card.querySelectorAll('[data-bs-toggle="tooltip"]');
+        // Initialize tooltips for this list item
+        const tooltips = listItem.querySelectorAll('[data-bs-toggle="tooltip"]');
         tooltips.forEach(el => new bootstrap.Tooltip(el));
       });
       
       // Update count in header
-      const countBadge = document.querySelector('h2 .badge');
-      if (countBadge) {
-        const currentCount = parseInt(countBadge.textContent) || 0;
-        countBadge.textContent = currentCount + data.checkins.length;
+      const countElement = document.querySelector('.checked-in-count');
+      if (countElement) {
+        const currentCount = parseInt(countElement.textContent) || 0;
+        countElement.textContent = currentCount + data.checkins.length;
       }
     }
     

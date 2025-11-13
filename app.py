@@ -52,9 +52,14 @@ def normalize_address(address):
     addr = re.sub(r'\s+', ' ', addr).strip()
     return addr
 
-DB_PATH = Path(__file__).parent / 'checkin.db'
-
-DB_PATH = Path(__file__).parent / 'checkin.db'
+# Database path - use /app/data for Docker containers, otherwise use local directory
+DATA_DIR = Path(__file__).parent / 'data'
+if DATA_DIR.exists() and DATA_DIR.is_dir():
+    # Running in Docker or with data directory
+    DB_PATH = DATA_DIR / 'checkin.db'
+else:
+    # Running locally without data directory
+    DB_PATH = Path(__file__).parent / 'checkin.db'
 
 def get_db():
     db_path = app.config.get('DATABASE', DB_PATH)
