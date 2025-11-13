@@ -89,6 +89,11 @@ local_tz = pytz.timezone('America/Chicago')  # Adjust to your local timezone
 # Falls back to None if not set (disables developer override features)
 DEVELOPER_PASSWORD = os.getenv('DEVELOPER_PASSWORD', None)
 
+@app.context_processor
+def inject_branding():
+    """Make branding settings available to all templates"""
+    return {'branding': get_branding_settings()}
+
 def ensure_db():
     # kept for manual invocation; do not run at import time so tests can control DB_PATH
     if not DB_PATH.exists():
@@ -148,6 +153,35 @@ def set_logo_filename(filename):
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('logo_filename', ?)", (filename,))
     else:
         conn.execute("DELETE FROM settings WHERE key = 'logo_filename'")
+    conn.commit()
+    conn.close()
+
+def get_branding_settings():
+    """Get all branding/customization settings for templates"""
+    conn = get_db()
+    settings = {}
+    defaults = {
+        'organization_name': 'Check-In System',
+        'organization_type': 'other',
+        'primary_color': '#79060d',
+        'secondary_color': '#003b59',
+        'accent_color': '#4a582d',
+        'group_term': 'Group',
+        'group_term_lower': 'group',
+    }
+    
+    for key, default in defaults.items():
+        cur = conn.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        row = cur.fetchone()
+        settings[key] = row['value'] if row else default
+    
+    conn.close()
+    return settings
+
+def set_branding_setting(key, value):
+    """Update a branding setting"""
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     conn.commit()
     conn.close()
 
@@ -936,8 +970,31 @@ def admin_settings():
     if request.method == 'POST':
         action = request.form.get('action', '')
         
+        # Handle branding updates
+        if action == 'update_branding':
+            organization_name = request.form.get('organization_name', '').strip()
+            organization_type = request.form.get('organization_type', 'other')
+            group_term = request.form.get('group_term', 'Group').strip()
+            primary_color = request.form.get('primary_color', '#79060d').strip()
+            secondary_color = request.form.get('secondary_color', '#003b59').strip()
+            accent_color = request.form.get('accent_color', '#4a582d').strip()
+            
+            if organization_name:
+                set_branding_setting('organization_name', organization_name)
+                set_branding_setting('organization_type', organization_type)
+                set_branding_setting('group_term', group_term)
+                set_branding_setting('group_term_lower', group_term.lower())
+                set_branding_setting('primary_color', primary_color)
+                set_branding_setting('secondary_color', secondary_color)
+                set_branding_setting('accent_color', accent_color)
+                flash('Organization branding updated successfully!', 'success')
+            else:
+                flash('Organization name is required', 'danger')
+            
+            return redirect(url_for('admin_settings'))
+        
         # Handle logo upload
-        if action == 'upload_logo':
+        elif action == 'upload_logo':
             if 'logo_file' not in request.files:
                 flash('No file selected', 'danger')
             else:

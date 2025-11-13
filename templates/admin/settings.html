@@ -213,10 +213,86 @@
     <!-- Branding & Logo -->
     <div class="card shadow-sm mb-3">
       <div class="card-header py-2" style="background: linear-gradient(135deg, #003b59 0%, #004a6e 100%); color: white;">
-        <h6 class="mb-0"><i class="bi bi-palette"></i> Branding</h6>
+        <h6 class="mb-0"><i class="bi bi-palette"></i> Branding & Customization</h6>
       </div>
       <div class="card-body p-3">
+        <!-- Organization Settings -->
+        <form method="POST" class="mb-4">
+          <h6 class="mb-3 pb-2 border-bottom small fw-bold text-muted">Organization</h6>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label for="organization_name" class="form-label small fw-semibold mb-1">Organization Name</label>
+              <input type="text" class="form-control form-control-sm" id="organization_name" name="organization_name" 
+                     value="{{ branding.organization_name }}" placeholder="e.g., First Baptist Church">
+            </div>
+            <div class="col-md-4">
+              <label for="organization_type" class="form-label small fw-semibold mb-1">Type</label>
+              <select class="form-select form-select-sm" id="organization_type" name="organization_type">
+                <option value="church" {% if branding.organization_type == 'church' %}selected{% endif %}>Church</option>
+                <option value="youth_group" {% if branding.organization_type == 'youth_group' %}selected{% endif %}>Youth Group</option>
+                <option value="sports_team" {% if branding.organization_type == 'sports_team' %}selected{% endif %}>Sports Team</option>
+                <option value="school" {% if branding.organization_type == 'school' %}selected{% endif %}>School</option>
+                <option value="daycare" {% if branding.organization_type == 'daycare' %}selected{% endif %}>Daycare</option>
+                <option value="other" {% if branding.organization_type == 'other' %}selected{% endif %}>Other</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label for="group_term" class="form-label small fw-semibold mb-1">Group Term</label>
+              <input type="text" class="form-control form-control-sm" id="group_term" name="group_term" 
+                     value="{{ branding.group_term }}" placeholder="e.g., Troop, Class, Team">
+              <div class="text-muted" style="font-size: 0.7rem;">What you call groups</div>
+            </div>
+          </div>
+          
+          <h6 class="mb-3 pb-2 border-bottom small fw-bold text-muted mt-4">Colors</h6>
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <label for="primary_color" class="form-label small fw-semibold mb-1">Primary Color</label>
+              <div class="d-flex gap-2">
+                <input type="color" class="form-control form-control-color" id="primary_color" name="primary_color" 
+                       value="{{ branding.primary_color }}" title="Choose primary color">
+                <input type="text" class="form-control form-control-sm" value="{{ branding.primary_color }}" 
+                       style="font-family: monospace; font-size: 0.85rem;" readonly>
+              </div>
+              <div class="text-muted" style="font-size: 0.7rem;">Main brand color</div>
+            </div>
+            <div class="col-md-4">
+              <label for="secondary_color" class="form-label small fw-semibold mb-1">Secondary Color</label>
+              <div class="d-flex gap-2">
+                <input type="color" class="form-control form-control-color" id="secondary_color" name="secondary_color" 
+                       value="{{ branding.secondary_color }}" title="Choose secondary color">
+                <input type="text" class="form-control form-control-sm" value="{{ branding.secondary_color }}" 
+                       style="font-family: monospace; font-size: 0.85rem;" readonly>
+              </div>
+              <div class="text-muted" style="font-size: 0.7rem;">Accent/hover color</div>
+            </div>
+            <div class="col-md-4">
+              <label for="accent_color" class="form-label small fw-semibold mb-1">Accent Color</label>
+              <div class="d-flex gap-2">
+                <input type="color" class="form-control form-control-color" id="accent_color" name="accent_color" 
+                       value="{{ branding.accent_color }}" title="Choose accent color">
+                <input type="text" class="form-control form-control-sm" value="{{ branding.accent_color }}" 
+                       style="font-family: monospace; font-size: 0.85rem;" readonly>
+              </div>
+              <div class="text-muted" style="font-size: 0.7rem;">Additional accent</div>
+            </div>
+            <div class="col-12">
+              <div class="alert alert-info p-2 mb-0 small">
+                <i class="bi bi-palette"></i> Colors affect buttons, headers, and overall theme throughout the system
+              </div>
+            </div>
+            <div class="col-12">
+              <button type="submit" name="action" value="update_branding" class="btn btn-sm" 
+                      style="background: {{ branding.primary_color }}; color: white;">
+                <i class="bi bi-check-circle"></i> Update Organization & Colors
+              </button>
+            </div>
+          </div>
+        </form>
+        
+        <!-- Logo Upload -->
         <form method="POST" enctype="multipart/form-data">
+          <h6 class="mb-3 pb-2 border-bottom small fw-bold text-muted">Logo</h6>
           <div class="row g-3">
             {% if current_logo %}
             <div class="col-md-4">
@@ -275,6 +351,24 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+// Sync color pickers with hex text inputs
+['primary_color', 'secondary_color', 'accent_color'].forEach(id => {
+  const colorInput = document.getElementById(id);
+  const textInput = colorInput.nextElementSibling;
+  
+  colorInput.addEventListener('input', function() {
+    textInput.value = this.value;
+  });
+  
+  textInput.addEventListener('input', function() {
+    if (/^#[0-9A-F]{6}$/i.test(this.value)) {
+      colorInput.value = this.value;
+    }
+  });
+});
+</script>
 
 </div>
 {% endblock %}
