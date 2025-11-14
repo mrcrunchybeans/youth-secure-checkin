@@ -770,7 +770,23 @@ function showMultipleFamilies(families) {
     });
   });
   
-  new bootstrap.Modal(document.getElementById('nameResultsModal')).show();
+  console.log('About to show nameResultsModal');
+  const modalElement = document.getElementById('nameResultsModal');
+  console.log('Modal element:', modalElement);
+  if (!modalElement) {
+    console.error('nameResultsModal element not found!');
+    return;
+  }
+  
+  try {
+    const modal = new bootstrap.Modal(modalElement);
+    console.log('Modal instance created:', modal);
+    modal.show();
+    console.log('Modal.show() called');
+  } catch (error) {
+    console.error('Error showing modal:', error);
+    throw error;
+  }
 }
 
 
