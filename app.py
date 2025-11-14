@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
@@ -16,6 +16,9 @@ import qrcode
 from io import BytesIO
 import base64
 import os
+import tempfile
+import zipfile
+import shutil
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
@@ -605,6 +608,124 @@ def checkin_last4():
         'adults': adults,
         'kids': kids
     })
+
+
+@app.route('/search_name', methods=['POST'])
+@require_auth
+def search_name():
+    """Search families by kid or adult name (partial match). Returns similar structure to checkin_last4 for the first match or an array of families."""
+    name = request.form.get('name', '').strip()
+    event_id = request.form.get('event_id')
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+
+    likeparam = f"%{name}%"
+    conn = get_db()
+    cur = conn.execute("""
+        SELECT f.id, f.phone, f.troop, f.default_adult_id,
+               (SELECT GROUP_CONCAT(a.id || ':' || a.name)
+                FROM adults a WHERE a.family_id = f.id) as adults,
+               (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
+                FROM kids k WHERE k.family_id = f.id) as kids
+        FROM families f
+        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id AND k.name LIKE ?)
+           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id AND a.name LIKE ?)
+        LIMIT 20
+    """, (likeparam, likeparam))
+    families = cur.fetchall()
+
+    if not families:
+        conn.close()
+        return jsonify({'error': 'No matches found'}), 404
+
+    # Build a list of family objects similar to checkin_last4
+    results = []
+    for family in families:
+        adults = [adult.split(':', 1) for adult in family['adults'].split(',')] if family['adults'] else []
+        adults = [{'id': int(a[0]), 'name': a[1]} for a in adults]
+        kids = [kid.split(':', 2) for kid in family['kids'].split(',')] if family['kids'] else []
+        kids = [{'id': int(k[0]), 'name': k[1], 'notes': k[2] if len(k) > 2 else ''} for k in kids]
+
+        # Check which kids are already checked in to this event (if provided)
+        if event_id:
+            checked_in_kids = set()
+            for kid in kids:
+                checkin = conn.execute("""
+                    SELECT id FROM checkins
+                    WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
+                """, (kid['id'], event_id)).fetchone()
+                if checkin:
+                    checked_in_kids.add(kid['id'])
+            for kid in kids:
+                kid['already_checked_in'] = kid['id'] in checked_in_kids
+
+        results.append({
+            'family_id': family['id'],
+            'phone': family['phone'],
+            'troop': family['troop'],
+            'default_adult_id': family['default_adult_id'],
+            'adults': adults,
+            'kids': kids
+        })
+
+    conn.close()
+    # Return array of matches; client will handle single vs multiple
+    return jsonify({'families': results})
+
+
+@app.route('/admin/backup_db')
+@require_auth
+def admin_backup_db():
+    """Create and return a zip containing the database and uploads/data directories (if present)."""
+    # Use in-memory zip if small, otherwise temporary file
+    timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    tmpdir = tempfile.mkdtemp(prefix='youth_checkin_backup_')
+    zip_path = Path(tmpdir) / f'youth-secure-checkin-backup-{timestamp}.zip'
+
+    try:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Add the main SQLite DB
+            try:
+                if DB_PATH.exists():
+                    zf.write(str(DB_PATH), arcname='checkin.db')
+            except Exception:
+                pass
+
+            # Add data directory contents (if any)
+            data_dir = Path(__file__).parent / 'data'
+            if data_dir.exists():
+                for root, dirs, files in os.walk(data_dir):
+                    for f in files:
+                        full = os.path.join(root, f)
+                        arc = os.path.relpath(full, start=Path(__file__).parent)
+                        zf.write(full, arcname=arc)
+
+            # Add uploads if present
+            uploads_dir = Path(__file__).parent / 'uploads'
+            if uploads_dir.exists():
+                for root, dirs, files in os.walk(uploads_dir):
+                    for f in files:
+                        full = os.path.join(root, f)
+                        arc = os.path.relpath(full, start=Path(__file__).parent)
+                        zf.write(full, arcname=arc)
+
+        # Schedule cleanup of tempdir after short delay
+        def _cleanup(path):
+            time.sleep(60)
+            try:
+                shutil.rmtree(path)
+            except Exception:
+                pass
+        threading.Thread(target=_cleanup, args=(tmpdir,), daemon=True).start()
+
+        return send_file(str(zip_path), as_attachment=True, download_name=f'youth-secure-checkin-backup-{timestamp}.zip')
+    except Exception as e:
+        # cleanup on error
+        try:
+            shutil.rmtree(tmpdir)
+        except Exception:
+            pass
+        return jsonify({'error': 'Backup failed', 'details': str(e)}), 500
 
 @app.route('/checkin_selected', methods=['POST'])
 @require_auth

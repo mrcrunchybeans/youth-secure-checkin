@@ -53,6 +53,13 @@
             <label class="form-label fw-bold">Last 4 Digits of Phone</label>
             <input id="last4" class="form-control" maxlength="4" pattern="\d{4}" required placeholder="0000" inputmode="numeric" />
           </div>
+          <div class="col-12 mt-2">
+            <label class="form-label fw-bold">Search by name (kid or adult)</label>
+            <div class="input-group">
+              <input id="name-search" class="form-control" placeholder="Search by name (partial)" />
+              <button id="name-search-btn" type="button" class="btn" style="background-color: {{ branding.primary_color }}; color: white; border: none;">Search</button>
+            </div>
+          </div>
           <div class="col-auto col-md-4">
             <button type="submit" class="btn" style="background-color: {{ branding.primary_color }}; color: white; border: none; padding: 0.5rem 2rem;">Search</button>
           </div>
@@ -368,6 +375,21 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
               ${checkin.kid_notes ? '<span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="' + checkin.kid_notes + '">ℹ️</span>' : ''}
               ${checkin.authorized_adults ? '<span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="Authorized: ' + checkin.authorized_adults + '">👤</span>' : ''}
               <span class="text-muted d-block d-sm-inline">— ${checkin.adult_name}</span>
+
+            <!-- Name search results modal -->
+            <div class="modal fade" id="nameResultsModal" tabindex="-1">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                  <div class="modal-header" style="background-color: {{ branding.primary_color }}; color: white;">
+                    <h5 class="modal-title">Search results</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div id="name-results-list"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
             </div>
             <small class="text-muted d-block">Phone: ${checkin.phone} · ${checkin.formatted_time}</small>
           </div>
@@ -616,6 +638,120 @@ document.addEventListener('DOMContentLoaded', function() {
   var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl);
   });
+});
+
+// Name search (admin/volunteer attendance-style lookup)
+document.getElementById('name-search-btn').addEventListener('click', function() {
+  const name = document.getElementById('name-search').value.trim();
+  const eventId = document.getElementById('event-id').value;
+  if (!name) {
+    alert('Please enter a name to search');
+    return;
+  }
+
+  fetch('/search_name', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({name: name, event_id: eventId})
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+
+    const families = data.families || [];
+    if (families.length === 0) {
+      alert('No matches found');
+      return;
+    }
+
+    if (families.length === 1) {
+      const f = families[0];
+      document.getElementById('modal-phone').textContent = f.phone;
+      document.getElementById('modal-troop').textContent = f.troop || '—';
+      document.getElementById('family-id').value = f.family_id;
+      const adultSelect = document.getElementById('adult-select');
+      adultSelect.innerHTML = '<option value="">Select Adult</option>';
+      f.adults.forEach((adult, index) => {
+        const option = document.createElement('option');
+        option.value = adult.id;
+        option.textContent = adult.name;
+        const isSelected = f.default_adult_id ? adult.id === f.default_adult_id : index === 0;
+        if (isSelected) option.selected = true;
+        adultSelect.appendChild(option);
+      });
+      const kidsList = document.getElementById('kids-list');
+      kidsList.innerHTML = '';
+      f.kids.forEach(kid => {
+        const div = document.createElement('div');
+        div.className = 'form-check';
+        const isCheckedIn = kid.already_checked_in;
+        const checkedInLabel = isCheckedIn ? ' <span class="badge bg-success">Already Checked In</span>' : '';
+        div.innerHTML = `\
+          <input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="kid-${kid.id}" ${isCheckedIn ? 'disabled checked' : ''}>\
+          <label class="form-check-label" for="kid-${kid.id}" style="${isCheckedIn ? 'opacity: 0.6;' : ''}">${kid.name}${checkedInLabel}</label>`;
+        kidsList.appendChild(div);
+      });
+      new bootstrap.Modal(document.getElementById('familyModal')).show();
+      return;
+    }
+
+    // Multiple matches - show selection modal
+    const list = document.getElementById('name-results-list');
+    list.innerHTML = '';
+    families.forEach((f, idx) => {
+      const div = document.createElement('div');
+      div.className = 'result-item mb-2 p-2 border rounded';
+      const kids = (f.kids || []).map(k => k.name).join(', ');
+      const adults = (f.adults || []).map(a => a.name).join(', ');
+      div.innerHTML = `
+        <div><strong>${f.phone || ''}</strong> — ${f.troop || ''}</div>
+        <div class="text-muted">Kids: ${kids} — Adults: ${adults}</div>
+        <div class="mt-2"><button class="btn btn-sm btn-primary select-family" data-idx="${idx}">Select</button></div>
+      `;
+      list.appendChild(div);
+    });
+
+    // attach handlers
+    Array.from(list.querySelectorAll('.select-family')).forEach(btn => {
+      btn.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.idx, 10);
+        const f = families[idx];
+        document.getElementById('modal-phone').textContent = f.phone;
+        document.getElementById('modal-troop').textContent = f.troop || '—';
+        document.getElementById('family-id').value = f.family_id;
+        const adultSelect = document.getElementById('adult-select');
+        adultSelect.innerHTML = '<option value="">Select Adult</option>';
+        f.adults.forEach((adult, index) => {
+          const option = document.createElement('option');
+          option.value = adult.id;
+          option.textContent = adult.name;
+          const isSelected = f.default_adult_id ? adult.id === f.default_adult_id : index === 0;
+          if (isSelected) option.selected = true;
+          adultSelect.appendChild(option);
+        });
+        const kidsList = document.getElementById('kids-list');
+        kidsList.innerHTML = '';
+        f.kids.forEach(kid => {
+          const div = document.createElement('div');
+          div.className = 'form-check';
+          const isCheckedIn = kid.already_checked_in;
+          const checkedInLabel = isCheckedIn ? ' <span class="badge bg-success">Already Checked In</span>' : '';
+          div.innerHTML = `\
+            <input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="kid-${kid.id}" ${isCheckedIn ? 'disabled checked' : ''}>\
+            <label class="form-check-label" for="kid-${kid.id}" style="${isCheckedIn ? 'opacity: 0.6;' : ''}">${kid.name}${checkedInLabel}</label>`;
+          kidsList.appendChild(div);
+        });
+        bootstrap.Modal.getInstance(document.getElementById('nameResultsModal')).hide();
+        new bootstrap.Modal(document.getElementById('familyModal')).show();
+      });
+    });
+
+    new bootstrap.Modal(document.getElementById('nameResultsModal')).show();
+  })
+  .catch(err => { console.error(err); alert('Search failed'); });
 });
 </script>
 <script src="/static/dymo_print.js"></script>
