@@ -311,11 +311,6 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     })
     .then(response => response.json())
     .then(data => {
-      if (data.error) {
-        alert(data.error);
-        return;
-      }
-      
       const families = data.families || [];
       if (families.length === 0) {
         alert('No matches found');
@@ -331,7 +326,7 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('Search failed');
+      alert('Search failed. Please check the console for details.');
     });
   }
 });

@@ -628,15 +628,15 @@ def search_name():
                (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
                 FROM kids k WHERE k.family_id = f.id) as kids
         FROM families f
-        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id AND k.name LIKE ?)
-           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id AND a.name LIKE ?)
+        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id AND k.name LIKE ? COLLATE NOCASE)
+           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id AND a.name LIKE ? COLLATE NOCASE)
         LIMIT 20
     """, (likeparam, likeparam))
     families = cur.fetchall()
 
     if not families:
         conn.close()
-        return jsonify({'error': 'No matches found'}), 404
+        return jsonify({'families': []})
 
     # Build a list of family objects similar to checkin_last4
     results = []
