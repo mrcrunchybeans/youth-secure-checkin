@@ -26,14 +26,14 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
       
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/youth-secure-checkin
+          images: ${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin
           tags: |
             type=raw,value=latest
             type=sha,prefix={{branch}}-
@@ -45,5 +45,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/youth-secure-checkin:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/youth-secure-checkin:buildcache,mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:buildcache,mode=max
