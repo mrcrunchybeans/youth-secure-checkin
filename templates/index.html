@@ -175,6 +175,21 @@
   </div>
 </div>
 
+<!-- Name Search Results Modal -->
+<div class="modal fade" id="nameResultsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background-color: {{ branding.primary_color }}; color: white;">
+        <h5 class="modal-title">Multiple Families Found - Select One</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="name-results-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- QR Code Modal -->
 <div class="modal fade" id="qrCodeModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
@@ -389,22 +404,7 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
               ${checkin.kid_notes ? '<span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="' + checkin.kid_notes + '">ℹ️</span>' : ''}
               ${checkin.authorized_adults ? '<span class="text-muted ms-1" style="cursor: pointer; font-size: 0.7rem; opacity: 0.6;" data-bs-toggle="tooltip" title="Authorized: ' + checkin.authorized_adults + '">👤</span>' : ''}
               <span class="text-muted d-block d-sm-inline">— ${checkin.adult_name}</span>
-
-            <!-- Name search results modal -->
-<!-- Name Search Results Modal -->
-<div class="modal fade" id="nameResultsModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header" style="background-color: {{ branding.primary_color }}; color: white;">
-        <h5 class="modal-title">Multiple Families Found - Select One</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div id="name-results-list"></div>
-      </div>
-    </div>
-  </div>
-</div>
+            </div>
             <small class="text-muted d-block">Phone: ${checkin.phone} · ${checkin.formatted_time}</small>
           </div>
           <button class="btn btn-sm checkout-btn" style="color: ${primaryColor}; border-color: ${primaryColor}; white-space: nowrap;" 
