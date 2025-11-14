@@ -312,15 +312,19 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
       const families = data.families || [];
+      console.log('Search returned', families.length, 'families:', families);
+      
       if (families.length === 0) {
         alert('No matches found');
         return;
       }
       
       if (families.length === 1) {
+        console.log('Single family - showing familyModal');
         populateFamilyModal(families[0]);
         new bootstrap.Modal(document.getElementById('familyModal')).show();
       } else {
+        console.log('Multiple families - showing nameResultsModal');
         showMultipleFamilies(families);
       }
     })
@@ -684,6 +688,7 @@ function populateFamilyModal(data) {
 
 // Helper function to show multiple families in results modal
 function showMultipleFamilies(families) {
+  console.log('showMultipleFamilies called with', families.length, 'families');
   const list = document.getElementById('name-results-list');
   list.innerHTML = '';
   
