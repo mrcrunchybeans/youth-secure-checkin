@@ -694,6 +694,8 @@ function showMultipleFamilies(families) {
   list.innerHTML = '';
   
   families.forEach((f, idx) => {
+    console.log(`Processing family ${idx}:`, f);
+    
     const div = document.createElement('div');
     div.className = 'border rounded p-3 mb-3';
     div.style.cursor = 'pointer';
@@ -714,12 +716,14 @@ function showMultipleFamilies(families) {
     // Handle kids - check if it's an array
     let kids = 'None';
     try {
+      console.log('Processing kids for family', idx, ':', f.kids);
       if (f.kids && Array.isArray(f.kids)) {
         kids = f.kids.map(k => {
           const badge = k.already_checked_in ? ' <span class="badge bg-success">Checked In</span>' : '';
           return k.name + badge;
         }).join(', ');
       }
+      console.log('Kids result:', kids);
     } catch (e) {
       console.error('Error processing kids:', e, f.kids);
       kids = 'Error loading kids';
@@ -728,9 +732,11 @@ function showMultipleFamilies(families) {
     // Handle adults - check if it's an array
     let adults = 'None';
     try {
+      console.log('Processing adults for family', idx, ':', f.adults);
       if (f.adults && Array.isArray(f.adults)) {
         adults = f.adults.map(a => a.name).join(', ');
       }
+      console.log('Adults result:', adults);
     } catch (e) {
       console.error('Error processing adults:', e, f.adults);
       adults = 'Error loading adults';
