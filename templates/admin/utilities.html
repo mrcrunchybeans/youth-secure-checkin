@@ -6,6 +6,39 @@
     <a href="/admin" class="btn btn-outline-secondary">← Back to Admin</a>
   </div>
 
+  <!-- Backup & Restore -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0"><i class="bi bi-archive"></i> Backup & Restore</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="border rounded p-3">
+            <h6 class="mb-2"><i class="bi bi-download"></i> Download Full Backup</h6>
+            <p class="text-muted mb-3">
+              Download a complete backup of your database, including all check-ins, families, events, and configuration settings.
+            </p>
+            <a href="/admin/backup_db" class="btn btn-success">
+              <i class="bi bi-download"></i> Download Backup
+            </a>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="border rounded p-3">
+            <h6 class="mb-2"><i class="bi bi-upload"></i> Restore from Backup</h6>
+            <p class="text-muted mb-3">
+              Upload and restore a previously downloaded backup file. This will replace your current database.
+            </p>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#restoreModal">
+              <i class="bi bi-upload"></i> Restore Backup
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Statistics Overview -->
   <div class="card mb-4">
     <div class="card-header">
@@ -357,6 +390,39 @@
   </div>
 </div>
 
+<!-- Restore Database Modal -->
+<div class="modal fade" id="restoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Restore Database from Backup</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="post" action="/admin/restore_db" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="alert alert-danger">
+            <strong>⚠️ Warning:</strong> This will replace your entire database, all settings, check-in history, and uploaded files with the backup. Your current data will be backed up automatically before restore.
+          </div>
+          
+          <div class="mb-3">
+            <label for="backup_file" class="form-label">Select Backup File (.zip)</label>
+            <input type="file" class="form-control" id="backup_file" name="backup_file" accept=".zip" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="confirm_restore" class="form-label">Type <strong>RESTORE</strong> to confirm</label>
+            <input type="text" class="form-control" id="confirm_restore" placeholder="Type RESTORE" autocomplete="off" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger" id="restoreBtn" disabled>Restore Database</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 // Enable submit buttons only when correct confirmation text is entered
 document.getElementById('confirm_orphaned').addEventListener('input', function() {
@@ -373,6 +439,10 @@ document.getElementById('confirm_reset').addEventListener('input', function() {
 
 document.getElementById('confirm_vacuum').addEventListener('input', function() {
   document.getElementById('vacuumBtn').disabled = this.value !== 'OPTIMIZE';
+});
+
+document.getElementById('confirm_restore').addEventListener('input', function() {
+  document.getElementById('restoreBtn').disabled = this.value !== 'RESTORE';
 });
 
 // Clear inputs when modals are hidden

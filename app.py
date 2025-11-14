@@ -727,6 +727,99 @@ def admin_backup_db():
             pass
         return jsonify({'error': 'Backup failed', 'details': str(e)}), 500
 
+@app.route('/admin/restore_db', methods=['POST'])
+@require_auth
+def admin_restore_db():
+    """Restore database from uploaded backup zip file."""
+    if 'backup_file' not in request.files:
+        flash('No file uploaded', 'error')
+        return redirect(url_for('admin_utilities'))
+    
+    backup_file = request.files['backup_file']
+    if backup_file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('admin_utilities'))
+    
+    if not backup_file.filename.endswith('.zip'):
+        flash('File must be a .zip backup file', 'error')
+        return redirect(url_for('admin_utilities'))
+    
+    tmpdir = tempfile.mkdtemp(prefix='youth_checkin_restore_')
+    try:
+        # Save uploaded file
+        zip_path = Path(tmpdir) / 'backup.zip'
+        backup_file.save(str(zip_path))
+        
+        # Extract and validate
+        extract_dir = Path(tmpdir) / 'extracted'
+        extract_dir.mkdir()
+        
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            zf.extractall(str(extract_dir))
+        
+        # Check for checkin.db in extracted files
+        db_file = extract_dir / 'checkin.db'
+        if not db_file.exists():
+            flash('Invalid backup file: checkin.db not found', 'error')
+            shutil.rmtree(tmpdir)
+            return redirect(url_for('admin_utilities'))
+        
+        # Backup current database before replacing
+        app_root = Path(__file__).parent
+        current_backup_name = f'checkin-before-restore-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}.db'
+        if DB_PATH.exists():
+            shutil.copy2(str(DB_PATH), str(app_root / current_backup_name))
+        
+        # Replace database
+        shutil.copy2(str(db_file), str(DB_PATH))
+        
+        # Restore data directory if present in backup
+        data_backup = extract_dir / 'data'
+        if data_backup.exists():
+            data_dir = app_root / 'data'
+            # Clear existing data dir contents (except the DB we just restored)
+            if data_dir.exists():
+                for item in data_dir.iterdir():
+                    if item.name != 'checkin.db':
+                        if item.is_file():
+                            item.unlink()
+                        elif item.is_dir():
+                            shutil.rmtree(item)
+            else:
+                data_dir.mkdir(exist_ok=True)
+            
+            # Copy restored data
+            for item in data_backup.iterdir():
+                if item.name != 'checkin.db':  # Skip DB, already restored
+                    dest = data_dir / item.name
+                    if item.is_file():
+                        shutil.copy2(item, dest)
+                    elif item.is_dir():
+                        shutil.copytree(item, dest, dirs_exist_ok=True)
+        
+        # Restore uploads directory if present in backup
+        uploads_backup = extract_dir / 'uploads'
+        if uploads_backup.exists():
+            uploads_dir = app_root / 'uploads'
+            if uploads_dir.exists():
+                shutil.rmtree(uploads_dir)
+            shutil.copytree(uploads_backup, uploads_dir)
+        
+        # Cleanup temp directory
+        shutil.rmtree(tmpdir)
+        
+        flash(f'Database restored successfully! Previous database saved as {current_backup_name}', 'success')
+        return redirect(url_for('admin_utilities'))
+        
+    except Exception as e:
+        # Cleanup on error
+        try:
+            shutil.rmtree(tmpdir)
+        except Exception:
+            pass
+        flash(f'Restore failed: {str(e)}', 'error')
+        return redirect(url_for('admin_utilities'))
+
 @app.route('/checkin_selected', methods=['POST'])
 @require_auth
 def checkin_selected():
