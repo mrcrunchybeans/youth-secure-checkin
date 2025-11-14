@@ -689,6 +689,7 @@ function populateFamilyModal(data) {
 // Helper function to show multiple families in results modal
 function showMultipleFamilies(families) {
   console.log('showMultipleFamilies called with', families.length, 'families');
+  console.log('First family data:', families[0]);
   const list = document.getElementById('name-results-list');
   list.innerHTML = '';
   
@@ -710,11 +711,30 @@ function showMultipleFamilies(families) {
       this.style.borderWidth = '';
     });
     
-    const kids = (f.kids || []).map(k => {
-      const badge = k.already_checked_in ? ' <span class="badge bg-success">Checked In</span>' : '';
-      return k.name + badge;
-    }).join(', ');
-    const adults = (f.adults || []).map(a => a.name).join(', ');
+    // Handle kids - check if it's an array
+    let kids = 'None';
+    try {
+      if (f.kids && Array.isArray(f.kids)) {
+        kids = f.kids.map(k => {
+          const badge = k.already_checked_in ? ' <span class="badge bg-success">Checked In</span>' : '';
+          return k.name + badge;
+        }).join(', ');
+      }
+    } catch (e) {
+      console.error('Error processing kids:', e, f.kids);
+      kids = 'Error loading kids';
+    }
+    
+    // Handle adults - check if it's an array
+    let adults = 'None';
+    try {
+      if (f.adults && Array.isArray(f.adults)) {
+        adults = f.adults.map(a => a.name).join(', ');
+      }
+    } catch (e) {
+      console.error('Error processing adults:', e, f.adults);
+      adults = 'Error loading adults';
+    }
     
     div.innerHTML = `
       <div class="d-flex justify-content-between align-items-start mb-2">
