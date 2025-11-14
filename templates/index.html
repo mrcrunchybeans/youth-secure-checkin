@@ -327,7 +327,6 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
       const families = data.families || [];
-      console.log('Search returned', families.length, 'families:', families);
       
       if (families.length === 0) {
         alert('No matches found');
@@ -335,17 +334,15 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
       }
       
       if (families.length === 1) {
-        console.log('Single family - showing familyModal');
         populateFamilyModal(families[0]);
         new bootstrap.Modal(document.getElementById('familyModal')).show();
       } else {
-        console.log('Multiple families - showing nameResultsModal');
         showMultipleFamilies(families);
       }
     })
     .catch(error => {
       console.error('Error:', error);
-      alert('Search failed. Please check the console for details.');
+      alert('Search failed. Please try again.');
     });
   }
 });
@@ -688,14 +685,10 @@ function populateFamilyModal(data) {
 
 // Helper function to show multiple families in results modal
 function showMultipleFamilies(families) {
-  console.log('showMultipleFamilies called with', families.length, 'families');
-  console.log('First family data:', families[0]);
   const list = document.getElementById('name-results-list');
   list.innerHTML = '';
   
   families.forEach((f, idx) => {
-    console.log(`Processing family ${idx}:`, f);
-    
     const div = document.createElement('div');
     div.className = 'border rounded p-3 mb-3';
     div.style.cursor = 'pointer';
@@ -713,33 +706,19 @@ function showMultipleFamilies(families) {
       this.style.borderWidth = '';
     });
     
-    // Handle kids - check if it's an array
+    // Handle kids
     let kids = 'None';
-    try {
-      console.log('Processing kids for family', idx, ':', f.kids);
-      if (f.kids && Array.isArray(f.kids)) {
-        kids = f.kids.map(k => {
-          const badge = k.already_checked_in ? ' <span class="badge bg-success">Checked In</span>' : '';
-          return k.name + badge;
-        }).join(', ');
-      }
-      console.log('Kids result:', kids);
-    } catch (e) {
-      console.error('Error processing kids:', e, f.kids);
-      kids = 'Error loading kids';
+    if (f.kids && Array.isArray(f.kids) && f.kids.length > 0) {
+      kids = f.kids.map(k => {
+        const badge = k.already_checked_in ? ' <span class="badge bg-success">Checked In</span>' : '';
+        return k.name + badge;
+      }).join(', ');
     }
     
-    // Handle adults - check if it's an array
+    // Handle adults
     let adults = 'None';
-    try {
-      console.log('Processing adults for family', idx, ':', f.adults);
-      if (f.adults && Array.isArray(f.adults)) {
-        adults = f.adults.map(a => a.name).join(', ');
-      }
-      console.log('Adults result:', adults);
-    } catch (e) {
-      console.error('Error processing adults:', e, f.adults);
-      adults = 'Error loading adults';
+    if (f.adults && Array.isArray(f.adults) && f.adults.length > 0) {
+      adults = f.adults.map(a => a.name).join(', ');
     }
     
     div.innerHTML = `
@@ -776,23 +755,7 @@ function showMultipleFamilies(families) {
     });
   });
   
-  console.log('About to show nameResultsModal');
-  const modalElement = document.getElementById('nameResultsModal');
-  console.log('Modal element:', modalElement);
-  if (!modalElement) {
-    console.error('nameResultsModal element not found!');
-    return;
-  }
-  
-  try {
-    const modal = new bootstrap.Modal(modalElement);
-    console.log('Modal instance created:', modal);
-    modal.show();
-    console.log('Modal.show() called');
-  } catch (error) {
-    console.error('Error showing modal:', error);
-    throw error;
-  }
+  new bootstrap.Modal(document.getElementById('nameResultsModal')).show();
 }
 
 
