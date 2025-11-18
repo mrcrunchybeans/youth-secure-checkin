@@ -561,6 +561,9 @@ def checkin_last4():
     if not last4 or len(last4) != 4 or not last4.isdigit():
         return jsonify({'error': 'Invalid last 4 digits'}), 400
     conn = get_db()
+    
+    # Search for phone that ends with last4 or is exactly last4
+    # Phone is stored as just the last 4 digits
     cur = conn.execute("""
         SELECT f.id, f.phone, f.troop, f.default_adult_id,
                (SELECT GROUP_CONCAT(a.id || ':' || a.name)
@@ -568,8 +571,8 @@ def checkin_last4():
                (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
                 FROM kids k WHERE k.family_id = f.id) as kids
         FROM families f
-        WHERE f.phone LIKE ?
-    """, ('%' + last4,))
+        WHERE f.phone = ? OR f.phone LIKE ?
+    """, (last4, '%' + last4))
     families = cur.fetchall()
     
     if not families:
