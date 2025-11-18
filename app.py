@@ -583,16 +583,17 @@ def checkin_last4():
     kids = [kid.split(':', 2) for kid in family['kids'].split(',')] if family['kids'] else []
     kids = [{'id': int(k[0]), 'name': k[1], 'notes': k[2] if len(k) > 2 else ''} for k in kids]
     
-    # Check which kids are already checked in to this event
+    # Check which kids are already checked in to this event (if provided)
+    checked_in_kids = set()
     if event_id:
-        checked_in_kids = set()
-        for kid in kids:
-            checkin = conn.execute("""
-                SELECT id FROM checkins 
-                WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
-            """, (kid['id'], event_id)).fetchone()
-            if checkin:
-                checked_in_kids.add(kid['id'])
+        kid_ids = [k['id'] for k in kids]
+        if kid_ids:
+            placeholders = ','.join('?' * len(kid_ids))
+            checked_in_cur = conn.execute(f"""
+                SELECT kid_id FROM checkins 
+                WHERE kid_id IN ({placeholders}) AND event_id = ? AND checkout_time IS NULL
+            """, kid_ids + [event_id])
+            checked_in_kids = {row[0] for row in checked_in_cur.fetchall()}
         
         # Mark kids as already checked in
         for kid in kids:
@@ -638,6 +639,22 @@ def search_name():
         conn.close()
         return jsonify({'families': []})
 
+    # Get all family IDs first
+    family_ids = [family['id'] for family in families]
+    
+    # Get all checked-in kids for this event in a single query (if provided)
+    checked_in_kids = set()
+    if event_id and family_ids:
+        placeholders = ','.join('?' * len(family_ids))
+        checked_in_cur = conn.execute(f"""
+            SELECT DISTINCT c.kid_id
+            FROM checkins c
+            JOIN kids k ON c.kid_id = k.id
+            WHERE k.family_id IN ({placeholders})
+            AND c.event_id = ? AND c.checkout_time IS NULL
+        """, family_ids + [event_id])
+        checked_in_kids = {row[0] for row in checked_in_cur.fetchall()}
+
     # Build a list of family objects similar to checkin_last4
     results = []
     for family in families:
@@ -646,16 +663,8 @@ def search_name():
         kids = [kid.split(':', 2) for kid in family['kids'].split(',')] if family['kids'] else []
         kids = [{'id': int(k[0]), 'name': k[1], 'notes': k[2] if len(k) > 2 else ''} for k in kids]
 
-        # Check which kids are already checked in to this event (if provided)
+        # Mark kids as already checked in
         if event_id:
-            checked_in_kids = set()
-            for kid in kids:
-                checkin = conn.execute("""
-                    SELECT id FROM checkins
-                    WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
-                """, (kid['id'], event_id)).fetchone()
-                if checkin:
-                    checked_in_kids.add(kid['id'])
             for kid in kids:
                 kid['already_checked_in'] = kid['id'] in checked_in_kids
 
