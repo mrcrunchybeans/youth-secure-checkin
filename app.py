@@ -252,6 +252,25 @@ def get_event_date_range_months():
             return 1
     return 1
 
+def parse_concat_list(concat_str, separator=':'):
+    """Parse GROUP_CONCAT result into a list of dicts.
+    
+    Args:
+        concat_str: String from GROUP_CONCAT like "1:name:notes,2:name2:notes2"
+        separator: Field separator within each item (default ':')
+    
+    Returns:
+        List of tuples with parsed values
+    """
+    if not concat_str:
+        return []
+    
+    items = []
+    for item_str in concat_str.split(','):
+        parts = item_str.split(separator)
+        items.append(parts)
+    return items
+
 def require_auth(f):
     """Decorator to require authentication"""
     from functools import wraps
@@ -581,10 +600,25 @@ def checkin_last4():
     
     # Assume first match; in real app, handle multiples
     family = families[0]
-    adults = [adult.split(':', 1) for adult in family['adults'].split(',')] if family['adults'] else []
-    adults = [{'id': int(a[0]), 'name': a[1]} for a in adults]
-    kids = [kid.split(':', 2) for kid in family['kids'].split(',')] if family['kids'] else []
-    kids = [{'id': int(k[0]), 'name': k[1], 'notes': k[2] if len(k) > 2 else ''} for k in kids]
+    
+    # Parse concatenated adult and kid data
+    adults_list = parse_concat_list(family['adults'], ':') if family['adults'] else []
+    adults = []
+    for adult_parts in adults_list:
+        if len(adult_parts) >= 2:
+            adults.append({'id': int(adult_parts[0]), 'name': adult_parts[1]})
+    
+    kids_list = parse_concat_list(family['kids'], ':') if family['kids'] else []
+    kids = []
+    for kid_parts in kids_list:
+        if len(kid_parts) >= 2:
+            kid_id = int(kid_parts[0]) if kid_parts[0].isdigit() else None
+            if kid_id:
+                kids.append({
+                    'id': kid_id, 
+                    'name': kid_parts[1], 
+                    'notes': kid_parts[2] if len(kid_parts) > 2 else ''
+                })
     
     # Check which kids are already checked in to this event (if provided)
     checked_in_kids = set()
@@ -661,10 +695,24 @@ def search_name():
     # Build a list of family objects similar to checkin_last4
     results = []
     for family in families:
-        adults = [adult.split(':', 1) for adult in family['adults'].split(',')] if family['adults'] else []
-        adults = [{'id': int(a[0]), 'name': a[1]} for a in adults]
-        kids = [kid.split(':', 2) for kid in family['kids'].split(',')] if family['kids'] else []
-        kids = [{'id': int(k[0]), 'name': k[1], 'notes': k[2] if len(k) > 2 else ''} for k in kids]
+        # Parse concatenated adult and kid data
+        adults_list = parse_concat_list(family['adults'], ':') if family['adults'] else []
+        adults = []
+        for adult_parts in adults_list:
+            if len(adult_parts) >= 2:
+                adults.append({'id': int(adult_parts[0]), 'name': adult_parts[1]})
+        
+        kids_list = parse_concat_list(family['kids'], ':') if family['kids'] else []
+        kids = []
+        for kid_parts in kids_list:
+            if len(kid_parts) >= 2:
+                kid_id = int(kid_parts[0]) if kid_parts[0].isdigit() else None
+                if kid_id:
+                    kids.append({
+                        'id': kid_id, 
+                        'name': kid_parts[1], 
+                        'notes': kid_parts[2] if len(kid_parts) > 2 else ''
+                    })
 
         # Mark kids as already checked in
         if event_id:
