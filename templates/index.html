@@ -670,13 +670,19 @@ function populateFamilyModal(data) {
   
   const kidsList = document.getElementById('kids-list');
   kidsList.innerHTML = '';
+  
+  // Auto-select kids for families with only one kid
+  const availableKids = data.kids.filter(kid => !kid.already_checked_in);
+  const autoSelect = availableKids.length === 1;
+  
   data.kids.forEach(kid => {
     const div = document.createElement('div');
     div.className = 'form-check';
     const isCheckedIn = kid.already_checked_in;
     const checkedInLabel = isCheckedIn ? ' <span class="badge bg-success">Already Checked In</span>' : '';
+    const shouldCheck = !isCheckedIn && autoSelect;
     div.innerHTML = `
-      <input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="kid-${kid.id}" ${isCheckedIn ? 'disabled checked' : ''}>
+      <input class="form-check-input" type="checkbox" name="kid_ids" value="${kid.id}" id="kid-${kid.id}" ${isCheckedIn ? 'disabled checked' : shouldCheck ? 'checked' : ''}>
       <label class="form-check-label" for="kid-${kid.id}" style="${isCheckedIn ? 'opacity: 0.6;' : ''}">${kid.name}${checkedInLabel}</label>
     `;
     kidsList.appendChild(div);
