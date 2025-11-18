@@ -2166,6 +2166,9 @@ def oauth_google():
             flash('Google OAuth credentials not configured. Configure them in Cloud Backup Credentials settings.', 'danger')
             return redirect(url_for('cloud_backup_settings'))
         
+        redirect_uri = url_for('oauth_google_callback', _external=True)
+        app.logger.info(f'Google OAuth: redirect_uri={redirect_uri}, client_id={client_id[:20]}...')
+        
         # Google OAuth 2.0 configuration
         client_config = {
             "installed": {
@@ -2173,22 +2176,25 @@ def oauth_google():
                 "client_secret": client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [url_for('oauth_google_callback', _external=True)]
+                "redirect_uris": [redirect_uri]
             }
         }
         
         flow = Flow.from_client_config(
             client_config,
             scopes=['https://www.googleapis.com/auth/drive'],
-            redirect_uri=url_for('oauth_google_callback', _external=True)
+            redirect_uri=redirect_uri
         )
         
         auth_url, state = flow.authorization_url(access_type='offline', prompt='consent')
         session['google_oauth_state'] = state
+        session['google_oauth_client_id'] = client_id
+        session['google_oauth_client_secret'] = client_secret
         
         return redirect(auth_url)
     
     except Exception as e:
+        app.logger.error(f'Error initiating Google OAuth: {str(e)}')
         flash(f'Error initiating Google OAuth: {str(e)}', 'danger')
         return redirect(url_for('cloud_backup_settings'))
 
@@ -2206,13 +2212,24 @@ def oauth_google_callback():
             flash('Google OAuth authorization denied or failed.', 'danger')
             return redirect(url_for('cloud_backup_settings'))
         
+        # Get credentials from session (stored during oauth_google)
+        client_id = session.get('google_oauth_client_id', '')
+        client_secret = session.get('google_oauth_client_secret', '')
+        
+        if not client_id or not client_secret:
+            flash('OAuth session expired. Please try again.', 'danger')
+            return redirect(url_for('cloud_backup_settings'))
+        
+        redirect_uri = url_for('oauth_google_callback', _external=True)
+        app.logger.info(f'Google OAuth Callback: redirect_uri={redirect_uri}, code={code[:20]}...')
+        
         client_config = {
             "installed": {
-                "client_id": os.getenv('GOOGLE_OAUTH_CLIENT_ID', ''),
-                "client_secret": os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', ''),
+                "client_id": client_id,
+                "client_secret": client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [url_for('oauth_google_callback', _external=True)]
+                "redirect_uris": [redirect_uri]
             }
         }
         
