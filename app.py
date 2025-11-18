@@ -2249,8 +2249,10 @@ def oauth_google_callback():
             redirect_uri=url_for('oauth_google_callback', _external=True)
         )
         
+        app.logger.info(f'Google OAuth: About to fetch token with code={code[:20]}...')
         flow.fetch_token(code=code)
         credentials = flow.credentials
+        app.logger.info(f'Google OAuth: Got credentials, token={credentials.token[:20] if credentials.token else "None"}...')
         
         # Store token as JSON
         token_data = {
@@ -2267,6 +2269,7 @@ def oauth_google_callback():
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_drive_token', ?)", 
                     (json.dumps(token_data),))
         conn.commit()
+        app.logger.info('Google OAuth: Token stored to database successfully')
         conn.close()
         
         flash('✓ Google Drive connected successfully!', 'success')
