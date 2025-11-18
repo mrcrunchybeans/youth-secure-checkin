@@ -21,6 +21,9 @@ import zipfile
 import shutil
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Load environment variables from .env file
 load_dotenv()
@@ -237,6 +240,91 @@ def set_branding_setting(key, value):
     conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     conn.commit()
     conn.close()
+
+def get_smtp_settings():
+    """Get all SMTP settings from database"""
+    conn = get_db()
+    settings = {}
+    keys = ['smtp_server', 'smtp_port', 'smtp_from', 'smtp_username', 'smtp_password', 'smtp_use_tls']
+    
+    for key in keys:
+        cur = conn.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        row = cur.fetchone()
+        settings[key] = row['value'] if row else None
+    
+    conn.close()
+    return settings
+
+def set_smtp_settings(smtp_dict):
+    """Save SMTP settings to database"""
+    conn = get_db()
+    for key, value in smtp_dict.items():
+        if key.startswith('smtp_') and value is not None:
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
+
+def send_email(to_address, subject, html_body, plain_text_body=None):
+    """Send an email using configured SMTP settings.
+    
+    Args:
+        to_address: Recipient email address
+        subject: Email subject line
+        html_body: HTML content of email
+        plain_text_body: Plain text fallback (optional)
+    
+    Returns:
+        Tuple of (success, message)
+    """
+    try:
+        smtp_settings = get_smtp_settings()
+        
+        # Validate SMTP settings are configured
+        if not all([smtp_settings.get('smtp_server'), 
+                    smtp_settings.get('smtp_port'),
+                    smtp_settings.get('smtp_from'),
+                    smtp_settings.get('smtp_username'),
+                    smtp_settings.get('smtp_password')]):
+            return False, "SMTP settings not configured. Please configure SMTP in admin settings."
+        
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = smtp_settings['smtp_from']
+        msg['To'] = to_address
+        
+        # Attach plain text and HTML versions
+        if plain_text_body:
+            msg.attach(MIMEText(plain_text_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+        
+        # Connect to SMTP server
+        use_tls = smtp_settings.get('smtp_use_tls', 'false') == 'true'
+        port = int(smtp_settings.get('smtp_port', 587))
+        
+        if use_tls:
+            server = smtplib.SMTP(smtp_settings['smtp_server'], port, timeout=10)
+            server.starttls()
+        else:
+            # For SSL, use SMTP_SSL
+            if port == 465:
+                server = smtplib.SMTP_SSL(smtp_settings['smtp_server'], port, timeout=10)
+            else:
+                server = smtplib.SMTP(smtp_settings['smtp_server'], port, timeout=10)
+        
+        # Login and send
+        server.login(smtp_settings['smtp_username'], smtp_settings['smtp_password'])
+        server.send_message(msg)
+        server.quit()
+        
+        return True, f"Email sent successfully to {to_address}"
+    
+    except smtplib.SMTPAuthenticationError:
+        return False, "SMTP Authentication failed. Check username and password."
+    except smtplib.SMTPException as e:
+        return False, f"SMTP error: {str(e)}"
+    except Exception as e:
+        return False, f"Failed to send email: {str(e)}"
 
 def get_event_date_range_months():
     """Get the number of months (past and future) to show events for. Default is 1 month."""
@@ -1374,6 +1462,144 @@ def history():
 
     return render_template('history.html', rows=rows, events=events, event_id=event_id, start_date=start_date, end_date=end_date)
 
+@app.route('/admin/history/email', methods=['POST'])
+@require_auth
+def email_history():
+    """Generate and email the check-in/check-out history report"""
+    email_address = request.form.get('email_address', '').strip()
+    email_subject = request.form.get('email_subject', 'Check-in Report').strip()
+    event_id = request.form.get('event_id', '').strip()
+    start_date = request.form.get('start_date', '').strip()
+    end_date = request.form.get('end_date', '').strip()
+    
+    if not email_address:
+        flash('Email address is required', 'danger')
+        return redirect(url_for('history', event_id=event_id, start_date=start_date, end_date=end_date))
+    
+    try:
+        conn = get_db()
+        
+        # Build the query with filters (same as history page)
+        query = """
+            SELECT c.id, c.checkin_time, c.checkout_time, k.name as kid_name, f.phone, f.troop, e.name as event_name, a.name as adult_name
+            FROM checkins c
+            JOIN kids k ON c.kid_id = k.id
+            JOIN families f ON k.family_id = f.id
+            JOIN adults a ON c.adult_id = a.id
+            JOIN events e ON c.event_id = e.id
+            WHERE 1=1
+        """
+        params = []
+        
+        if event_id:
+            query += " AND c.event_id = ?"
+            params.append(event_id)
+        
+        if start_date:
+            query += " AND date(c.checkin_time) >= ?"
+            params.append(start_date)
+        
+        if end_date:
+            query += " AND date(c.checkin_time) <= ?"
+            params.append(end_date)
+        
+        query += " ORDER BY c.checkin_time DESC"
+        
+        cur = conn.execute(query, params)
+        rows = cur.fetchall()
+        rows = [dict(r) for r in rows]
+        
+        # Format times and build HTML table
+        html_rows = []
+        for r in rows:
+            dt = datetime.fromisoformat(r['checkin_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
+            checkin_time = dt.strftime('%b %d, %Y %I:%M %p')
+            
+            checkout_time = ''
+            if r['checkout_time']:
+                dt = datetime.fromisoformat(r['checkout_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
+                checkout_time = dt.strftime('%b %d, %Y %I:%M %p')
+            
+            html_rows.append({
+                'kid_name': r['kid_name'],
+                'adult_name': r['adult_name'],
+                'phone': r['phone'],
+                'event_name': r['event_name'],
+                'checkin_time': checkin_time,
+                'checkout_time': checkout_time or '-'
+            })
+        
+        conn.close()
+        
+        # Build HTML table
+        html_table = """
+        <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 12px;">
+            <thead>
+                <tr style="background-color: #f0f0f0; border-bottom: 2px solid #333;">
+                    <th style="padding: 8px; text-align: left; border: 1px solid #999;">Youth Name</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #999;">Adult</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #999;">Phone</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #999;">Event</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #999;">Check-in Time</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #999;">Check-out Time</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        
+        for row in html_rows:
+            html_table += f"""
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px; border: 1px solid #ccc;">{row['kid_name']}</td>
+                    <td style="padding: 8px; border: 1px solid #ccc;">{row['adult_name']}</td>
+                    <td style="padding: 8px; border: 1px solid #ccc;">{row['phone']}</td>
+                    <td style="padding: 8px; border: 1px solid #ccc;">{row['event_name']}</td>
+                    <td style="padding: 8px; border: 1px solid #ccc;">{row['checkin_time']}</td>
+                    <td style="padding: 8px; border: 1px solid #ccc;">{row['checkout_time']}</td>
+                </tr>
+            """
+        
+        html_table += """
+            </tbody>
+        </table>
+        """
+        
+        # Build HTML email body
+        html_body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 900px; margin: 0 auto;">
+                    <h2 style="color: #0dcaf0; border-bottom: 2px solid #0dcaf0; padding-bottom: 10px;">Check-in Report</h2>
+                    
+                    <div style="background-color: #f9f9f9; padding: 10px; margin: 15px 0; border-left: 4px solid #0dcaf0;">
+                        <p><strong>Report Generated:</strong> {datetime.now().strftime('%b %d, %Y %I:%M %p')}</p>
+                        <p><strong>Total Records:</strong> {len(html_rows)}</p>
+                    </div>
+                    
+                    {html_table}
+                    
+                    <div style="margin-top: 20px; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+                        <p>This is an automated report. Please do not reply to this email.</p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+        
+        # Send email
+        success, message = send_email(email_address, email_subject, html_body)
+        
+        if success:
+            flash(f'Report sent successfully to {email_address}', 'success')
+        else:
+            flash(f'Failed to send report: {message}', 'danger')
+        
+        return redirect(url_for('history', event_id=event_id, start_date=start_date, end_date=end_date))
+    
+    except Exception as e:
+        flash(f'Error generating report: {str(e)}', 'danger')
+        return redirect(url_for('history', event_id=event_id, start_date=start_date, end_date=end_date))
+
 # Admin routes
 @app.route('/admin')
 @require_auth
@@ -1509,6 +1735,30 @@ def lock_override():
     session.pop('override_unlocked', None)
     flash('Override settings locked!', 'info')
     return redirect(url_for('admin_security'))
+
+@app.route('/admin/unlock_smtp', methods=['POST'])
+@require_auth
+def unlock_smtp():
+    """Unlock the SMTP settings section with developer password"""
+    dev_password = request.form.get('dev_password', '').strip()
+    
+    if DEVELOPER_PASSWORD is None:
+        flash('Developer password not configured in .env file!', 'danger')
+    elif dev_password == DEVELOPER_PASSWORD:
+        session['smtp_unlocked'] = True
+        flash('SMTP settings unlocked!', 'success')
+    else:
+        flash('Invalid developer password!', 'danger')
+    
+    return redirect(url_for('admin_settings'))
+
+@app.route('/admin/lock_smtp', methods=['POST'])
+@require_auth
+def lock_smtp():
+    """Lock the SMTP settings section"""
+    session.pop('smtp_unlocked', None)
+    flash('SMTP settings locked!', 'info')
+    return redirect(url_for('admin_settings'))
 
 @app.route('/admin/security', methods=['GET', 'POST'])
 @require_auth
@@ -1837,6 +2087,28 @@ def admin_settings():
             conn.commit()
             flash('Checkout code settings updated successfully!', 'success')
         
+        # Handle SMTP settings
+        elif action == 'save_smtp':
+            # Only allow saving if SMTP is unlocked
+            if session.get('smtp_unlocked', False):
+                smtp_settings = {
+                    'smtp_server': request.form.get('smtp_server', '').strip(),
+                    'smtp_port': request.form.get('smtp_port', '').strip(),
+                    'smtp_from': request.form.get('smtp_from', '').strip(),
+                    'smtp_username': request.form.get('smtp_username', '').strip(),
+                    'smtp_use_tls': 'true' if request.form.get('smtp_use_tls') == 'on' else 'false'
+                }
+                
+                # Only update password if provided (non-empty)
+                new_password = request.form.get('smtp_password', '').strip()
+                if new_password:
+                    smtp_settings['smtp_password'] = new_password
+                
+                set_smtp_settings(smtp_settings)
+                flash('SMTP settings saved successfully!', 'success')
+            else:
+                flash('SMTP settings are locked. Unlock them first with developer password.', 'warning')
+        
         conn.close()
         return redirect(url_for('admin_settings'))
     
@@ -1849,6 +2121,9 @@ def admin_settings():
     # Check if override section is unlocked (persists during session)
     override_unlocked = session.get('override_unlocked', False)
     
+    # Check if SMTP section is unlocked (persists during session)
+    smtp_unlocked = session.get('smtp_unlocked', False)
+    
     # Fetch label printing settings
     label_settings = {}
     for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
@@ -1857,10 +2132,15 @@ def admin_settings():
     
     conn.close()
     
+    # Fetch SMTP settings
+    smtp_settings = get_smtp_settings()
+    
     return render_template('admin/settings.html', 
                          current_password=current_password,
                          current_override_password=current_override_password,
                          override_unlocked=override_unlocked,
+                         smtp_unlocked=smtp_unlocked,
+                         smtp_settings=smtp_settings,
                          dev_password_set=bool(DEVELOPER_PASSWORD),
                          label_settings=label_settings,
                          current_logo=current_logo,

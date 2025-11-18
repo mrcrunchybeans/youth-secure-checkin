@@ -109,7 +109,111 @@
       </div>
     </div>
 
-    <!-- Checkout Codes Card -->
+    <!-- SMTP Email Settings Card -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%); color: white;">
+        <h6 class="mb-0"><i class="bi bi-envelope"></i> Email (SMTP)</h6>
+      </div>
+      <div class="card-body p-3">
+        <div class="border rounded p-3 bg-light mb-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <label class="form-label mb-0 small fw-semibold">
+              <i class="bi bi-lock-fill text-warning"></i> SMTP Settings
+            </label>
+            {% if smtp_unlocked %}
+            <span class="badge bg-success small">Unlocked</span>
+            {% else %}
+            <span class="badge bg-warning text-dark small">Protected</span>
+            {% endif %}
+          </div>
+          
+          {% if smtp_unlocked %}
+          <!-- Show SMTP settings when unlocked -->
+          <form method="POST" class="needs-validation" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label for="smtp_server" class="form-label small fw-semibold mb-1">SMTP Server</label>
+                <input type="text" class="form-control form-control-sm" id="smtp_server" name="smtp_server"
+                       value="{{ smtp_settings.smtp_server or '' }}" placeholder="e.g., smtp.gmail.com">
+                <div class="text-muted" style="font-size: 0.75rem;">SMTP server hostname</div>
+              </div>
+              
+              <div class="col-md-6">
+                <label for="smtp_port" class="form-label small fw-semibold mb-1">Port</label>
+                <input type="number" class="form-control form-control-sm" id="smtp_port" name="smtp_port"
+                       value="{{ smtp_settings.smtp_port or '587' }}" placeholder="587 or 465">
+                <div class="text-muted" style="font-size: 0.75rem;">Usually 587 (TLS) or 465 (SSL)</div>
+              </div>
+              
+              <div class="col-md-6">
+                <label for="smtp_from" class="form-label small fw-semibold mb-1">From Address</label>
+                <input type="email" class="form-control form-control-sm" id="smtp_from" name="smtp_from"
+                       value="{{ smtp_settings.smtp_from or '' }}" placeholder="checkin@example.com">
+                <div class="text-muted" style="font-size: 0.75rem;">Sender email address</div>
+              </div>
+              
+              <div class="col-md-6">
+                <label for="smtp_username" class="form-label small fw-semibold mb-1">Username</label>
+                <input type="text" class="form-control form-control-sm" id="smtp_username" name="smtp_username"
+                       value="{{ smtp_settings.smtp_username or '' }}" placeholder="username or email">
+                <div class="text-muted" style="font-size: 0.75rem;">SMTP authentication username</div>
+              </div>
+              
+              <div class="col-md-6">
+                <label for="smtp_password" class="form-label small fw-semibold mb-1">Password</label>
+                <input type="password" class="form-control form-control-sm" id="smtp_password" name="smtp_password"
+                       placeholder="Leave blank to keep current">
+                <div class="text-muted" style="font-size: 0.75rem;">SMTP password (leave blank to not change)</div>
+              </div>
+              
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="smtp_use_tls" name="smtp_use_tls"
+                         {% if smtp_settings.smtp_use_tls == 'true' %}checked{% endif %} style="cursor: pointer;">
+                  <label class="form-check-label small" for="smtp_use_tls" style="cursor: pointer;">
+                    Use TLS encryption (port 587)
+                  </label>
+                </div>
+              </div>
+              
+              <div class="col-12">
+                <button type="submit" name="action" value="save_smtp" class="btn btn-sm" style="background: #6c757d; color: white;">
+                  <i class="bi bi-check-circle"></i> Save SMTP Settings
+                </button>
+                <form method="POST" action="{{ url_for('lock_smtp') }}" style="display: inline;">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary ms-2">
+                    <i class="bi bi-lock"></i> Lock Settings
+                  </button>
+                </form>
+              </div>
+            </div>
+          </form>
+          {% else %}
+            <!-- Show unlock form when locked -->
+            <form method="POST" action="{{ url_for('unlock_smtp') }}">
+              <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                  <input type="password" class="form-control form-control-sm" name="dev_password" 
+                         placeholder="Enter developer password" required autofocus>
+                  <div class="text-muted" style="font-size: 0.75rem;">
+                    <i class="bi bi-shield-exclamation"></i> Developer password required to view/edit
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <button type="submit" class="btn btn-sm btn-warning w-100">
+                    <i class="bi bi-unlock"></i> Unlock
+                  </button>
+                </div>
+              </div>
+            </form>
+          {% endif %}
+        </div>
+        
+        <div class="alert alert-info p-2 mb-0 small">
+          <i class="bi bi-info-circle"></i> <strong>Required:</strong> Server, Port, From Address, Username & Password. Used for sending check-in history reports.
+        </div>
+      </div>
+    </div>
     <div class="card shadow-sm mb-3">
       <div class="card-header py-2" style="background: linear-gradient(135deg, {{ branding.accent_color }} 0%, #5a6c38 100%); color: white;">
         <h6 class="mb-0"><i class="bi bi-qr-code"></i> Checkout Codes & Printing</h6>
