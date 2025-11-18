@@ -2141,7 +2141,17 @@ def backup_now():
             conn.commit()
             flash('✓ Backup completed successfully!', 'success')
         else:
-            flash(f'Backup completed with issues: {results.get("error", "")}', 'warning')
+            # Build detailed error message
+            error_details = []
+            if 'error' in results:
+                error_details.append(results['error'])
+            for service, service_result in results.get('services', {}).items():
+                if not service_result.get('success', False):
+                    msg = service_result.get('message', 'Unknown error')
+                    error_details.append(f"{service}: {msg}")
+            error_msg = ' | '.join(error_details) if error_details else 'No services configured'
+            flash(f'Backup completed with issues: {error_msg}', 'warning')
+            app.logger.error(f'Backup completed with issues: {results}')
         
         conn.close()
     
