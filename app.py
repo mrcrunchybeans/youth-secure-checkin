@@ -20,6 +20,7 @@ import tempfile
 import zipfile
 import shutil
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
@@ -86,6 +87,9 @@ def init_db():
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-key-for-local')  # override in prod with env var
+
+# Trust proxy headers for HTTPS detection behind reverse proxy
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 # File upload configuration
 UPLOAD_FOLDER = Path(__file__).parent / 'static' / 'uploads'
