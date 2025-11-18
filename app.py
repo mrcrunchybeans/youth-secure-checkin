@@ -1750,7 +1750,7 @@ def unlock_smtp():
     else:
         flash('Invalid developer password!', 'danger')
     
-    return redirect(url_for('admin_settings'))
+    return redirect(url_for('email_settings'))
 
 @app.route('/admin/lock_smtp', methods=['POST'])
 @require_auth
@@ -1758,7 +1758,7 @@ def lock_smtp():
     """Lock the SMTP settings section"""
     session.pop('smtp_unlocked', None)
     flash('SMTP settings locked!', 'info')
-    return redirect(url_for('admin_settings'))
+    return redirect(url_for('email_settings'))
 
 @app.route('/admin/email', methods=['GET', 'POST'])
 @require_auth
