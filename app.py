@@ -1760,6 +1760,98 @@ def lock_smtp():
     flash('SMTP settings locked!', 'info')
     return redirect(url_for('admin_settings'))
 
+@app.route('/admin/email', methods=['GET', 'POST'])
+@require_auth
+def email_settings():
+    """Email settings page - separate page for SMTP configuration"""
+    conn = get_db()
+    
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        
+        # Handle SMTP settings save
+        if action == 'save_smtp':
+            # Only allow saving if SMTP is unlocked
+            if session.get('smtp_unlocked', False):
+                smtp_settings = {
+                    'smtp_server': request.form.get('smtp_server', '').strip(),
+                    'smtp_port': request.form.get('smtp_port', '').strip(),
+                    'smtp_from': request.form.get('smtp_from', '').strip(),
+                    'smtp_username': request.form.get('smtp_username', '').strip(),
+                    'smtp_use_tls': 'true' if request.form.get('smtp_use_tls') == 'on' else 'false'
+                }
+                
+                # Only update password if provided (non-empty)
+                new_password = request.form.get('smtp_password', '').strip()
+                if new_password:
+                    smtp_settings['smtp_password'] = new_password
+                
+                set_smtp_settings(smtp_settings)
+                flash('SMTP settings saved successfully!', 'success')
+            else:
+                flash('SMTP settings are locked. Unlock them first with developer password.', 'warning')
+        
+        conn.close()
+        return redirect(url_for('email_settings'))
+    
+    # GET request - fetch current settings
+    smtp_unlocked = session.get('smtp_unlocked', False)
+    smtp_settings = get_smtp_settings()
+    
+    conn.close()
+    return render_template('admin/email_settings.html',
+                         smtp_unlocked=smtp_unlocked,
+                         smtp_settings=smtp_settings,
+                         dev_password_set=bool(DEVELOPER_PASSWORD))
+
+@app.route('/admin/email/test', methods=['POST'])
+@require_auth
+def test_email():
+    """Send a test email to verify SMTP configuration"""
+    test_email_address = request.form.get('test_email', '').strip()
+    
+    if not test_email_address:
+        flash('Email address is required', 'danger')
+        return redirect(url_for('email_settings'))
+    
+    try:
+        subject = "SMTP Test Email - Check-in System"
+        html_body = """
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #0dcaf0;">✓ SMTP Configuration Working!</h2>
+                    
+                    <p>This is a test email to verify your SMTP settings are configured correctly.</p>
+                    
+                    <div style="background-color: #f0f8ff; padding: 15px; border-left: 4px solid #0dcaf0; margin: 20px 0;">
+                        <p><strong>System:</strong> Youth Check-In System</p>
+                        <p><strong>Test Sent:</strong> {}</p>
+                        <p><strong>Status:</strong> ✓ Success</p>
+                    </div>
+                    
+                    <p>You can now use the <strong>Email Report</strong> feature on the History page to send check-in reports via email.</p>
+                    
+                    <div style="margin-top: 20px; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+                        <p>This is an automated test email. Please do not reply.</p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """.format(datetime.now().strftime('%b %d, %Y %I:%M %p'))
+        
+        success, message = send_email(test_email_address, subject, html_body)
+        
+        if success:
+            flash(f'✓ Test email sent successfully to {test_email_address}', 'success')
+        else:
+            flash(f'✗ Failed to send test email: {message}', 'danger')
+    
+    except Exception as e:
+        flash(f'Error sending test email: {str(e)}', 'danger')
+    
+    return redirect(url_for('email_settings'))
+
 @app.route('/admin/security', methods=['GET', 'POST'])
 @require_auth
 def admin_security():
