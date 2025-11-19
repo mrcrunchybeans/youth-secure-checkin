@@ -60,14 +60,18 @@ def normalize_address(address):
     addr = re.sub(r'\s+', ' ', addr).strip()
     return addr
 
-# Database path - use /app/data for Docker containers, otherwise use local directory
-DATA_DIR = Path(__file__).parent / 'data'
-if DATA_DIR.exists() and DATA_DIR.is_dir():
-    # Running in Docker or with data directory
-    DB_PATH = DATA_DIR / 'checkin.db'
+# Database path - use DATABASE_PATH env var if set (for demo), otherwise default location
+if os.getenv('DATABASE_PATH'):
+    DB_PATH = Path(os.getenv('DATABASE_PATH'))
 else:
-    # Running locally without data directory
-    DB_PATH = Path(__file__).parent / 'checkin.db'
+    # Use /app/data for Docker containers, otherwise use local directory
+    DATA_DIR = Path(__file__).parent / 'data'
+    if DATA_DIR.exists() and DATA_DIR.is_dir():
+        # Running in Docker or with data directory
+        DB_PATH = DATA_DIR / 'checkin.db'
+    else:
+        # Running locally without data directory
+        DB_PATH = Path(__file__).parent / 'checkin.db'
 
 def get_db():
     db_path = app.config.get('DATABASE', DB_PATH)
@@ -120,13 +124,30 @@ except ImportError:
 @app.context_processor
 def inject_branding():
     """Make branding settings available to all templates"""
-    return {'branding': get_branding_settings()}
+    demo_mode = os.getenv('DEMO_MODE', 'false').lower() == 'true'
+    demo_banner = None
+    if demo_mode:
+        conn = get_db()
+        cur = conn.execute("SELECT value FROM settings WHERE key = 'demo_banner'")
+        row = cur.fetchone()
+        demo_banner = row['value'] if row else 'This is a demonstration instance. Data resets periodically.'
+        conn.close()
+    
+    return {
+        'branding': get_branding_settings(),
+        'demo_mode': demo_mode,
+        'demo_banner': demo_banner
+    }
 
 @app.before_request
 def check_setup():
     """Check if initial setup is needed and redirect if necessary"""
     # Skip check for static files and setup route itself
     if request.endpoint and (request.endpoint == 'static' or request.endpoint == 'setup'):
+        return
+    
+    # Skip setup check in demo mode - database is pre-configured
+    if os.getenv('DEMO_MODE', 'false').lower() == 'true':
         return
     
     # Check if setup is complete
