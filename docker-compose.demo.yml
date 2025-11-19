@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Demo web application
+  demo-app:
+    image: mrcrunchybeans/youth-secure-checkin:demo
+    container_name: youth-checkin-demo
+    ports:
+      - "5000:5000"
+    environment:
+      # Demo mode settings
+      FLASK_ENV: demo
+      DEMO_MODE: "true"
+      DATABASE_PATH: /app/data/demo.db
+      
+      # Security (change these for your deployment)
+      SECRET_KEY: demo-secret-key-change-for-production
+      DEVELOPER_PASSWORD: demo2025
+      
+      # Reset interval (hours)
+      RESET_INTERVAL_HOURS: "24"
+    volumes:
+      - demo-data:/app/data
+      - demo-uploads:/app/static/uploads
+    restart: unless-stopped
+    networks:
+      - demo-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: sh -c "python demo_seed.py && gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 wsgi:app"
+
+  # Auto-reset service - resets demo data periodically
+  demo-reset:
+    image: mrcrunchybeans/youth-secure-checkin:demo
+    container_name: youth-checkin-demo-reset
+    environment:
+      DATABASE_PATH: /app/data/demo.db
+      RESET_INTERVAL_HOURS: "24"
+      UPLOAD_PATH: /app/static/uploads
+    volumes:
+      - demo-data:/app/data
+      - demo-uploads:/app/static/uploads
+    command: python demo_reset_scheduler.py
+    depends_on:
+      - demo-app
+    restart: unless-stopped
+    networks:
+      - demo-network
+
+networks:
+  demo-network:
+    driver: bridge
+
+volumes:
+  demo-data:
+  demo-uploads:

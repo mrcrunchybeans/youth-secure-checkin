@@ -82,6 +82,11 @@ quick-publish.ps1
 cleanup-repo.ps1
 cleanup-personal-files.ps1
 
+# Landing page files (WordPress/web designer files)
+landingpage.html
+landing-page-copy.md
+WEBSITE_COPY.md
+
 # Migration scripts (already applied)
 add_override_setting.py
 migrate_*.py
