@@ -3,6 +3,8 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.connection import create_connection
 from icalendar import Calendar
 import pytz
 import csv
@@ -476,18 +478,8 @@ def sync_ical_events():
             ical_url = ical_row['value']
             conn.close()
 
-            # Make request with size limit to prevent memory exhaustion
-            response = requests.get(ical_url, timeout=10, stream=True)
-            response.raise_for_status()
-            
-            # Limit response size (10MB max)
-            max_size = 10 * 1024 * 1024
-            content = b''
-            for chunk in response.iter_content(chunk_size=8192):
-                content += chunk
-                if len(content) > max_size:
-                    return False, "iCal file too large (max 10MB)"
-            
+            # Use safe HTTP request with SSRF protection
+            content = safe_http_get(ical_url, timeout=10, max_size=10*1024*1024)
             cal = Calendar.from_ical(content.decode('utf-8'))
 
             conn = get_db()
@@ -3317,72 +3309,94 @@ def admin_sync_ical():
         flash(message, 'danger')
     return redirect(url_for('admin_events'))
 
-@app.route('/admin/events/import', methods=['GET', 'POST'])
-@require_auth
-def admin_import_events():
-
-    def is_safe_url(url):
-        """Validate URL to prevent SSRF attacks"""
+def validate_and_resolve_url(url):
+    """
+    Validate URL and resolve to safe IP address to prevent SSRF attacks.
+    Returns (is_valid, error_message, resolved_ip) tuple.
+    """
+    try:
         # Only allow http(s)
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ('http', 'https'):
-            return False
+            return False, "Only HTTP/HTTPS URLs are allowed", None
+        
         hostname = parsed.hostname
         if not hostname:
-            return False
+            return False, "Invalid hostname", None
         
         # Block common private/local hostnames
-        blocked_hosts = ['localhost', '127.0.0.1', '0.0.0.0', 'metadata.google.internal']
+        blocked_hosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', 'metadata.google.internal']
         if hostname.lower() in blocked_hosts:
-            return False
-            
-        try:
-            # Resolve DNS and check all IPs
-            ips = set()
-            for res in socket.getaddrinfo(hostname, None):
-                ip = res[4][0]
-                ip_obj = ipaddress.ip_address(ip)
-                # Block private, loopback, link-local, reserved, multicast IPs
-                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast:
-                    return False
-                ips.add(ip)
-            if not ips:
-                return False
-        except Exception:
-            return False
-        return True
+            return False, "Access to local/private hostnames is blocked", None
+        
+        # Resolve DNS and validate all IPs
+        resolved_ips = []
+        for res in socket.getaddrinfo(hostname, None):
+            ip = res[4][0]
+            ip_obj = ipaddress.ip_address(ip)
+            # Block private, loopback, link-local, reserved, multicast IPs
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast:
+                return False, "Cannot access private/internal IP addresses", None
+            resolved_ips.append(ip)
+        
+        if not resolved_ips:
+            return False, "Could not resolve hostname", None
+        
+        # Return first valid IP
+        return True, None, resolved_ips[0]
+    except Exception as e:
+        return False, f"URL validation error: {str(e)}", None
+
+def safe_http_get(url, timeout=10, max_size=10*1024*1024):
+    """
+    Make HTTP GET request with SSRF protection.
+    Validates URL and pins request to resolved IP address.
+    """
+    # Validate and resolve URL
+    is_valid, error_msg, resolved_ip = validate_and_resolve_url(url)
+    if not is_valid:
+        raise ValueError(error_msg)
+    
+    # Parse URL to get hostname for Host header
+    parsed = urllib.parse.urlparse(url)
+    hostname = parsed.hostname
+    
+    # Replace hostname with IP in URL for the actual request
+    # This prevents DNS rebinding attacks
+    ip_url = url.replace(f"//{hostname}", f"//{resolved_ip}")
+    
+    # Make request with resolved IP, but keep original hostname in Host header
+    headers = {'Host': hostname}
+    response = requests.get(ip_url, headers=headers, timeout=timeout, stream=True, allow_redirects=False)
+    response.raise_for_status()
+    
+    # Check content length
+    content_length = response.headers.get('content-length')
+    if content_length and int(content_length) > max_size:
+        raise ValueError(f"Response too large (max {max_size} bytes)")
+    
+    # Read in chunks with size limit
+    content = b''
+    for chunk in response.iter_content(chunk_size=8192):
+        content += chunk
+        if len(content) > max_size:
+            raise ValueError(f"Response too large (max {max_size} bytes)")
+    
+    return content
+
+@app.route('/admin/events/import', methods=['GET', 'POST'])
+@require_auth
+def admin_import_events():
     
     if request.method == 'POST':
         ical_url = request.form.get('ical_url', '').strip()
         if not ical_url:
             flash('iCal URL required', 'danger')
             return redirect(request.url)
-        
-        # Validate URL before making request
-        if not is_safe_url(ical_url):
-            flash('Unsafe or invalid iCal URL provided. Only public HTTPS URLs are allowed.', 'danger')
-            return redirect(request.url)
             
         try:
-            # Make request with timeout and size limit (10MB max)
-            response = requests.get(ical_url, timeout=10, stream=True)
-            response.raise_for_status()
-            
-            # Limit response size to prevent memory exhaustion
-            max_size = 10 * 1024 * 1024  # 10MB
-            content_length = response.headers.get('content-length')
-            if content_length and int(content_length) > max_size:
-                flash('iCal file too large (max 10MB)', 'danger')
-                return redirect(request.url)
-            
-            # Read response in chunks
-            content = b''
-            for chunk in response.iter_content(chunk_size=8192):
-                content += chunk
-                if len(content) > max_size:
-                    flash('iCal file too large (max 10MB)', 'danger')
-                    return redirect(request.url)
-            
+            # Use safe HTTP get with SSRF protection
+            content = safe_http_get(ical_url, timeout=10, max_size=10*1024*1024)
             cal = Calendar.from_ical(content.decode('utf-8'))
             conn = get_db()
             for component in cal.walk():
