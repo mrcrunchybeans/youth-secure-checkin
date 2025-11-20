@@ -17,6 +17,9 @@ from io import BytesIO
 import base64
 import os
 import tempfile
+import urllib.parse
+import ipaddress
+import socket
 import zipfile
 import shutil
 from werkzeug.utils import secure_filename
@@ -3307,12 +3310,38 @@ def admin_sync_ical():
 @app.route('/admin/events/import', methods=['GET', 'POST'])
 @require_auth
 def admin_import_events():
+
+    def is_safe_url(url):
+        # Only allow http(s)
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        try:
+            # Limit number of IPs to prevent DNS rebinding attacks
+            ips = set()
+            for res in socket.getaddrinfo(hostname, None):
+                ip = res[4][0]
+                ip_obj = ipaddress.ip_address(ip)
+                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast:
+                    return False
+                ips.add(ip)
+            if not ips:
+                return False
+        except Exception:
+            return False
+        return True
     if request.method == 'POST':
         ical_url = request.form.get('ical_url', '').strip()
         if not ical_url:
             flash('iCal URL required', 'danger')
             return redirect(request.url)
         try:
+            if not is_safe_url(ical_url):
+                flash('Unsafe or invalid iCal URL provided', 'danger')
+                return redirect(request.url)
             response = requests.get(ical_url)
             response.raise_for_status()
             cal = Calendar.from_ical(response.text)
