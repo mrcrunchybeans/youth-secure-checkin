@@ -3804,4 +3804,6 @@ if __name__ == '__main__':
     cleanup_thread = threading.Thread(target=periodic_cleanup, daemon=True)
     cleanup_thread.start()
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Get debug mode from environment variable (default False for security)
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
