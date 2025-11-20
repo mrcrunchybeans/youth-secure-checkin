@@ -29,21 +29,19 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
       
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix={{branch}}-
-      
-      - name: Build and push
+      - name: Build and push latest
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:latest
           cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:buildcache,mode=max
+      
+      - name: Build and push demo
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:demo
+          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:buildcache
