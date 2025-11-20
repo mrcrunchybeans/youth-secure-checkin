@@ -476,9 +476,19 @@ def sync_ical_events():
             ical_url = ical_row['value']
             conn.close()
 
-            response = requests.get(ical_url, timeout=10)
+            # Make request with size limit to prevent memory exhaustion
+            response = requests.get(ical_url, timeout=10, stream=True)
             response.raise_for_status()
-            cal = Calendar.from_ical(response.text)
+            
+            # Limit response size (10MB max)
+            max_size = 10 * 1024 * 1024
+            content = b''
+            for chunk in response.iter_content(chunk_size=8192):
+                content += chunk
+                if len(content) > max_size:
+                    return False, "iCal file too large (max 10MB)"
+            
+            cal = Calendar.from_ical(content.decode('utf-8'))
 
             conn = get_db()
             # Track events from calendar to identify which ones to keep
@@ -3312,6 +3322,7 @@ def admin_sync_ical():
 def admin_import_events():
 
     def is_safe_url(url):
+        """Validate URL to prevent SSRF attacks"""
         # Only allow http(s)
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ('http', 'https'):
@@ -3319,12 +3330,19 @@ def admin_import_events():
         hostname = parsed.hostname
         if not hostname:
             return False
+        
+        # Block common private/local hostnames
+        blocked_hosts = ['localhost', '127.0.0.1', '0.0.0.0', 'metadata.google.internal']
+        if hostname.lower() in blocked_hosts:
+            return False
+            
         try:
-            # Limit number of IPs to prevent DNS rebinding attacks
+            # Resolve DNS and check all IPs
             ips = set()
             for res in socket.getaddrinfo(hostname, None):
                 ip = res[4][0]
                 ip_obj = ipaddress.ip_address(ip)
+                # Block private, loopback, link-local, reserved, multicast IPs
                 if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast:
                     return False
                 ips.add(ip)
@@ -3333,18 +3351,39 @@ def admin_import_events():
         except Exception:
             return False
         return True
+    
     if request.method == 'POST':
         ical_url = request.form.get('ical_url', '').strip()
         if not ical_url:
             flash('iCal URL required', 'danger')
             return redirect(request.url)
+        
+        # Validate URL before making request
+        if not is_safe_url(ical_url):
+            flash('Unsafe or invalid iCal URL provided. Only public HTTPS URLs are allowed.', 'danger')
+            return redirect(request.url)
+            
         try:
-            if not is_safe_url(ical_url):
-                flash('Unsafe or invalid iCal URL provided', 'danger')
-                return redirect(request.url)
-            response = requests.get(ical_url)
+            # Make request with timeout and size limit (10MB max)
+            response = requests.get(ical_url, timeout=10, stream=True)
             response.raise_for_status()
-            cal = Calendar.from_ical(response.text)
+            
+            # Limit response size to prevent memory exhaustion
+            max_size = 10 * 1024 * 1024  # 10MB
+            content_length = response.headers.get('content-length')
+            if content_length and int(content_length) > max_size:
+                flash('iCal file too large (max 10MB)', 'danger')
+                return redirect(request.url)
+            
+            # Read response in chunks
+            content = b''
+            for chunk in response.iter_content(chunk_size=8192):
+                content += chunk
+                if len(content) > max_size:
+                    flash('iCal file too large (max 10MB)', 'danger')
+                    return redirect(request.url)
+            
+            cal = Calendar.from_ical(content.decode('utf-8'))
             conn = get_db()
             for component in cal.walk():
                 if component.name == "VEVENT":
