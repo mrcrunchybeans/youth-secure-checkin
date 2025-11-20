@@ -2211,7 +2211,7 @@ def oauth_google():
             return redirect(url_for('cloud_backup_settings'))
         
         redirect_uri = url_for('oauth_google_callback', _external=True)
-        app.logger.info(f'Google OAuth: redirect_uri={redirect_uri}, client_id={client_id[:20]}...')
+        app.logger.info(f'Google OAuth: redirect_uri={redirect_uri}')
         
         # Google OAuth 2.0 configuration
         client_config = {
