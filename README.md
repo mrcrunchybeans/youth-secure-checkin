@@ -60,86 +60,72 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Python 3.10 or higher
-- pip (Python package manager)
-- Git (for cloning the repository)
+### Docker Deployment (Recommended)
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
-   cd youth-secure-checkin
-   ```
-
-2. **Create virtual environment** (recommended)
-   ```bash
-   python -m venv venv
-   
-   # Windows
-   venv\Scripts\activate
-   
-   # Linux/Mac
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables**
-   ```bash
-   # Create .env file
-   cp .env.example .env
-   
-   # Edit .env and set:
-   # SECRET_KEY - Generate with: python -c "import secrets; print(secrets.token_hex(32))"
-   # DEVELOPER_PASSWORD - Set a secure backup admin password
-   ```
-
-5. **Initialize database**
-   ```bash
-   python -c "from app import init_db; init_db()"
-   ```
-
-6. **Run the application**
-   ```bash
-   python app.py
-   ```
-
-7. **Access the system**
-   - Open browser to `http://localhost:5000`
-   - Complete the setup wizard
-   - Start checking in families!
-
-### Docker Deployment
-
-For containerized deployment with Docker:
+Deploy in 30 seconds with Docker:
 
 ```bash
-# Clone and configure
-git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
-cd youth-secure-checkin
-cp .env.docker .env
+# Download the configuration files
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/.env.docker
+mv .env.docker .env
 
-# Build and run
+# Start the application
 docker-compose up -d
 
 # Access at http://localhost:5000
 ```
 
-See **[DOCKER.md](DOCKER.md)** for complete Docker deployment guide including production setup with Nginx and SSL.
+**Try the Demo:**
+```bash
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.demo.yml
+mv docker-compose.demo.yml docker-compose.yml
+docker-compose up -d
+
+# Demo login: demo123 / demo2025
+# Test families: Phone numbers 555-0101 through 555-0108
+```
+
+See **[DOCKER.md](DOCKER.md)** for complete deployment guide.
+
+### Manual Installation
+
+For development or custom deployments:
+
+1. **Prerequisites**: Python 3.10+, pip, Git
+
+2. **Clone and setup**
+   ```bash
+   git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
+   cd youth-secure-checkin
+   python -m venv venv
+   venv\Scripts\activate  # Windows
+   # source venv/bin/activate  # Linux/Mac
+   pip install -r requirements.txt
+   ```
+
+3. **Configure**
+   ```bash
+   cp .env.example .env
+   # Edit .env and set SECRET_KEY and DEVELOPER_PASSWORD
+   ```
+
+4. **Initialize and run**
+   ```bash
+   python -c "from app import init_db; init_db()"
+   python app.py
+   # Open http://localhost:5000
+   ```
+
+Complete first-time setup wizard, then start checking in families!
 
 ## 📖 Documentation
 
-- **[Docker Guide](DOCKER.md)** - Complete containerized deployment
-- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment instructions
-- **[Security Guide](SECURITY.md)** - Security best practices and configuration
-- **[Export Features](EXPORT_FEATURES.md)** - Backup and restore documentation
+- **[Docker Guide](DOCKER.md)** - Docker deployment (recommended)
+- **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Production hosting guide
+- **[Security Guide](SECURITY.md)** - Security best practices
 - **[FAQ](docs/FAQ.md)** - Frequently asked questions
-- **[Wiki](../../wiki)** - Detailed guides and tutorials
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
 
 ## 🎯 Use Cases
 
@@ -214,23 +200,25 @@ See [requirements.txt](requirements.txt) for full dependency list:
 
 ## 🐳 Deployment Options
 
-### Option 1: Linux Server (Recommended)
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions:
-- Ubuntu/Debian with systemd
-- Nginx reverse proxy
-- Gunicorn WSGI server
-- SSL/TLS with Let's Encrypt
-
-### Option 2: Docker (Coming Soon)
+### Docker (Recommended)
+Pull pre-built images from Docker Hub:
 ```bash
 docker-compose up -d
 ```
+See [DOCKER.md](DOCKER.md) for complete guide.
 
-### Option 3: Platform as a Service
-- Heroku (use Procfile included)
-- Railway
-- Render
-- Fly.io
+### VPS / Cloud Server
+- **DigitalOcean, Linode, Vultr**: Ubuntu + Docker
+- **AWS, Google Cloud, Azure**: Container services
+- **SSL**: Use Caddy or Cloudflare Tunnel for automatic HTTPS
+
+See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for hosting guides.
+
+### Platform as a Service
+- **Railway**: Docker support with automatic SSL
+- **Render**: Docker deploy from GitHub
+- **Fly.io**: Global edge deployment
+- **Heroku**: Use included Procfile
 
 ## 🤝 Contributing
 
@@ -254,19 +242,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 💬 Support
 
-- **Issues**: [GitHub Issues](../../issues)
-- **Discussions**: [GitHub Discussions](../../discussions)
-- **Wiki**: [Project Wiki](../../wiki)
+- **Issues**: [GitHub Issues](https://github.com/mrcrunchybeans/youth-secure-checkin/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/mrcrunchybeans/youth-secure-checkin/discussions)
+- **Docker Hub**: [mrcrunchybeans/youth-secure-checkin](https://hub.docker.com/r/mrcrunchybeans/youth-secure-checkin)
 
 ## 🔐 Security
 
-For security concerns, please email security@example.com (update with your contact) or open a private security advisory.
+For security concerns, please see [SECURITY.md](SECURITY.md) or open a private security advisory on GitHub.
 
 ---
 
 **Made with ❤️ for youth organizations everywhere**
-- Event check-in/checkout
-- QR code sharing for checkout
-- Label printing (Dymo/Brother support)
-- Admin override codes
-- Check-in history and reporting

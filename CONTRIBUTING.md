@@ -34,10 +34,10 @@ Ready to code? Great! See below for development setup.
 ## 🚀 Development Setup
 
 ### Prerequisites
-- Python 3.10 or higher
-- Git
-- Text editor or IDE (VS Code, PyCharm, etc.)
-- Basic Flask knowledge (helpful but not required)
+- **Git** - Version control
+- **Docker** (recommended) OR Python 3.10+
+- **Text editor** - VS Code, PyCharm, etc.
+- **Basic Flask knowledge** (helpful but not required)
 
 ### Fork and Clone
 
@@ -54,17 +54,43 @@ Ready to code? Great! See below for development setup.
    git remote add upstream https://github.com/mrcrunchybeans/youth-secure-checkin.git
    ```
 
-### Local Development Environment
+### Option 1: Docker Development (Recommended)
+
+**Fast setup with Docker:**
+
+```bash
+# Copy environment file
+cp .env.docker .env
+
+# Start development environment
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Access at http://localhost:5000
+```
+
+**Making code changes:**
+- Edit files locally (changes sync automatically via volume mount)
+- Restart to apply changes: `docker-compose restart`
+- Access shell: `docker-compose exec web /bin/sh`
+- View database: `docker-compose exec web sqlite3 data/checkin.db`
+
+**Stop development:**
+```bash
+docker-compose down
+```
+
+### Option 2: Local Python Development
+
+**For Python-native development:**
 
 1. **Create virtual environment**:
    ```bash
    python -m venv venv
-   
-   # Activate (Windows)
-   venv\Scripts\activate
-   
-   # Activate (Linux/Mac)
-   source venv/bin/activate
+   venv\Scripts\activate  # Windows
+   # source venv/bin/activate  # Linux/Mac
    ```
 
 2. **Install dependencies**:
@@ -78,18 +104,12 @@ Ready to code? Great! See below for development setup.
    # Edit .env with your settings
    ```
 
-4. **Initialize database**:
+4. **Initialize and run**:
    ```bash
    python -c "from app import init_db; init_db()"
-   ```
-
-5. **Run development server**:
-   ```bash
    python app.py
+   # Open http://localhost:5000
    ```
-
-6. **Access application**:
-   Open http://localhost:5000
 
 ## 📋 Development Guidelines
 
@@ -184,20 +204,36 @@ Fixes #123
 
 1. **Manual Testing**:
    - Test the feature/fix thoroughly
-   - Try edge cases
+   - Try edge cases and boundary conditions
    - Test on different screen sizes (if UI change)
-   - Verify no regressions
+   - Test in both Docker and local environments (if possible)
+   - Verify no regressions in existing features
 
 2. **Run Tests** (when available):
    ```bash
+   # Local testing
    python -m pytest tests/
+   
+   # Docker testing
+   docker-compose exec web python -m pytest tests/
    ```
 
 3. **Check for Errors**:
-   - No Python exceptions
-   - No console errors (browser dev tools)
-   - No broken links
-   - Database operations work correctly
+   - No Python exceptions or tracebacks
+   - No browser console errors (F12 dev tools)
+   - No broken links or 404 errors
+   - Database operations complete successfully
+   - Check Docker logs: `docker-compose logs`
+
+4. **Docker-Specific Testing**:
+   ```bash
+   # Rebuild to test Dockerfile changes
+   docker-compose build --no-cache
+   docker-compose up -d
+   
+   # Verify image size is reasonable
+   docker images | grep youth-secure-checkin
+   ```
 
 ## 🎯 Pull Request Guidelines
 
@@ -208,7 +244,9 @@ Fixes #123
 - [ ] Comments added for complex logic
 - [ ] Documentation updated (if applicable)
 - [ ] No new warnings or errors
-- [ ] Tested thoroughly
+- [ ] Tested in local environment
+- [ ] Tested in Docker (if making container changes)
+- [ ] .dockerignore updated (if adding sensitive files)
 - [ ] Commit messages are clear
 
 ### PR Description Template
@@ -292,10 +330,11 @@ Contributors are recognized in:
 
 ## 📞 Questions?
 
-- **General Questions**: [GitHub Discussions](../../discussions)
-- **Bug Reports**: [GitHub Issues](../../issues)
-- **Security**: Email security contact
-- **Other**: Open a discussion
+- **General Questions**: [GitHub Discussions](https://github.com/mrcrunchybeans/youth-secure-checkin/discussions)
+- **Bug Reports**: [GitHub Issues](https://github.com/mrcrunchybeans/youth-secure-checkin/issues)
+- **Security**: See [SECURITY.md](SECURITY.md)
+- **Docker Help**: See [DOCKER.md](DOCKER.md)
+- **Deployment**: See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
 
 ## 🎉 Thank You!
 

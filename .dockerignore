@@ -36,6 +36,11 @@ uploads/
 docs/images/
 *.md
 !README.md
+!DOCKER.md
+!SECURITY.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!LICENSE
 
 # Testing
 tests/
@@ -57,3 +62,16 @@ build/
 *.db-backup
 *.bak
 backup*/
+
+# Personal/local files
+local-scripts/
+local-dev-files/
+landingpage.html
+landing-page-copy.md
+WEBSITE_COPY.md
+WEBSITE_COPY_PLAIN.txt
+REPO_GUIDE.md
+cleanup-docker-hub.ps1
+DOCKER_HUB_CLEANUP.md
+*.code-workspace
+troop_checkin.code-workspace

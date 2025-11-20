@@ -71,6 +71,9 @@ data/
 # Uploads directory
 uploads/
 
+stripe.php
+*.zip
+
 # Local development files (personal use only)
 local-dev-files/
 DOCKER_TESTING.md
@@ -86,6 +89,10 @@ cleanup-personal-files.ps1
 landingpage.html
 landing-page-copy.md
 WEBSITE_COPY.md
+
+# Docker Hub cleanup (personal use)
+cleanup-docker-hub.ps1
+DOCKER_HUB_CLEANUP.md
 
 # Migration scripts (already applied)
 add_override_setting.py

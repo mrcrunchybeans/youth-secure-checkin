@@ -1,181 +1,182 @@
-# Docker Deployment Guide
+# YouthCheckIn - Docker Deployment Guide
 
-This guide explains how to deploy Youth Secure Check-in using Docker containers.
+This guide explains how to deploy YouthCheckIn using Docker containers.
 
 ## 📋 Prerequisites
 
 - Docker Engine 20.10+ or Docker Desktop
 - Docker Compose 2.0+
 - 512 MB RAM minimum (1 GB recommended)
-- 2 GB disk space
+- 1 GB disk space
 
 ## 🚀 Quick Start
 
-### 1. Clone Repository
+### Option 1: Pull from Docker Hub (Recommended)
 
 ```bash
-git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
-cd youth-secure-checkin
-```
+# Pull the latest image
+docker pull mrcrunchybeans/youth-secure-checkin:latest
 
-### 2. Configure Environment
-
-```bash
-# Copy example environment file
-cp .env.docker .env
-
-# Generate SECRET_KEY
-python3 -c "import secrets; print(secrets.token_hex(32))"
-
-# Edit .env and paste the generated key
-nano .env  # or your preferred editor
-```
-
-### 3. Build and Run
-
-```bash
-# Build the Docker image
-docker-compose build
+# Create docker-compose.yml
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
 
 # Start the application
 docker-compose up -d
-
-# View logs
-docker-compose logs -f
 ```
 
-### 4. Access Application
+### Option 2: Build from Source
+
+```bash
+# Clone repository
+git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
+cd youth-secure-checkin
+
+# Start with docker-compose
+docker-compose up -d
+```
+
+### Access Application
 
 Open your browser to: `http://localhost:5000`
 
-The setup wizard will guide you through initial configuration!
+The setup wizard will guide you through initial configuration:
+1. Organization details and branding
+2. Primary color scheme
+3. Access code for check-in page
+4. Event settings (calendar integration)
+
+## 🎭 Demo Mode
+
+Want to try it with sample data first?
+
+```bash
+# Pull demo image
+docker pull mrcrunchybeans/youth-secure-checkin:demo
+
+# Run demo with pre-loaded data
+docker-compose -f docker-compose.demo.yml up -d
+```
+
+**Demo credentials:**
+- Check-in code: `demo123`
+- Admin password: `demo123`
+- Developer password: `demo2025`
+
+**Test phone numbers:** 555-0101, 555-0102, 555-0103, etc.
+
+Demo data auto-resets every 24 hours.
 
 ## 🔧 Configuration Options
 
-### Basic Deployment (Default)
+### Environment Variables
 
-Just the web application:
-
-```bash
-docker-compose up -d
-```
-
-Access at: `http://localhost:5000`
-
-### With Nginx Reverse Proxy
-
-Includes Nginx for SSL/TLS:
+Create a `.env` file for production secrets:
 
 ```bash
-docker-compose --profile with-nginx up -d
+# Generate secure keys
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+DEVELOPER_PASSWORD=$(python3 -c "import secrets; print(secrets.token_urlsafe(16))")
+
+# Create .env file
+cat > .env << EOF
+SECRET_KEY=${SECRET_KEY}
+DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
+EOF
 ```
 
-Access at: `http://localhost` (port 80) or `https://localhost` (port 443)
+**Important:** Never commit `.env` to version control! It's already in `.gitignore`.
+
+### Docker Compose Configuration
+
+Edit `docker-compose.yml` to customize:
+
+```yaml
+version: '3.8'
+services:
+  web:
+    image: mrcrunchybeans/youth-secure-checkin:latest
+    container_name: youth-checkin
+    ports:
+      - "5000:5000"  # Change port here if needed
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/static/uploads
+    restart: unless-stopped
+```
 
 ## 📁 Data Persistence
 
-Data is stored in Docker volumes:
+Data is stored in local directories (automatically created):
 
-- **Database**: `./data/checkin.db`
-- **Uploads**: `./uploads/` (logos, favicons)
+- **Database**: `./data/checkin.db` (SQLite database)
+- **Uploads**: `./uploads/` (logos, favicons, custom branding)
 
-These directories are created automatically and persist between container restarts.
+These directories persist between container restarts and updates.
 
-### Backup Data
+### Backup Your Data
 
 ```bash
-# Backup database
-docker cp youth-checkin:/app/data/checkin.db ./backup-$(date +%Y%m%d).db
-
-# Or backup everything
+# Quick backup (recommended)
 docker-compose down
 tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
 docker-compose up -d
+
+# Or use the built-in export feature:
+# Admin Panel → Utilities → Export Data
 ```
 
-### Restore Data
+### Restore from Backup
 
 ```bash
+# Stop containers
 docker-compose down
+
+# Extract backup
 tar -xzf backup-YYYYMMDD.tar.gz
+
+# Restart
+docker-compose up -d
+
+# Or use Admin Panel → Utilities → Restore from Backup
+```
+
+## 🔐 Security Best Practices
+
+### Protect Your Secrets
+
+1. **Never commit `.env` files** (already in .gitignore)
+2. **Generate strong random secrets**:
+
+```powershell
+# Generate SECRET_KEY (PowerShell)
+-join ((48..57) + (65..90) + (97..122) | Get-Random -Count 64 | ForEach-Object {[char]$_})
+```
+
+```bash
+# Or use Python
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+3. **Use strong admin passwords** during initial setup
+4. **Keep images updated**:
+
+```bash
+docker-compose pull
 docker-compose up -d
 ```
 
-## 🔐 Security Considerations
+### SSL/TLS for Production
 
-### Environment Variables
+**Recommended Options:**
 
-Never commit `.env` to version control:
+1. **Caddy** (easiest): Automatic Let's Encrypt certificates
+2. **Cloudflare Tunnel**: Zero-config SSL + DDoS protection  
+3. **Nginx/Traefik**: Manual SSL setup
 
-```bash
-# Already in .gitignore, but verify:
-echo ".env" >> .gitignore
-```
-
-### Production Secrets
-
-Generate strong secrets:
-
-```bash
-# SECRET_KEY (64 characters)
-python3 -c "import secrets; print(secrets.token_hex(32))"
-
-# DEVELOPER_PASSWORD (use password manager)
-python3 -c "import secrets; print(secrets.token_urlsafe(16))"
-```
-
-### SSL/TLS Setup
-
-For production with Nginx:
-
-1. **Create Nginx Config**:
-   ```bash
-   mkdir -p nginx/ssl
-   ```
-
-2. **Get SSL Certificate** (Let's Encrypt):
-   ```bash
-   # Using certbot
-   sudo certbot certonly --standalone -d yourdomain.com
-   
-   # Copy certificates
-   sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem nginx/ssl/
-   sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem nginx/ssl/
-   ```
-
-3. **Create nginx.conf**:
-   ```nginx
-   events {
-       worker_connections 1024;
-   }
-
-   http {
-       upstream app {
-           server web:5000;
-       }
-
-       server {
-           listen 80;
-           server_name yourdomain.com;
-           return 301 https://$server_name$request_uri;
-       }
-
-       server {
-           listen 443 ssl;
-           server_name yourdomain.com;
-
-           ssl_certificate /etc/nginx/ssl/fullchain.pem;
-           ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-
-           location / {
-               proxy_pass http://app;
-               proxy_set_header Host $host;
-               proxy_set_header X-Real-IP $remote_addr;
-               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-               proxy_set_header X-Forwarded-Proto $scheme;
-           }
-       }
-   }
+See `DEPLOYMENT_CHECKLIST.md` for detailed production hosting guides
    ```
 
 4. **Start with Nginx**:
@@ -188,151 +189,148 @@ For production with Nginx:
 ### View Logs
 
 ```bash
-# All services
+# View recent logs
+docker-compose logs
+
+# Follow logs (live updates)
 docker-compose logs -f
 
-# Web app only
-docker-compose logs -f web
-
-# Last 100 lines
-docker-compose logs --tail=100
+# Last 50 lines
+docker-compose logs --tail=50
 ```
 
 ### Restart Application
 
 ```bash
-# Restart all services
+# Quick restart (keeps data)
 docker-compose restart
 
-# Restart web app only
-docker-compose restart web
+# Full restart
+docker-compose down
+docker-compose up -d
+```
+
+### Update to Latest Version
+
+```bash
+# Pull new images from Docker Hub
+docker-compose pull
+
+# Apply updates
+docker-compose up -d
+
+# Verify version
+docker-compose ps
 ```
 
 ### Stop Application
 
 ```bash
-# Stop (keeps containers)
-docker-compose stop
-
-# Stop and remove containers
+# Stop containers (data safe)
 docker-compose down
 
-# Stop and remove everything including volumes
-docker-compose down -v  # ⚠️ This deletes data!
+# ⚠️ Delete everything including data
+docker-compose down -v
 ```
 
-### Update Application
+### Shell Access (Debugging)
 
 ```bash
-# Pull latest code
-git pull
+# Access container
+docker-compose exec web /bin/sh
 
-# Rebuild and restart
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-### Shell Access
-
-```bash
-# Access container shell
-docker-compose exec web /bin/bash
-
-# Or using docker directly
-docker exec -it youth-checkin /bin/bash
-
-# Run Python commands
-docker-compose exec web python -c "from app import init_db; init_db()"
+# Check database
+docker-compose exec web sqlite3 data/checkin.db ".tables"
 ```
 
 ## 📊 Monitoring
 
-### Health Checks
-
-Check container health:
+### Check Status
 
 ```bash
-docker ps
-# Look for "healthy" status
+# View running containers
+docker-compose ps
+
+# View resource usage
+docker stats --no-stream
 ```
 
-### Resource Usage
+### Health Checks
 
 ```bash
-# Real-time stats
-docker stats youth-checkin
+# Check if container is healthy
+docker ps
 
-# Detailed info
-docker inspect youth-checkin
+# Test application response
+curl http://localhost:5000
 ```
 
 ## 🔍 Troubleshooting
 
+### Port Already in Use
+
+```powershell
+# Find what's using port 5000
+netstat -ano | findstr :5000
+
+# Kill the process (use PID from above)
+taskkill /PID <PID> /F
+
+# Or change port in docker-compose.yml
+ports:
+  - "5001:5000"  # Use 5001 instead
+```
+
 ### Container Won't Start
 
 ```bash
-# Check logs
-docker-compose logs web
+# View detailed logs
+docker-compose logs
 
-# Common issues:
-# 1. Port 5000 already in use
+# Check for missing .env file
+docker-compose config
+
+# Recreate containers
 docker-compose down
-sudo lsof -i :5000  # Find and kill process
-
-# 2. Permission issues with volumes
-sudo chown -R $USER:$USER data/ uploads/
-
-# 3. Missing .env file
-cp .env.docker .env
-```
-
-### Database Locked
-
-```bash
-# Stop all containers
-docker-compose down
-
-# Remove any stale locks
-rm -f data/checkin.db-*
-
-# Restart
 docker-compose up -d
 ```
 
-### Can't Access Application
+### Can't Pull Docker Image
 
 ```bash
-# Check container is running
-docker ps | grep youth-checkin
+# Check Docker Hub connection
+docker pull mrcrunchybeans/youth-secure-checkin:latest
 
-# Check port binding
-docker port youth-checkin
-
-# Test from inside container
-docker-compose exec web curl http://localhost:5000
-
-# Check firewall
-sudo ufw allow 5000  # If using UFW
+# Try alternative registry
+# (if configured in docker-compose.yml)
 ```
 
-### Out of Disk Space
+### Database Issues
 
 ```bash
-# Clean up Docker
+# Stop containers
+docker-compose down
+
+# Backup and reset database
+mv data/checkin.db data/checkin.db.backup
+docker-compose up -d
+
+# Restore from backup if needed
+```
+
+### Clean Up Disk Space
+
+```powershell
+# Remove old images and containers
 docker system prune -a
 
-# Remove unused volumes
-docker volume prune
-
 # Check disk usage
-df -h
-du -sh data/ uploads/
+docker system df
 ```
 
 ## 🚀 Advanced Configuration
 
-### Custom Port
+### Change Port
 
 Edit `docker-compose.yml`:
 
@@ -340,22 +338,10 @@ Edit `docker-compose.yml`:
 services:
   web:
     ports:
-      - "8080:5000"  # Change 8080 to your desired port
+      - "8080:5000"  # Use port 8080 instead of 5000
 ```
 
-### Multiple Workers
-
-For high traffic, increase Gunicorn workers:
-
-Edit `Dockerfile` CMD:
-
-```dockerfile
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "5", "wsgi:app"]
-```
-
-### Memory Limits
-
-Add resource limits to `docker-compose.yml`:
+### Resource Limits
 
 ```yaml
 services:
@@ -363,43 +349,44 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
           memory: 512M
-        reservations:
-          memory: 256M
 ```
 
-### Auto-Restart Policy
+### Performance Tuning
 
-Already configured as `unless-stopped`. Other options:
+Environment variables in `.env`:
 
-```yaml
-restart: always  # Always restart
-restart: on-failure  # Only on failure
-restart: "no"  # Never restart
+```bash
+# Number of worker processes (CPU cores * 2 + 1)
+GUNICORN_WORKERS=4
+
+# Max requests per worker (memory leak protection)
+GUNICORN_MAX_REQUESTS=1000
 ```
 
 ## 🌐 Production Deployment
 
-### Recommended Stack
+### Quick Checklist
 
-1. **Application**: Docker Compose
-2. **Reverse Proxy**: Nginx with SSL
-3. **SSL Certificate**: Let's Encrypt (certbot)
-4. **Firewall**: UFW or iptables
-5. **Monitoring**: Docker health checks + external monitoring
+Before going live:
 
-### Deployment Checklist
-
-- [ ] Set strong SECRET_KEY and DEVELOPER_PASSWORD
-- [ ] Configure SSL/TLS certificates
-- [ ] Set up automated backups (cron job)
-- [ ] Configure firewall rules
-- [ ] Set up log rotation
+- [ ] Generate strong `SECRET_KEY` in `.env`
+- [ ] Set secure admin password during setup
+- [ ] Configure SSL (Caddy/Cloudflare/Let's Encrypt)
+- [ ] Set up automated backups (see Backup section)
 - [ ] Test backup restoration
-- [ ] Configure monitoring/alerting
-- [ ] Document access procedures
-- [ ] Test failover scenarios
+- [ ] Configure custom branding (Admin Panel → Branding)
+- [ ] Review firewall rules
+
+### Hosting Options
+
+See `DEPLOYMENT_CHECKLIST.md` for detailed guides:
+
+- **VPS** (DigitalOcean, Linode, Vultr)
+- **Cloud** (AWS, Google Cloud, Azure)
+- **Managed** (Railway, Render, Fly.io)
+
+All support Docker deployment!
 
 ### Automated Backups
 
@@ -463,26 +450,43 @@ docker-compose logs -f            # Follow logs
 docker-compose logs --tail=50     # Last 50 lines
 ```
 
-### Exec
+### Shell Access
 
 ```bash
-docker-compose exec web bash      # Shell in container
+docker-compose exec web /bin/sh   # Container shell
 docker-compose exec web python    # Python REPL
 ```
 
-## 📚 Additional Resources
+## 📚 Quick Reference
 
-- [Docker Documentation](https://docs.docker.com/)
-- [Docker Compose Reference](https://docs.docker.com/compose/)
-- [Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [Security](https://docs.docker.com/engine/security/)
+### Most Used Commands
 
-## 🆘 Getting Help
+```bash
+# Start application
+docker-compose up -d
 
+# View logs
+docker-compose logs -f
+
+# Stop application
+docker-compose down
+
+# Update to latest
+docker-compose pull && docker-compose up -d
+
+# Backup data
+docker-compose down
+tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
+docker-compose up -d
+```
+
+## 🆘 Need Help?
+
+- **Features**: See `README.md` for application documentation
+- **Deployment**: See `DEPLOYMENT_CHECKLIST.md` for hosting guides  
 - **Issues**: [GitHub Issues](https://github.com/mrcrunchybeans/youth-secure-checkin/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/mrcrunchybeans/youth-secure-checkin/discussions)
-- **Docker Forum**: [Docker Community](https://forums.docker.com/)
+- **Docker Docs**: [docs.docker.com](https://docs.docker.com/)
 
 ---
 
-**Happy Dockerizing! 🐳**
+**Deploy from Docker Hub in 30 seconds! 🚀**

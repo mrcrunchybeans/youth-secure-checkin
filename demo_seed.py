@@ -146,7 +146,7 @@ DEMO_SETTINGS = {
     'timezone': 'America/Chicago',
     'checkout_enabled': '1',
     'demo_mode': 'true',
-    'demo_banner': 'This is a demonstration instance. Data resets every 24 hours. | Access Code: demo123 or demo2025 | Admin Panel: Username demo, Password demo123',
+    'demo_banner': 'Resets every 24 hours | Check-in code: demo123 | Admin password: demo123',
     'admin_username': 'demo',
     'admin_password_hash': 'pbkdf2:sha256:260000$demo$5d8c8a8e8f9e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f',  # password: demo123
     'is_setup_complete': 'true',  # Bypass setup screen for demo
