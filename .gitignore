@@ -89,6 +89,10 @@ cleanup-personal-files.ps1
 landingpage.html
 landing-page-copy.md
 WEBSITE_COPY.md
+WEBSITE_COPY_PLAIN.txt
+
+# Repository guides (personal use)
+REPO_GUIDE.md
 
 # Docker Hub cleanup (personal use)
 cleanup-docker-hub.ps1
