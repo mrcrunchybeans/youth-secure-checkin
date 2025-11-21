@@ -302,11 +302,6 @@ function showQRCodeModal(qrCodeData, checkoutCode) {
   new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
 }
 
-document.getElementById('event-select').addEventListener('change', function() {
-  const eventId = this.value;
-  window.location.href = `/?event_id=${eventId}`;
-});
-
 // Unified search handler - detects if input is numeric (phone) or text (name)
 document.getElementById('checkin-form').addEventListener('submit', function(e) {
   e.preventDefault();

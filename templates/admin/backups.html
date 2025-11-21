@@ -103,7 +103,7 @@
     <div class="card-body">
       <h5 class="card-title"><i class="bi bi-envelope"></i> Email Backup Delivery</h5>
       <div class="alert alert-info mb-3">
-        <i class="bi bi-info-circle"></i> Automatically email backups to specified addresses when created. Requires SMTP settings configured in <a href="{{ url_for('admin_email_settings') }}">Email Settings</a>.
+        <i class="bi bi-info-circle"></i> Automatically email backups to specified addresses when created. Requires SMTP settings configured in <a href="{{ url_for('email_settings') }}">Email Settings</a>.
       </div>
       <form method="post" action="/admin/backups/email-config">
         <div class="row">
