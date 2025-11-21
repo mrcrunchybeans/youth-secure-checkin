@@ -2356,158 +2356,6 @@ def admin_branding():
                 set_favicon_filename(None)
                 flash('Favicon removed successfully!', 'success')
         
-        conn.close()
-        return redirect(url_for('admin_branding'))
-    
-    # GET request - fetch current settings
-    current_logo = get_logo_filename()
-    current_favicon = get_favicon_filename()
-    event_date_range_months = get_event_date_range_months()
-    conn.close()
-    
-    return render_template('admin/branding.html',
-                         current_logo=current_logo,
-                         current_favicon=current_favicon,
-                         event_date_range_months=event_date_range_months)
-
-@app.route('/admin/settings', methods=['GET', 'POST'])
-@require_auth
-def admin_settings():
-    conn = get_db()
-    
-    if request.method == 'POST':
-        action = request.form.get('action', '')
-        
-        # Handle branding updates
-        if action == 'update_branding':
-            organization_name = request.form.get('organization_name', '').strip()
-            organization_type = request.form.get('organization_type', 'other')
-            group_term = request.form.get('group_term', 'Group').strip()
-            primary_color = request.form.get('primary_color', '#79060d').strip()
-            secondary_color = request.form.get('secondary_color', '#003b59').strip()
-            accent_color = request.form.get('accent_color', '#4a582d').strip()
-            
-            if organization_name:
-                set_branding_setting('organization_name', organization_name)
-                set_branding_setting('organization_type', organization_type)
-                set_branding_setting('group_term', group_term)
-                set_branding_setting('group_term_lower', group_term.lower())
-                set_branding_setting('primary_color', primary_color)
-                set_branding_setting('secondary_color', secondary_color)
-                set_branding_setting('accent_color', accent_color)
-                flash('Organization branding updated successfully!', 'success')
-            else:
-                flash('Organization name is required', 'danger')
-            
-            return redirect(url_for('admin_settings'))
-        
-        # Handle logo upload
-        elif action == 'upload_logo':
-            if 'logo_file' not in request.files:
-                flash('No file selected', 'danger')
-            else:
-                file = request.files['logo_file']
-                if file.filename == '':
-                    flash('No file selected', 'danger')
-                elif not allowed_file(file.filename):
-                    flash('Invalid file type. Please upload PNG, JPG, or SVG.', 'danger')
-                else:
-                    # Delete old logo if exists
-                    old_logo = get_logo_filename()
-                    if old_logo:
-                        old_path = app.config['UPLOAD_FOLDER'] / old_logo
-                        if old_path.exists():
-                            old_path.unlink()
-                    
-                    # Save new logo
-                    filename = secure_filename(file.filename)
-                    # Add timestamp to avoid caching issues
-                    name, ext = os.path.splitext(filename)
-                    filename = f"logo_{int(time.time())}{ext}"
-                    filepath = app.config['UPLOAD_FOLDER'] / filename
-                    file.save(str(filepath))
-                    
-                    set_logo_filename(filename)
-                    flash('Logo uploaded successfully!', 'success')
-        
-        # Handle logo removal
-        elif action == 'remove_logo':
-            old_logo = get_logo_filename()
-            if old_logo:
-                old_path = app.config['UPLOAD_FOLDER'] / old_logo
-                if old_path.exists():
-                    old_path.unlink()
-                set_logo_filename(None)
-                flash('Logo removed successfully!', 'success')
-        
-        # Handle favicon upload
-        elif action == 'upload_favicon':
-            if 'favicon_file' not in request.files:
-                flash('No file selected', 'danger')
-            else:
-                file = request.files['favicon_file']
-                if file.filename == '':
-                    flash('No file selected', 'danger')
-                elif not allowed_file(file.filename, allowed_extensions={'png', 'jpg', 'jpeg', 'ico'}):
-                    flash('Invalid file type. Please upload ICO, PNG, or JPG.', 'danger')
-                else:
-                    # Delete old favicon if exists
-                    old_favicon = get_favicon_filename()
-                    if old_favicon:
-                        old_path = app.config['UPLOAD_FOLDER'] / old_favicon
-                        if old_path.exists():
-                            old_path.unlink()
-                    
-                    # Save new favicon
-                    filename = secure_filename(file.filename)
-                    # Add timestamp to avoid caching issues
-                    name, ext = os.path.splitext(filename)
-                    filename = f"favicon_{int(time.time())}{ext}"
-                    filepath = app.config['UPLOAD_FOLDER'] / filename
-                    file.save(str(filepath))
-                    
-                    set_favicon_filename(filename)
-                    flash('Favicon uploaded successfully!', 'success')
-        
-        # Handle favicon removal
-        elif action == 'remove_favicon':
-            old_favicon = get_favicon_filename()
-            if old_favicon:
-                old_path = app.config['UPLOAD_FOLDER'] / old_favicon
-                if old_path.exists():
-                    old_path.unlink()
-                set_favicon_filename(None)
-                flash('Favicon removed successfully!', 'success')
-        
-        # Handle password changes
-        elif request.form.get('new_password') or request.form.get('new_override_password'):
-            # Update login access code
-            new_password = request.form.get('new_password', '').strip()
-            if new_password:
-                set_app_password(new_password)
-                flash('Login access code updated successfully!', 'success')
-            
-            # Update admin override checkout code
-            new_override = request.form.get('new_override_password', '').strip()
-            if new_override:
-                set_override_password(new_override)
-                flash('Admin override checkout code updated successfully!', 'success')
-        
-        # Handle label printing settings (check if any label setting fields are present)
-        elif 'label_printer_type' in request.form or 'label_size' in request.form or 'checkout_code_method' in request.form:
-            # Checkbox only appears in form data if checked, so we check explicitly
-            require_codes = 'true' if request.form.get('require_checkout_code') == 'on' else 'false'
-            checkout_code_method = request.form.get('checkout_code_method', 'qr').strip()
-            printer_type = request.form.get('label_printer_type', 'dymo').strip()
-            label_size = request.form.get('label_size', '30336').strip()
-            
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_codes,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_code_method', ?)", (checkout_code_method,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_size', ?)", (label_size,))
-            conn.commit()
-            flash('Checkout code settings updated successfully!', 'success')
-        
         # Handle timezone update
         elif action == 'update_timezone':
             timezone_val = request.form.get('timezone', 'America/Chicago').strip()
@@ -2520,48 +2368,13 @@ def admin_settings():
             except pytz.exceptions.UnknownTimeZoneError:
                 flash('Invalid timezone selected.', 'danger')
         
-        # Handle SMTP settings
-        elif action == 'save_smtp':
-            # Only allow saving if SMTP is unlocked
-            if session.get('smtp_unlocked', False):
-                smtp_settings = {
-                    'smtp_server': request.form.get('smtp_server', '').strip(),
-                    'smtp_port': request.form.get('smtp_port', '').strip(),
-                    'smtp_from': request.form.get('smtp_from', '').strip(),
-                    'smtp_username': request.form.get('smtp_username', '').strip(),
-                    'smtp_use_tls': 'true' if request.form.get('smtp_use_tls') == 'on' else 'false'
-                }
-                
-                # Only update password if provided (non-empty)
-                new_password = request.form.get('smtp_password', '').strip()
-                if new_password:
-                    smtp_settings['smtp_password'] = new_password
-                
-                set_smtp_settings(smtp_settings)
-                flash('SMTP settings saved successfully!', 'success')
-            else:
-                flash('SMTP settings are locked. Unlock them first with developer password.', 'warning')
-        
         conn.close()
-        return redirect(url_for('admin_settings'))
+        return redirect(url_for('admin_branding'))
     
     # GET request - fetch current settings
-    current_password = get_app_password()
-    current_override_password = get_override_password()
     current_logo = get_logo_filename()
     current_favicon = get_favicon_filename()
-    
-    # Check if override section is unlocked (persists during session)
-    override_unlocked = session.get('override_unlocked', False)
-    
-    # Check if SMTP section is unlocked (persists during session)
-    smtp_unlocked = session.get('smtp_unlocked', False)
-    
-    # Fetch label printing settings
-    label_settings = {}
-    for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
-        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-        label_settings[key] = row[0] if row else None
+    event_date_range_months = get_event_date_range_months()
     
     # Fetch timezone setting
     tz_row = conn.execute("SELECT value FROM settings WHERE key = 'timezone'").fetchone()
@@ -2569,19 +2382,10 @@ def admin_settings():
     
     conn.close()
     
-    # Fetch SMTP settings
-    smtp_settings = get_smtp_settings()
-    
-    return render_template('admin/settings.html', 
-                         current_password=current_password,
-                         current_override_password=current_override_password,
-                         override_unlocked=override_unlocked,
-                         smtp_unlocked=smtp_unlocked,
-                         smtp_settings=smtp_settings,
-                         dev_password_set=bool(DEVELOPER_PASSWORD),
-                         label_settings=label_settings,
+    return render_template('admin/branding.html',
                          current_logo=current_logo,
                          current_favicon=current_favicon,
+                         event_date_range_months=event_date_range_months,
                          current_timezone=current_timezone)
 
 @app.route('/admin/families')
