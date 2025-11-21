@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 
 # Application version
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 from requests.adapters import HTTPAdapter
 from urllib3.util.connection import create_connection
 import urllib3
