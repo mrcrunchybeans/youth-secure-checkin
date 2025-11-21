@@ -7,7 +7,7 @@ on:
     paths:
       - 'requirements.txt'
       - 'Dockerfile'
-      - 'app.py'
+      - '*.py'
       - 'templates/**'
       - 'static/**'
   workflow_dispatch:
