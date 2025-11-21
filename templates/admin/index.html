@@ -1,80 +1,141 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container">
-  <h2>Admin Panel</h2>
-  <div class="row">
-    <div class="col-md-4">
-      <div class="card mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Admin Panel</h2>
+    <div>
+      <a href="/" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Check-in
+      </a>
+      <a href="/logout" class="btn btn-outline-danger ms-2">
+        <i class="bi bi-box-arrow-right"></i> Logout
+      </a>
+    </div>
+  </div>
+
+  <!-- Core Data Management -->
+  <h5 class="text-muted mb-3"><i class="bi bi-database-fill"></i> Data Management</h5>
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card border-primary h-100">
         <div class="card-body">
-          <h5>Families</h5>
-          <p>Manage family records, adults, and kids.</p>
-          <a href="/admin/families" class="btn" style="background-color: {{ branding.primary_color }}; color: white; border: none;">Manage Families</a>
+          <h5 class="card-title">
+            <i class="bi bi-people-fill" style="color: {{ branding.primary_color }};"></i> Families
+          </h5>
+          <p class="card-text text-muted">Manage family records, adults, and kids.</p>
+          <a href="/admin/families" class="btn btn-primary">
+            <i class="bi bi-person-lines-fill"></i> Manage Families
+          </a>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card mb-3">
+    <div class="col-md-6">
+      <div class="card border-primary h-100">
         <div class="card-body">
-          <h5>Events</h5>
-          <p>Import events from iCal or manage manually.</p>
-          <a href="/admin/events" class="btn" style="background-color: {{ branding.primary_color }}; color: white; border: none;">Manage Events</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card mb-3">
-        <div class="card-body">
-          <h5>Security</h5>
-          <p>Manage access codes and checkout settings.</p>
-          <a href="/admin/security" class="btn" style="background-color: {{ branding.secondary_color }}; color: white; border: none;">Security Settings</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card mb-3">
-        <div class="card-body">
-          <h5>Branding</h5>
-          <p>Customize colors, logo, and organization details.</p>
-          <a href="/admin/branding" class="btn" style="background-color: {{ branding.accent_color }}; color: white; border: none;">Branding Settings</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card mb-3">
-        <div class="card-body">
-          <h5>Email Settings</h5>
-          <p>Configure SMTP for sending check-in reports.</p>
-          <a href="/admin/email" class="btn" style="background-color: #0dcaf0; color: white; border: none;">Email Configuration</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card mb-3">
-        <div class="card-body">
-          <h5>Backup Management</h5>
-          <p>Create, restore, and manage automatic backups.</p>
-          <a href="/admin/backups" class="btn btn-info" style="color: white;">
-            <i class="bi bi-database"></i> Manage Backups
+          <h5 class="card-title">
+            <i class="bi bi-calendar-event-fill" style="color: {{ branding.primary_color }};"></i> Events
+          </h5>
+          <p class="card-text text-muted">Import from iCal or manage manually.</p>
+          <a href="/admin/events" class="btn btn-primary">
+            <i class="bi bi-calendar-check"></i> Manage Events
           </a>
         </div>
       </div>
     </div>
   </div>
-  <div class="row">
+
+  <!-- System Configuration -->
+  <h5 class="text-muted mb-3"><i class="bi bi-gear-fill"></i> System Configuration</h5>
+  <div class="row mb-4">
     <div class="col-md-4">
-      <div class="card mb-3">
+      <div class="card border-warning h-100">
         <div class="card-body">
-          <h5>Database Utilities</h5>
-          <p>Cleanup orphaned data and optimize database.</p>
-          <a href="/admin/utilities" class="btn btn-info" style="color: white;">
-            <i class="bi bi-tools"></i> Database Utilities
+          <h5 class="card-title">
+            <i class="bi bi-shield-lock-fill text-warning"></i> Security
+          </h5>
+          <p class="card-text text-muted">Access codes and checkout settings.</p>
+          <a href="/admin/security" class="btn btn-warning">
+            <i class="bi bi-key-fill"></i> Security Settings
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-info h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-palette-fill text-info"></i> Branding
+          </h5>
+          <p class="card-text text-muted">Colors, logo, and organization details.</p>
+          <a href="/admin/branding" class="btn btn-info">
+            <i class="bi bi-brush"></i> Customize Branding
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-success h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-envelope-fill text-success"></i> Email
+          </h5>
+          <p class="card-text text-muted">SMTP settings for check-in reports.</p>
+          <a href="/admin/email" class="btn btn-success">
+            <i class="bi bi-mailbox"></i> Configure Email
           </a>
         </div>
       </div>
     </div>
   </div>
-  <a href="/" class="btn btn-outline-secondary mt-3">← Back to Check-in</a>
-  <a href="/logout" class="btn btn-outline-danger mt-3 ms-2">🔒 Logout</a>
+
+  <!-- Maintenance & Backup -->
+  <h5 class="text-muted mb-3"><i class="bi bi-tools"></i> Maintenance & Backup</h5>
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card border-secondary h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-database text-secondary"></i> Backup Management
+          </h5>
+          <p class="card-text text-muted">Create, restore, and schedule automatic backups.</p>
+          <a href="/admin/backups" class="btn btn-secondary">
+            <i class="bi bi-hdd-stack"></i> Manage Backups
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card border-secondary h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-wrench text-secondary"></i> Database Utilities
+          </h5>
+          <p class="card-text text-muted">Cleanup orphaned data and optimize database.</p>
+          <a href="/admin/utilities" class="btn btn-secondary">
+            <i class="bi bi-tools"></i> Database Tools
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Export/Import -->
+  <div class="card bg-light">
+    <div class="card-body">
+      <h5 class="card-title">
+        <i class="bi bi-box-arrow-in-down"></i> Quick Config Backup
+      </h5>
+      <p class="card-text text-muted mb-3">Export or restore configuration settings (branding, security, email) separately from full database backups.</p>
+      <div class="d-flex gap-2">
+        <a href="/admin/backup/export" class="btn btn-success">
+          <i class="bi bi-download"></i> Export Config
+        </a>
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#restoreBackupModal">
+          <i class="bi bi-upload"></i> Restore Config
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Restore Backup Modal -->
