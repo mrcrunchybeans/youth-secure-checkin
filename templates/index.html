@@ -318,11 +318,11 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     return;
   }
   
-  // Check if input is 4 digits (phone search) or text (name search)
-  const isPhoneSearch = /^\d{4}$/.test(searchInput);
+  // Check if input is all digits (phone search) or text (name search)
+  const isPhoneSearch = /^\d+$/.test(searchInput);
   
   if (isPhoneSearch) {
-    // Phone search
+    // Phone search - accept any length, will search by digits
     fetch('/checkin_last4', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -334,8 +334,20 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
         alert(data.error);
         return;
       }
-      populateFamilyModal(data);
-      new bootstrap.Modal(document.getElementById('familyModal')).show();
+      
+      // Handle multiple matches (like name search)
+      if (data.families && data.families.length > 0) {
+        if (data.families.length === 1) {
+          populateFamilyModal(data.families[0]);
+          new bootstrap.Modal(document.getElementById('familyModal')).show();
+        } else {
+          showMultipleFamilies(data.families);
+        }
+      } else {
+        // Single match returned directly
+        populateFamilyModal(data);
+        new bootstrap.Modal(document.getElementById('familyModal')).show();
+      }
     })
     .catch(error => {
       console.error('Error:', error);

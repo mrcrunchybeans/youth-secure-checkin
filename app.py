@@ -781,14 +781,15 @@ def index():
 @app.route('/checkin_last4', methods=['POST'])
 @require_auth
 def checkin_last4():
-    last4 = request.form.get('last4', '').strip()
+    phone_digits = request.form.get('last4', '').strip()
     event_id = request.form.get('event_id')
-    if not last4 or len(last4) != 4 or not last4.isdigit():
-        return jsonify({'error': 'Invalid last 4 digits'}), 400
+    if not phone_digits or not phone_digits.isdigit():
+        return jsonify({'error': 'Invalid phone number'}), 400
     conn = get_db()
     
-    # Search for phone that ends with last4 or is exactly last4
-    # Phone is stored as just the last 4 digits
+    # Search for phone that contains or ends with the provided digits
+    # Phone may be stored with formatting (dashes, spaces, parens), so we need to strip and compare
+    # Using REPLACE to remove common phone formatting characters
     cur = conn.execute("""
         SELECT f.id, f.phone, f.troop, f.default_adult_id,
                (SELECT GROUP_CONCAT(a.id || ':' || a.name)
@@ -796,62 +797,70 @@ def checkin_last4():
                (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
                 FROM kids k WHERE k.family_id = f.id) as kids
         FROM families f
-        WHERE f.phone = ? OR f.phone LIKE ?
-    """, (last4, '%' + last4))
+        WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+           OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?
+    """, ('%' + phone_digits + '%', phone_digits))
     families = cur.fetchall()
     
     if not families:
         conn.close()
-        return jsonify({'error': 'No family found with that phone ending'}), 404
+        return jsonify({'error': 'No family found with that phone number'}), 404
     
-    # Assume first match; in real app, handle multiples
-    family = families[0]
-    
-    # Parse concatenated adult and kid data
-    adults_list = parse_concat_list(family['adults'], ':') if family['adults'] else []
-    adults = []
-    for adult_parts in adults_list:
-        if len(adult_parts) >= 2:
-            adults.append({'id': int(adult_parts[0]), 'name': adult_parts[1]})
-    
-    kids_list = parse_concat_list(family['kids'], ':') if family['kids'] else []
-    kids = []
-    for kid_parts in kids_list:
-        if len(kid_parts) >= 2:
-            kid_id = int(kid_parts[0]) if kid_parts[0].isdigit() else None
-            if kid_id:
-                kids.append({
-                    'id': kid_id, 
-                    'name': kid_parts[1], 
-                    'notes': kid_parts[2] if len(kid_parts) > 2 else ''
-                })
-    
-    # Check which kids are already checked in to this event (if provided)
-    checked_in_kids = set()
-    if event_id:
-        kid_ids = [k['id'] for k in kids]
-        if kid_ids:
+    # Helper function to parse family data
+    def parse_family_data(family):
+        # Parse concatenated adult and kid data
+        adults_list = parse_concat_list(family['adults'], ':') if family['adults'] else []
+        adults = []
+        for adult_parts in adults_list:
+            if len(adult_parts) >= 2:
+                adults.append({'id': int(adult_parts[0]), 'name': adult_parts[1]})
+        
+        kids_list = parse_concat_list(family['kids'], ':') if family['kids'] else []
+        kids = []
+        for kid_parts in kids_list:
+            if len(kid_parts) >= 2:
+                kid_id = int(kid_parts[0]) if kid_parts[0].isdigit() else None
+                if kid_id:
+                    kids.append({
+                        'id': kid_id, 
+                        'name': kid_parts[1], 
+                        'notes': kid_parts[2] if len(kid_parts) > 2 else ''
+                    })
+        
+        # Check which kids are already checked in to this event (if provided)
+        if event_id and kids:
+            kid_ids = [k['id'] for k in kids]
             placeholders = ','.join('?' * len(kid_ids))
             checked_in_cur = conn.execute(f"""
                 SELECT kid_id FROM checkins 
                 WHERE kid_id IN ({placeholders}) AND event_id = ? AND checkout_time IS NULL
             """, kid_ids + [event_id])
             checked_in_kids = {row[0] for row in checked_in_cur.fetchall()}
+            
+            # Mark kids as already checked in
+            for kid in kids:
+                kid['already_checked_in'] = kid['id'] in checked_in_kids
         
-        # Mark kids as already checked in
-        for kid in kids:
-            kid['already_checked_in'] = kid['id'] in checked_in_kids
+        return {
+            'family_id': family['id'],
+            'phone': family['phone'],
+            'troop': family['troop'],
+            'default_adult_id': family['default_adult_id'],
+            'adults': adults,
+            'kids': kids
+        }
     
+    # If multiple matches, return all of them (like search_name does)
+    if len(families) > 1:
+        families_data = [parse_family_data(f) for f in families]
+        conn.close()
+        return jsonify({'families': families_data})
+    
+    # Single match - return family data directly
+    family_data = parse_family_data(families[0])
     conn.close()
     
-    return jsonify({
-        'family_id': family['id'],
-        'phone': family['phone'],
-        'troop': family['troop'],
-        'default_adult_id': family['default_adult_id'],
-        'adults': adults,
-        'kids': kids
-    })
+    return jsonify(family_data)
 
 
 @app.route('/search_name', methods=['POST'])
