@@ -37,14 +37,42 @@
         h4, h5 {
           font-size: 1.1rem;
         }
+        
+        /* Footer mobile optimization */
+        footer {
+          font-size: 0.65rem !important;
+          padding-top: 0.5rem !important;
+          padding-bottom: 0.5rem !important;
+        }
+        
+        footer .row > div {
+          margin-bottom: 0.25rem;
+        }
+        
+        footer svg {
+          width: 10px !important;
+          height: 10px !important;
+        }
+        
+        /* Stack footer on very small screens */
+        @media (max-width: 576px) {
+          footer .col-md-4 {
+            font-size: 0.6rem;
+          }
+          
+          footer a {
+            display: inline-block;
+            margin: 0.1rem 0;
+          }
+        }
       }
       
       /* Sticky footer layout */
       body {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-        margin: 0;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
       }
       
       .main-content {

@@ -1,5 +1,26 @@
 {% extends 'base.html' %}
 {% block content %}
+<style>
+  @media (max-width: 768px) {
+    .d-flex.justify-content-between {
+      flex-direction: column;
+      align-items: flex-start !important;
+    }
+    .d-flex.justify-content-between > div {
+      margin-top: 0.5rem;
+    }
+    h2 {
+      font-size: 1.5rem;
+    }
+    .form-control-color {
+      width: 50px !important;
+      height: 35px !important;
+    }
+    .col-md-4, .col-md-8, .col-md-9, .col-md-3 {
+      margin-bottom: 0.75rem;
+    }
+  }
+</style>
 <div class="container">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Branding Settings</h2>
