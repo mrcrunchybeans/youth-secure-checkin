@@ -159,7 +159,8 @@ DEMO_SETTINGS = {
     'logo_filename': '',
     'timezone': 'America/Chicago',
     'checkout_enabled': '1',
-    'qr_checkout_enabled': 'true',
+    'require_checkout_code': 'true',
+    'checkout_code_method': 'qr',
     'demo_mode': 'true',
     'demo_banner': 'Resets every 24 hours | Check-in code: demo123 | Admin password: demo123',
     'admin_password_hash': 'pbkdf2:sha256:260000$demo$5d8c8a8e8f9e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f',  # password: demo123
