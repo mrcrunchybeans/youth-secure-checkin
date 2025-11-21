@@ -3,6 +3,9 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import requests
+
+# Application version
+APP_VERSION = "1.0.0"
 from requests.adapters import HTTPAdapter
 from urllib3.util.connection import create_connection
 import urllib3
@@ -159,6 +162,51 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
 
 # Ensure upload folder exists
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
+# Make version, current year, and footer settings available to all templates
+@app.context_processor
+def inject_version():
+    try:
+        conn = get_db()
+        
+        # Get footer settings
+        footer_enabled_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_enabled'").fetchone()
+        footer_enabled = footer_enabled_row[0] == 'True' if footer_enabled_row else True
+        
+        footer_text_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_text'").fetchone()
+        footer_text = footer_text_row[0] if footer_text_row else ''
+        
+        footer_show_github_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_github'").fetchone()
+        footer_show_github = footer_show_github_row[0] == 'True' if footer_show_github_row else True
+        
+        footer_show_version_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_version'").fetchone()
+        footer_show_version = footer_show_version_row[0] == 'True' if footer_show_version_row else True
+        
+        footer_show_admin_link_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_admin_link'").fetchone()
+        footer_show_admin_link = footer_show_admin_link_row[0] == 'True' if footer_show_admin_link_row else True
+        
+        conn.close()
+        
+        return {
+            'app_version': APP_VERSION,
+            'current_year': datetime.now().year,
+            'footer_enabled': footer_enabled,
+            'footer_text': footer_text,
+            'footer_show_github': footer_show_github,
+            'footer_show_version': footer_show_version,
+            'footer_show_admin_link': footer_show_admin_link
+        }
+    except:
+        # Fallback if database isn't available yet
+        return {
+            'app_version': APP_VERSION,
+            'current_year': datetime.now().year,
+            'footer_enabled': True,
+            'footer_text': '',
+            'footer_show_github': True,
+            'footer_show_version': True,
+            'footer_show_admin_link': True
+        }
 
 # Get timezone from database, default to America/Chicago
 def get_timezone():
@@ -2368,6 +2416,22 @@ def admin_branding():
             except pytz.exceptions.UnknownTimeZoneError:
                 flash('Invalid timezone selected.', 'danger')
         
+        # Handle footer settings update
+        elif action == 'update_footer':
+            footer_enabled = request.form.get('footer_enabled', 'off') == 'on'
+            footer_text = request.form.get('footer_text', '').strip()
+            footer_show_github = request.form.get('footer_show_github', 'off') == 'on'
+            footer_show_version = request.form.get('footer_show_version', 'off') == 'on'
+            footer_show_admin_link = request.form.get('footer_show_admin_link', 'off') == 'on'
+            
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_enabled', ?)", (str(footer_enabled),))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_text', ?)", (footer_text,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_github', ?)", (str(footer_show_github),))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_version', ?)", (str(footer_show_version),))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_admin_link', ?)", (str(footer_show_admin_link),))
+            conn.commit()
+            flash('Footer settings updated successfully!', 'success')
+        
         conn.close()
         return redirect(url_for('admin_branding'))
     
@@ -2380,13 +2444,34 @@ def admin_branding():
     tz_row = conn.execute("SELECT value FROM settings WHERE key = 'timezone'").fetchone()
     current_timezone = tz_row[0] if tz_row else 'America/Chicago'
     
+    # Fetch footer settings
+    footer_enabled_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_enabled'").fetchone()
+    footer_enabled = footer_enabled_row[0] == 'True' if footer_enabled_row else True
+    
+    footer_text_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_text'").fetchone()
+    footer_text = footer_text_row[0] if footer_text_row else ''
+    
+    footer_show_github_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_github'").fetchone()
+    footer_show_github = footer_show_github_row[0] == 'True' if footer_show_github_row else True
+    
+    footer_show_version_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_version'").fetchone()
+    footer_show_version = footer_show_version_row[0] == 'True' if footer_show_version_row else True
+    
+    footer_show_admin_link_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_admin_link'").fetchone()
+    footer_show_admin_link = footer_show_admin_link_row[0] == 'True' if footer_show_admin_link_row else True
+    
     conn.close()
     
     return render_template('admin/branding.html',
                          current_logo=current_logo,
                          current_favicon=current_favicon,
                          event_date_range_months=event_date_range_months,
-                         current_timezone=current_timezone)
+                         current_timezone=current_timezone,
+                         footer_enabled=footer_enabled,
+                         footer_text=footer_text,
+                         footer_show_github=footer_show_github,
+                         footer_show_version=footer_show_version,
+                         footer_show_admin_link=footer_show_admin_link)
 
 @app.route('/admin/families')
 @require_auth
