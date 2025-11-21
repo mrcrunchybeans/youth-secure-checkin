@@ -15,7 +15,6 @@ docker-compose logs -f demo-app
 ## Test Credentials
 
 **Admin Login:**
-- Username: `demo`
 - Password: `demo123`
 
 **Test Families (Phone Lookup):**
