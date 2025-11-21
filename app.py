@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from cloud_backup import GoogleDriveBackup, DropboxBackup, OneDriveBackup, backup_to_cloud
+from backup_manager import BackupManager
 
 # Load environment variables from .env file
 load_dotenv()
@@ -143,6 +143,14 @@ try:
 except ImportError:
     scheduler = None
     app.logger.warning("APScheduler not installed. Scheduled backups disabled.")
+
+# Initialize Backup Manager
+backup_manager = BackupManager(
+    db_path=str(Path(__file__).parent / 'checkin.db'),
+    backup_dir=str(Path(__file__).parent / 'data' / 'backups'),
+    uploads_dir=str(Path(__file__).parent / 'uploads'),
+    static_uploads_dir=str(Path(__file__).parent / 'static' / 'uploads')
+)
 
 @app.context_processor
 def inject_branding():
@@ -385,34 +393,6 @@ def send_email(to_address, subject, html_body, plain_text_body=None):
         return False, f"SMTP error: {str(e)}"
     except Exception as e:
         return False, f"Failed to send email: {str(e)}"
-
-def get_cloud_backup_credentials():
-    """Get all cloud backup OAuth credentials from database"""
-    conn = get_db()
-    credentials = {}
-    keys = ['google_oauth_client_id', 'google_oauth_client_secret', 
-            'dropbox_oauth_client_id', 'dropbox_oauth_client_secret',
-            'onedrive_oauth_client_id', 'onedrive_oauth_client_secret']
-    
-    for key in keys:
-        cur = conn.execute("SELECT value FROM settings WHERE key = ?", (key,))
-        row = cur.fetchone()
-        credentials[key] = row['value'] if row else None
-    
-    conn.close()
-    return credentials
-
-def set_cloud_backup_credentials(creds_dict):
-    """Save cloud backup OAuth credentials to database"""
-    conn = get_db()
-    for key, value in creds_dict.items():
-        if key.startswith('google_oauth_') or key.startswith('dropbox_oauth_') or key.startswith('onedrive_oauth_'):
-            if value is not None and value.strip():  # Only save non-empty values
-                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value.strip()))
-            elif value == '':  # Delete if explicitly cleared
-                conn.execute("DELETE FROM settings WHERE key = ?", (key,))
-    conn.commit()
-    conn.close()
 
 def get_event_date_range_months():
     """Get the number of months (past and future) to show events for. Default is 1 month."""
@@ -1945,578 +1925,176 @@ def test_email():
     
     return redirect(url_for('email_settings'))
 
-def perform_scheduled_backup():
-    """Perform backup to all configured cloud services (called by scheduler)"""
+@app.route('/admin/backups')
+@require_auth
+def backup_list():
+    """Display list of backups"""
     try:
+        backups = backup_manager.list_backups()
+        summary = backup_manager.get_backup_summary()
+        
+        # Get backup schedule settings
         conn = get_db()
+        backup_frequency = conn.execute("SELECT value FROM settings WHERE key = 'backup_frequency'").fetchone()
+        backup_frequency = backup_frequency[0] if backup_frequency else 'daily'
         
-        # Get configured cloud services
-        google_token = conn.execute("SELECT value FROM settings WHERE key = 'google_drive_token'").fetchone()
-        dropbox_token = conn.execute("SELECT value FROM settings WHERE key = 'dropbox_token'").fetchone()
-        onedrive_token = conn.execute("SELECT value FROM settings WHERE key = 'onedrive_token'").fetchone()
+        backup_hour = conn.execute("SELECT value FROM settings WHERE key = 'backup_hour'").fetchone()
+        backup_hour = int(backup_hour[0]) if backup_hour else 2
+        conn.close()
         
-        # Only proceed if at least one service is configured
-        if not (google_token or dropbox_token or onedrive_token):
-            app.logger.info("Scheduled backup skipped: no cloud services configured")
-            conn.close()
-            return
+        return render_template('admin/backups.html',
+                             backups=backups,
+                             summary=summary,
+                             backup_frequency=backup_frequency,
+                             backup_hour=backup_hour)
+    except Exception as e:
+        flash(f'Error loading backups: {str(e)}', 'danger')
+        return redirect(url_for('admin_index'))
+
+@app.route('/admin/backups/create', methods=['POST'])
+@require_auth
+def backup_create():
+    """Create a new backup"""
+    try:
+        description = request.form.get('description', '').strip()
+        if not description:
+            description = f'Manual backup at {datetime.now().strftime("%Y-%m-%d %H:%M")}'
         
-        # Prepare backup clients
-        google_drive = None
-        dropbox_client = None
-        od_token = None
+        backup_filename = backup_manager.create_backup(description)
         
-        if google_token:
-            try:
-                from google.oauth2 import service_account
-                from googleapiclient.discovery import build
-                # Parse the stored token (should be JSON string)
-                creds_json = json.loads(google_token[0]) if isinstance(google_token[0], str) else google_token[0]
-                credentials = service_account.Credentials.from_service_account_info(creds_json)
-                drive_service = build('drive', 'v3', credentials=credentials)
-                google_drive = GoogleDriveBackup(credentials_json_path=None)
-                google_drive.service = drive_service
-            except Exception as e:
-                app.logger.warning(f"Failed to initialize Google Drive for scheduled backup: {e}")
-                google_drive = None
+        # Rotate old backups according to retention policy
+        removed = backup_manager.rotate_backups()
         
-        if dropbox_token:
-            try:
-                dropbox_client = DropboxBackup(dropbox_token[0])
-            except Exception as e:
-                app.logger.warning(f"Failed to initialize Dropbox for scheduled backup: {e}")
-                dropbox_client = None
+        flash(f'✓ Backup created successfully: {backup_filename}', 'success')
+        if removed:
+            flash(f'Rotated {removed} old backup(s) according to retention policy', 'info')
+    
+    except Exception as e:
+        flash(f'Error creating backup: {str(e)}', 'danger')
+    
+    return redirect(url_for('backup_list'))
+
+@app.route('/admin/backups/download/<filename>')
+@require_auth
+def backup_download(filename):
+    """Download a backup file"""
+    try:
+        backup_path = Path(backup_manager.backup_dir) / filename
+        if not backup_path.exists():
+            flash('Backup file not found', 'danger')
+            return redirect(url_for('backup_list'))
         
-        if onedrive_token:
-            od_token = onedrive_token[0]
+        return send_file(backup_path, as_attachment=True, download_name=filename)
+    
+    except Exception as e:
+        flash(f'Error downloading backup: {str(e)}', 'danger')
+        return redirect(url_for('backup_list'))
+
+@app.route('/admin/backups/restore/<filename>', methods=['POST'])
+@require_auth
+def backup_restore(filename):
+    """Restore from a backup"""
+    try:
+        # Confirmation required
+        confirm = request.form.get('confirm', '').lower()
+        if confirm != 'restore':
+            flash('Restoration cancelled: confirmation not provided', 'warning')
+            return redirect(url_for('backup_list'))
         
-        # Perform backup
-        db_path = str(Path(__file__).parent / 'checkin.db')
-        results = backup_to_cloud(db_path, google_drive, dropbox_client, od_token)
+        backup_manager.restore_backup(filename)
+        flash(f'✓ Database restored successfully from {filename}', 'success')
+        flash('NOTE: You may need to restart the application for all changes to take effect', 'info')
+    
+    except Exception as e:
+        flash(f'Error restoring backup: {str(e)}', 'danger')
+    
+    return redirect(url_for('backup_list'))
+
+@app.route('/admin/backups/delete/<filename>', methods=['POST'])
+@require_auth
+def backup_delete(filename):
+    """Delete a backup"""
+    try:
+        backup_manager.delete_backup(filename)
+        flash(f'✓ Backup deleted: {filename}', 'success')
+    
+    except Exception as e:
+        flash(f'Error deleting backup: {str(e)}', 'danger')
+    
+    return redirect(url_for('backup_list'))
+
+@app.route('/admin/backups/rotate', methods=['POST'])
+@require_auth
+def backup_rotate():
+    """Manually trigger backup rotation"""
+    try:
+        removed = backup_manager.rotate_backups()
+        if removed > 0:
+            flash(f'✓ Rotated {removed} old backup(s)', 'success')
+        else:
+            flash('No backups needed to be rotated', 'info')
+    
+    except Exception as e:
+        flash(f'Error rotating backups: {str(e)}', 'danger')
+    
+    return redirect(url_for('backup_list'))
+
+@app.route('/admin/backups/schedule', methods=['POST'])
+@require_auth
+def backup_schedule():
+    """Update backup schedule settings"""
+    try:
+        frequency = request.form.get('backup_frequency', 'daily').strip()
+        hour = int(request.form.get('backup_hour', '2').strip())
         
-        # Store backup info
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_backup_info', ?)", 
-                    (json.dumps(results),))
+        conn = get_db()
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_frequency', ?)", (frequency,))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_hour', ?)", (str(hour),))
         conn.commit()
         conn.close()
         
-        app.logger.info(f"Scheduled backup completed: {results}")
+        # Update scheduler if available
+        if scheduler:
+            # Remove existing backup job if present
+            if scheduler.get_job('local_backup_job'):
+                scheduler.remove_job('local_backup_job')
+            
+            # Add new scheduled job
+            try:
+                if frequency == 'hourly':
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', minute=0, id='local_backup_job', replace_existing=True)
+                elif frequency == 'daily':
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', hour=hour, minute=0, id='local_backup_job', replace_existing=True)
+                elif frequency == 'weekly':
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', day_of_week='6', hour=hour, minute=0, id='local_backup_job', replace_existing=True)
+                elif frequency == 'monthly':
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', day=1, hour=hour, minute=0, id='local_backup_job', replace_existing=True)
+                
+                app.logger.info(f"Scheduled backup job updated: {frequency} at {hour:02d}:00")
+                flash(f'✓ Backup schedule updated: {frequency} at {hour:02d}:00', 'success')
+            except Exception as e:
+                app.logger.warning(f"Failed to update scheduled backup: {e}")
+                flash(f'Settings saved but scheduler update failed: {str(e)}', 'warning')
+        else:
+            flash('✓ Backup schedule saved (scheduler not available)', 'warning')
     
+    except Exception as e:
+        flash(f'Error updating backup schedule: {str(e)}', 'danger')
+    
+    return redirect(url_for('backup_list'))
+
+def perform_scheduled_local_backup():
+    """Perform a scheduled local backup (called by APScheduler)"""
+    try:
+        description = f'Scheduled backup at {datetime.now().strftime("%Y-%m-%d %H:%M")}'
+        backup_filename = backup_manager.create_backup(description)
+        
+        # Rotate old backups
+        removed = backup_manager.rotate_backups()
+        
+        app.logger.info(f"Scheduled backup completed: {backup_filename} (rotated {removed} old backups)")
     except Exception as e:
         app.logger.error(f"Error performing scheduled backup: {str(e)}")
-
-@app.route('/admin/cloud-backup/credentials', methods=['GET', 'POST'])
-@require_auth
-def cloud_backup_credentials():
-    """Cloud backup OAuth credentials configuration page"""
-    
-    if request.method == 'POST':
-        action = request.form.get('action', '')
-        
-        # Unlock credentials with developer password
-        if action == 'unlock':
-            dev_password = request.form.get('dev_password', '').strip()
-            
-            if DEVELOPER_PASSWORD is None:
-                flash('Developer password not configured in environment!', 'danger')
-            elif dev_password == DEVELOPER_PASSWORD:
-                session['cloud_backup_credentials_unlocked'] = True
-                flash('Cloud Backup Credentials unlocked!', 'success')
-            else:
-                flash('Invalid developer password!', 'danger')
-            
-            return redirect(url_for('cloud_backup_credentials'))
-        
-        # Lock credentials
-        elif action == 'lock':
-            session.pop('cloud_backup_credentials_unlocked', None)
-            flash('Cloud Backup Credentials locked!', 'info')
-            return redirect(url_for('cloud_backup_credentials'))
-        
-        # Save credentials
-        elif action == 'save_credentials':
-            if session.get('cloud_backup_credentials_unlocked', False):
-                creds_dict = {
-                    'google_oauth_client_id': request.form.get('google_oauth_client_id', '').strip(),
-                    'google_oauth_client_secret': request.form.get('google_oauth_client_secret', '').strip(),
-                    'dropbox_oauth_client_id': request.form.get('dropbox_oauth_client_id', '').strip(),
-                    'dropbox_oauth_client_secret': request.form.get('dropbox_oauth_client_secret', '').strip(),
-                    'onedrive_oauth_client_id': request.form.get('onedrive_oauth_client_id', '').strip(),
-                    'onedrive_oauth_client_secret': request.form.get('onedrive_oauth_client_secret', '').strip(),
-                }
-                
-                set_cloud_backup_credentials(creds_dict)
-                flash('✓ Cloud Backup credentials saved successfully!', 'success')
-            else:
-                flash('Credentials are locked. Unlock them first with developer password.', 'warning')
-            
-            return redirect(url_for('cloud_backup_credentials'))
-    
-    # GET request - display current credentials (masked if locked)
-    credentials_unlocked = session.get('cloud_backup_credentials_unlocked', False)
-    creds = get_cloud_backup_credentials()
-    
-    # Mask credentials if not unlocked
-    if not credentials_unlocked:
-        for key in creds:
-            if creds[key]:
-                creds[key] = '●' * 16
-    
-    dev_password_set = bool(DEVELOPER_PASSWORD)
-    
-    return render_template('admin/cloud_backup_credentials.html',
-                         credentials=creds,
-                         credentials_unlocked=credentials_unlocked,
-                         dev_password_set=dev_password_set)
-
-@app.route('/admin/cloud-backup', methods=['GET', 'POST'])
-@require_auth
-def cloud_backup_settings():
-    """Cloud backup configuration page"""
-    conn = get_db()
-    
-    if request.method == 'POST':
-        action = request.form.get('action', '')
-        
-        if action == 'save_schedule':
-            frequency = request.form.get('backup_frequency', 'daily').strip()
-            hour = int(request.form.get('backup_hour', '2').strip())
-            
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_frequency', ?)", (frequency,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_hour', ?)", (str(hour),))
-            conn.commit()
-            
-            # Update scheduler if available
-            if scheduler:
-                # Remove existing backup job if present
-                if scheduler.get_job('cloud_backup_job'):
-                    scheduler.remove_job('cloud_backup_job')
-                
-                # Add new scheduled job
-                try:
-                    if frequency == 'hourly':
-                        scheduler.add_job(perform_scheduled_backup, 'cron', minute=0, id='cloud_backup_job', replace_existing=True)
-                    elif frequency == 'daily':
-                        scheduler.add_job(perform_scheduled_backup, 'cron', hour=hour, minute=0, id='cloud_backup_job', replace_existing=True)
-                    elif frequency == 'weekly':
-                        scheduler.add_job(perform_scheduled_backup, 'cron', day_of_week='6', hour=hour, minute=0, id='cloud_backup_job', replace_existing=True)
-                    elif frequency == 'monthly':
-                        scheduler.add_job(perform_scheduled_backup, 'cron', day=1, hour=hour, minute=0, id='cloud_backup_job', replace_existing=True)
-                    
-                    app.logger.info(f"Scheduled backup job updated: {frequency} at {hour:02d}:00")
-                except Exception as e:
-                    app.logger.warning(f"Failed to update scheduled backup: {e}")
-            
-            flash('Backup schedule saved successfully!', 'success')
-        
-        conn.close()
-        return redirect(url_for('cloud_backup_settings'))
-    
-    # Get backup settings
-    backup_frequency = conn.execute("SELECT value FROM settings WHERE key = 'backup_frequency'").fetchone()
-    backup_frequency = backup_frequency[0] if backup_frequency else 'daily'
-    
-    backup_hour = conn.execute("SELECT value FROM settings WHERE key = 'backup_hour'").fetchone()
-    backup_hour = int(backup_hour[0]) if backup_hour else 2
-    
-    # Get OAuth tokens (masked)
-    google_token = conn.execute("SELECT value FROM settings WHERE key = 'google_drive_token'").fetchone()
-    dropbox_token = conn.execute("SELECT value FROM settings WHERE key = 'dropbox_token'").fetchone()
-    onedrive_token = conn.execute("SELECT value FROM settings WHERE key = 'onedrive_token'").fetchone()
-    
-    # Get last backup info
-    last_backup = conn.execute("SELECT value FROM settings WHERE key = 'last_backup_info'").fetchone()
-    last_backup_data = json.loads(last_backup[0]) if last_backup else None
-    
-    conn.close()
-    
-    return render_template('admin/cloud_backup.html',
-                         backup_frequency=backup_frequency,
-                         backup_hour=backup_hour,
-                         google_drive_configured=bool(google_token),
-                         dropbox_configured=bool(dropbox_token),
-                         onedrive_configured=bool(onedrive_token),
-                         last_backup=last_backup_data)
-
-@app.route('/admin/backup/now', methods=['POST'])
-@require_auth
-def backup_now():
-    """Manually trigger a backup to all configured cloud services"""
-    try:
-        conn = get_db()
-        
-        # Get configured cloud services
-        google_token = conn.execute("SELECT value FROM settings WHERE key = 'google_drive_token'").fetchone()
-        dropbox_token = conn.execute("SELECT value FROM settings WHERE key = 'dropbox_token'").fetchone()
-        onedrive_token = conn.execute("SELECT value FROM settings WHERE key = 'onedrive_token'").fetchone()
-        
-        # Prepare backup clients
-        google_drive = None
-        dropbox_client = None
-        od_token = None
-        
-        if google_token:
-            try:
-                from google.oauth2 import service_account
-                from googleapiclient.discovery import build
-                # Parse the stored token (should be JSON string)
-                creds_json = json.loads(google_token[0]) if isinstance(google_token[0], str) else google_token[0]
-                credentials = service_account.Credentials.from_service_account_info(creds_json)
-                drive_service = build('drive', 'v3', credentials=credentials)
-                google_drive = GoogleDriveBackup(credentials_json_path=None)
-                google_drive.service = drive_service
-            except Exception as e:
-                app.logger.warning(f"Failed to initialize Google Drive: {e}")
-                google_drive = None
-        
-        if dropbox_token:
-            try:
-                dropbox_client = DropboxBackup(dropbox_token[0])
-            except Exception as e:
-                app.logger.warning(f"Failed to initialize Dropbox: {e}")
-                dropbox_client = None
-        
-        if onedrive_token:
-            od_token = onedrive_token[0]
-        
-        # Perform backup
-        db_path = str(Path(__file__).parent / 'checkin.db')
-        results = backup_to_cloud(db_path, google_drive, dropbox_client, od_token)
-        
-        # Store backup info
-        if results['success']:
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_backup_info', ?)", 
-                        (json.dumps(results),))
-            conn.commit()
-            flash('✓ Backup completed successfully!', 'success')
-        else:
-            # Build detailed error message
-            error_details = []
-            if 'error' in results:
-                error_details.append(results['error'])
-            for service, service_result in results.get('services', {}).items():
-                if not service_result.get('success', False):
-                    msg = service_result.get('message', 'Unknown error')
-                    error_details.append(f"{service}: {msg}")
-            error_msg = ' | '.join(error_details) if error_details else 'No services configured'
-            flash(f'Backup completed with issues: {error_msg}', 'warning')
-            app.logger.error(f'Backup completed with issues: {results}')
-        
-        conn.close()
-    
-    except Exception as e:
-        flash(f'Error performing backup: {str(e)}', 'danger')
-    
-    return redirect(url_for('cloud_backup_settings'))
-
-@app.route('/admin/oauth/google', methods=['GET'])
-@require_auth
-def oauth_google():
-    """Initiate Google Drive OAuth flow"""
-    try:
-        from google_auth_oauthlib.flow import Flow
-        
-        # Get credentials from database
-        creds = get_cloud_backup_credentials()
-        client_id = creds.get('google_oauth_client_id', '')
-        client_secret = creds.get('google_oauth_client_secret', '')
-        
-        if not client_id or not client_secret:
-            flash('Google OAuth credentials not configured. Configure them in Cloud Backup Credentials settings.', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        redirect_uri = url_for('oauth_google_callback', _external=True)
-        app.logger.info(f'Google OAuth: redirect_uri={redirect_uri}')
-        
-        # Google OAuth 2.0 configuration
-        client_config = {
-            "installed": {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [redirect_uri]
-            }
-        }
-        
-        flow = Flow.from_client_config(
-            client_config,
-            scopes=['https://www.googleapis.com/auth/drive'],
-            redirect_uri=redirect_uri
-        )
-        
-        auth_url, state = flow.authorization_url(access_type='offline', prompt='consent')
-        session['google_oauth_state'] = state
-        session['google_oauth_client_id'] = client_id
-        session['google_oauth_client_secret'] = client_secret
-        
-        return redirect(auth_url)
-    
-    except Exception as e:
-        app.logger.error(f'Error initiating Google OAuth: {str(e)}')
-        flash(f'Error initiating Google OAuth: {str(e)}', 'danger')
-        return redirect(url_for('cloud_backup_settings'))
-
-@app.route('/admin/oauth/google/callback', methods=['GET'])
-@require_auth
-def oauth_google_callback():
-    """Handle Google OAuth callback"""
-    try:
-        from google_auth_oauthlib.flow import Flow
-        
-        state = session.get('google_oauth_state')
-        code = request.args.get('code')
-        
-        if not code:
-            flash('Google OAuth authorization denied or failed.', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        # Get credentials from session (stored during oauth_google)
-        client_id = session.get('google_oauth_client_id', '')
-        client_secret = session.get('google_oauth_client_secret', '')
-        
-        if not client_id or not client_secret:
-            flash('OAuth session expired. Please try again.', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        redirect_uri = url_for('oauth_google_callback', _external=True)
-        app.logger.info(f'Google OAuth Callback: redirect_uri={redirect_uri}, code={code[:20]}...')
-        
-        client_config = {
-            "installed": {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [redirect_uri]
-            }
-        }
-        
-        flow = Flow.from_client_config(
-            client_config,
-            scopes=['https://www.googleapis.com/auth/drive'],
-            redirect_uri=url_for('oauth_google_callback', _external=True)
-        )
-        
-        app.logger.info(f'Google OAuth: About to fetch token with code={code[:20]}...')
-        flow.fetch_token(code=code)
-        credentials = flow.credentials
-        app.logger.info(f'Google OAuth: Got credentials, token={credentials.token[:20] if credentials.token else "None"}...')
-        
-        # Store token as JSON
-        token_data = {
-            'type': 'Bearer',
-            'token': credentials.token,
-            'refresh_token': credentials.refresh_token,
-            'token_expiry': credentials.expiry.isoformat() if credentials.expiry else None,
-            'client_id': credentials.client_id,
-            'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes
-        }
-        
-        conn = get_db()
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_drive_token', ?)", 
-                    (json.dumps(token_data),))
-        conn.commit()
-        app.logger.info('Google OAuth: Token stored to database successfully')
-        conn.close()
-        
-        flash('✓ Google Drive connected successfully!', 'success')
-        return redirect(url_for('cloud_backup_settings'))
-    
-    except Exception as e:
-        flash(f'Error completing Google OAuth: {str(e)}', 'danger')
-        return redirect(url_for('cloud_backup_settings'))
-
-@app.route('/admin/oauth/dropbox', methods=['GET'])
-@require_auth
-def oauth_dropbox():
-    """Initiate Dropbox OAuth flow"""
-    try:
-        # Get credentials from database
-        creds = get_cloud_backup_credentials()
-        client_id = creds.get('dropbox_oauth_client_id', '')
-        client_secret = creds.get('dropbox_oauth_client_secret', '')
-        
-        if not client_id or not client_secret:
-            flash('Dropbox OAuth credentials not configured. Configure them in Cloud Backup Credentials settings.', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        auth_url = (
-            f"https://www.dropbox.com/oauth2/authorize?"
-            f"client_id={client_id}"
-            f"&response_type=code"
-            f"&redirect_uri={url_for('oauth_dropbox_callback', _external=True)}"
-            f"&token_access_type=offline"
-        )
-        
-        return redirect(auth_url)
-    
-    except Exception as e:
-        flash(f'Error initiating Dropbox OAuth: {str(e)}', 'danger')
-        return redirect(url_for('cloud_backup_settings'))
-
-@app.route('/admin/oauth/dropbox/callback', methods=['GET'])
-@require_auth
-def oauth_dropbox_callback():
-    """Handle Dropbox OAuth callback"""
-    try:
-        import requests
-        
-        code = request.args.get('code')
-        error = request.args.get('error')
-        
-        if error:
-            flash(f'Dropbox authorization failed: {error}', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        if not code:
-            flash('Dropbox OAuth authorization code not received.', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        # Get credentials from database
-        creds = get_cloud_backup_credentials()
-        client_id = creds.get('dropbox_oauth_client_id', '')
-        client_secret = creds.get('dropbox_oauth_client_secret', '')
-        
-        # Exchange code for token
-        response = requests.post('https://api.dropboxapi.com/oauth2/token', data={
-            'code': code,
-            'grant_type': 'authorization_code',
-            'client_id': client_id,
-            'client_secret': client_secret,
-            'redirect_uri': url_for('oauth_dropbox_callback', _external=True)
-        })
-        
-        if response.status_code != 200:
-            flash(f'Dropbox token exchange failed: {response.text}', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        token_data = response.json()
-        access_token = token_data.get('access_token')
-        
-        conn = get_db()
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('dropbox_token', ?)", 
-                    (access_token,))
-        conn.commit()
-        conn.close()
-        
-        flash('✓ Dropbox connected successfully!', 'success')
-        return redirect(url_for('cloud_backup_settings'))
-    
-    except Exception as e:
-        flash(f'Error completing Dropbox OAuth: {str(e)}', 'danger')
-        return redirect(url_for('cloud_backup_settings'))
-
-@app.route('/admin/oauth/onedrive', methods=['GET'])
-@require_auth
-def oauth_onedrive():
-    """Initiate OneDrive OAuth flow"""
-    try:
-        # Get credentials from database
-        creds = get_cloud_backup_credentials()
-        client_id = creds.get('onedrive_oauth_client_id', '')
-        client_secret = creds.get('onedrive_oauth_client_secret', '')
-        
-        if not client_id or not client_secret:
-            flash('OneDrive OAuth credentials not configured. Configure them in Cloud Backup Credentials settings.', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        auth_url = (
-            f"https://login.microsoftonline.com/common/oauth2/v2.0/authorize?"
-            f"client_id={client_id}"
-            f"&response_type=code"
-            f"&redirect_uri={url_for('oauth_onedrive_callback', _external=True)}"
-            f"&scope=Files.ReadWrite offline_access"
-        )
-        
-        return redirect(auth_url)
-    
-    except Exception as e:
-        flash(f'Error initiating OneDrive OAuth: {str(e)}', 'danger')
-        return redirect(url_for('cloud_backup_settings'))
-
-@app.route('/admin/oauth/onedrive/callback', methods=['GET'])
-@require_auth
-def oauth_onedrive_callback():
-    """Handle OneDrive OAuth callback"""
-    try:
-        import requests
-        
-        code = request.args.get('code')
-        error = request.args.get('error')
-        
-        if error:
-            flash(f'OneDrive authorization failed: {error}', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        if not code:
-            flash('OneDrive OAuth authorization code not received.', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        # Get credentials from database
-        creds = get_cloud_backup_credentials()
-        client_id = creds.get('onedrive_oauth_client_id', '')
-        client_secret = creds.get('onedrive_oauth_client_secret', '')
-        
-        # Exchange code for token
-        response = requests.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', data={
-            'code': code,
-            'grant_type': 'authorization_code',
-            'client_id': client_id,
-            'client_secret': client_secret,
-            'redirect_uri': url_for('oauth_onedrive_callback', _external=True),
-            'scope': 'Files.ReadWrite'
-        })
-        
-        if response.status_code != 200:
-            flash(f'OneDrive token exchange failed: {response.text}', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        token_data = response.json()
-        access_token = token_data.get('access_token')
-        
-        conn = get_db()
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('onedrive_token', ?)", 
-                    (access_token,))
-        conn.commit()
-        conn.close()
-        
-        flash('✓ OneDrive connected successfully!', 'success')
-        return redirect(url_for('cloud_backup_settings'))
-    
-    except Exception as e:
-        flash(f'Error completing OneDrive OAuth: {str(e)}', 'danger')
-        return redirect(url_for('cloud_backup_settings'))
-
-@app.route('/admin/cloud-backup/disconnect/<service>', methods=['POST'])
-@require_auth
-def disconnect_cloud_service(service):
-    """Disconnect a cloud backup service"""
-    try:
-        service = service.lower()
-        
-        token_keys = {
-            'google': 'google_drive_token',
-            'dropbox': 'dropbox_token',
-            'onedrive': 'onedrive_token'
-        }
-        
-        if service not in token_keys:
-            flash(f'Unknown service: {service}', 'danger')
-            return redirect(url_for('cloud_backup_settings'))
-        
-        conn = get_db()
-        conn.execute("DELETE FROM settings WHERE key = ?", (token_keys[service],))
-        conn.commit()
-        conn.close()
-        
-        flash(f'✓ {service.capitalize()} disconnected successfully!', 'success')
-    
-    except Exception as e:
-        flash(f'Error disconnecting {service}: {str(e)}', 'danger')
-    
-    return redirect(url_for('cloud_backup_settings'))
 
 @app.route('/admin/security', methods=['GET', 'POST'])
 @require_auth
