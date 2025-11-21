@@ -109,6 +109,46 @@
       </div>
     </div>
 
+    <!-- General Settings Card -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header py-2" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white;">
+        <h6 class="mb-0"><i class="bi bi-clock-history"></i> General Settings</h6>
+      </div>
+      <div class="card-body p-3">
+        <form method="POST" class="needs-validation" novalidate>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label for="timezone" class="form-label mb-1 small fw-semibold">Time Zone</label>
+              <select class="form-select form-select-sm" id="timezone" name="timezone">
+                <optgroup label="US Time Zones">
+                  <option value="America/New_York" {% if current_timezone == 'America/New_York' %}selected{% endif %}>Eastern Time (ET)</option>
+                  <option value="America/Chicago" {% if current_timezone == 'America/Chicago' %}selected{% endif %}>Central Time (CT)</option>
+                  <option value="America/Denver" {% if current_timezone == 'America/Denver' %}selected{% endif %}>Mountain Time (MT)</option>
+                  <option value="America/Phoenix" {% if current_timezone == 'America/Phoenix' %}selected{% endif %}>Arizona Time (no DST)</option>
+                  <option value="America/Los_Angeles" {% if current_timezone == 'America/Los_Angeles' %}selected{% endif %}>Pacific Time (PT)</option>
+                  <option value="America/Anchorage" {% if current_timezone == 'America/Anchorage' %}selected{% endif %}>Alaska Time (AKT)</option>
+                  <option value="Pacific/Honolulu" {% if current_timezone == 'Pacific/Honolulu' %}selected{% endif %}>Hawaii Time (HST)</option>
+                </optgroup>
+                <optgroup label="Other Common Time Zones">
+                  <option value="UTC" {% if current_timezone == 'UTC' %}selected{% endif %}>UTC (Coordinated Universal Time)</option>
+                  <option value="Europe/London" {% if current_timezone == 'Europe/London' %}selected{% endif %}>London (GMT/BST)</option>
+                  <option value="Europe/Paris" {% if current_timezone == 'Europe/Paris' %}selected{% endif %}>Paris (CET/CEST)</option>
+                  <option value="Asia/Tokyo" {% if current_timezone == 'Asia/Tokyo' %}selected{% endif %}>Tokyo (JST)</option>
+                  <option value="Australia/Sydney" {% if current_timezone == 'Australia/Sydney' %}selected{% endif %}>Sydney (AEDT/AEST)</option>
+                </optgroup>
+              </select>
+              <div class="text-muted" style="font-size: 0.75rem;">Used for displaying times in check-in history and reports</div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button type="submit" name="action" value="update_timezone" class="btn btn-sm w-100" style="background: #17a2b8; color: white;">
+                <i class="bi bi-clock"></i> Update Time Zone
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- SMTP Email Settings Card -->
     <div class="card shadow-sm mb-3">
       <div class="card-header py-2" style="background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%); color: white;">

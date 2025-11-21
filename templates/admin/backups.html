@@ -49,19 +49,21 @@
           <h5 class="card-title">Create New Backup</h5>
           <form method="post" action="/admin/backups/create">
             <div class="mb-3">
-              <label for="description" class="form-label">Description (optional)</label>
-              <input type="text" class="form-control" id="description" name="description" placeholder="Manual backup at {{ now }}">
+              <label for="description" class="form-label">Description <small class="text-muted">(optional)</small></label>
+              <input type="text" class="form-control" id="description" name="description" placeholder="e.g., Before major update, Weekly backup">
+              <small class="text-muted">Add a note to help identify this backup later</small>
             </div>
             <div class="d-flex gap-2">
               <button type="submit" class="btn btn-primary flex-fill">
                 <i class="bi bi-plus-circle"></i> Create Backup
               </button>
               <form method="post" action="/admin/backups/rotate" class="flex-fill">
-                <button type="submit" class="btn btn-secondary w-100">
-                  <i class="bi bi-arrow-clockwise"></i> Rotate Old Backups
+                <button type="submit" class="btn btn-secondary w-100" title="Remove old backups beyond retention policy">
+                  <i class="bi bi-arrow-clockwise"></i> Clean Old Backups
                 </button>
               </form>
             </div>
+            <small class="text-muted d-block mt-2"><i class="bi bi-info-circle"></i> "Clean Old Backups" removes backups that exceed the retention policy (keeps last 3 + 1 weekly + 1 monthly)</small>
           </form>
         </div>
       </div>
@@ -70,7 +72,7 @@
     <div class="col-md-6">
       <div class="card">
         <div class="card-body">
-          <h5 class="card-title">Backup Schedule</h5>
+          <h5 class="card-title">Automatic Backup Schedule</h5>
           <form method="post" action="/admin/backups/schedule">
             <div class="mb-3">
               <label for="backup_frequency" class="form-label">Frequency</label>
@@ -80,10 +82,12 @@
                 <option value="weekly" {% if backup_frequency == 'weekly' %}selected{% endif %}>Weekly (Saturdays)</option>
                 <option value="monthly" {% if backup_frequency == 'monthly' %}selected{% endif %}>Monthly (1st of month)</option>
               </select>
+              <small class="text-muted">How often to automatically create backups</small>
             </div>
             <div class="mb-3">
               <label for="backup_hour" class="form-label">Time (hour of day, 0-23)</label>
               <input type="number" class="form-control" id="backup_hour" name="backup_hour" value="{{ backup_hour }}" min="0" max="23">
+              <small class="text-muted">24-hour format (e.g., 2 = 2 AM, 14 = 2 PM)</small>
             </div>
             <button type="submit" class="btn btn-success w-100">
               <i class="bi bi-calendar-check"></i> Update Schedule
@@ -91,6 +95,40 @@
           </form>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Email Backup Configuration -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title"><i class="bi bi-envelope"></i> Email Backup Delivery</h5>
+      <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle"></i> Automatically email backups to specified addresses when created. Requires SMTP settings configured in <a href="{{ url_for('admin_email_settings') }}">Email Settings</a>.
+      </div>
+      <form method="post" action="/admin/backups/email-config">
+        <div class="row">
+          <div class="col-md-8">
+            <label for="backup_email_recipients" class="form-label">Recipient Email Addresses</label>
+            <input type="text" class="form-control" id="backup_email_recipients" name="backup_email_recipients" 
+                   value="{{ backup_email_recipients or '' }}" 
+                   placeholder="admin@example.com, backup@example.com">
+            <small class="text-muted">Comma-separated list of email addresses to receive backups</small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">&nbsp;</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="backup_email_enabled" name="backup_email_enabled" 
+                     {% if backup_email_enabled == 'true' %}checked{% endif %}>
+              <label class="form-check-label" for="backup_email_enabled">
+                Enable automatic email delivery
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary mt-2 w-100">
+              <i class="bi bi-check-circle"></i> Save Email Settings
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 

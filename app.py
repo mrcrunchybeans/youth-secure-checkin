@@ -160,7 +160,19 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
 # Ensure upload folder exists
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
-local_tz = pytz.timezone('America/Chicago')  # Adjust to your local timezone
+# Get timezone from database, default to America/Chicago
+def get_timezone():
+    try:
+        conn = get_db()
+        row = conn.execute("SELECT value FROM settings WHERE key = 'timezone'").fetchone()
+        conn.close()
+        if row:
+            return pytz.timezone(row[0])
+    except:
+        pass
+    return pytz.timezone('America/Chicago')
+
+local_tz = get_timezone()
 
 # Developer password from environment variable for security
 # Falls back to None if not set (disables developer override features)
@@ -1973,13 +1985,23 @@ def backup_list():
         
         backup_hour = conn.execute("SELECT value FROM settings WHERE key = 'backup_hour'").fetchone()
         backup_hour = int(backup_hour[0]) if backup_hour else 2
+        
+        # Get email backup settings
+        backup_email_enabled = conn.execute("SELECT value FROM settings WHERE key = 'backup_email_enabled'").fetchone()
+        backup_email_enabled = backup_email_enabled[0] if backup_email_enabled else 'false'
+        
+        backup_email_recipients = conn.execute("SELECT value FROM settings WHERE key = 'backup_email_recipients'").fetchone()
+        backup_email_recipients = backup_email_recipients[0] if backup_email_recipients else ''
+        
         conn.close()
         
         return render_template('admin/backups.html',
                              backups=backups,
                              summary=summary,
                              backup_frequency=backup_frequency,
-                             backup_hour=backup_hour)
+                             backup_hour=backup_hour,
+                             backup_email_enabled=backup_email_enabled,
+                             backup_email_recipients=backup_email_recipients)
     except Exception as e:
         flash(f'Error loading backups: {str(e)}', 'danger')
         return redirect(url_for('admin_index'))
@@ -2113,6 +2135,27 @@ def backup_schedule():
     
     except Exception as e:
         flash(f'Error updating backup schedule: {str(e)}', 'danger')
+    
+    return redirect(url_for('backup_list'))
+
+@app.route('/admin/backups/email-config', methods=['POST'])
+@require_auth
+def backup_email_config():
+    """Update email backup configuration"""
+    try:
+        email_enabled = 'true' if request.form.get('backup_email_enabled') == 'on' else 'false'
+        email_recipients = request.form.get('backup_email_recipients', '').strip()
+        
+        conn = get_db()
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_email_enabled', ?)", (email_enabled,))
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_email_recipients', ?)", (email_recipients,))
+        conn.commit()
+        conn.close()
+        
+        flash('✓ Email backup settings updated successfully!', 'success')
+    
+    except Exception as e:
+        flash(f'Error updating email backup settings: {str(e)}', 'danger')
     
     return redirect(url_for('backup_list'))
 
@@ -2456,6 +2499,18 @@ def admin_settings():
             conn.commit()
             flash('Checkout code settings updated successfully!', 'success')
         
+        # Handle timezone update
+        elif action == 'update_timezone':
+            timezone_val = request.form.get('timezone', 'America/Chicago').strip()
+            try:
+                # Validate timezone
+                pytz.timezone(timezone_val)
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('timezone', ?)", (timezone_val,))
+                conn.commit()
+                flash('Time zone updated successfully! Restart the app for changes to take effect.', 'success')
+            except pytz.exceptions.UnknownTimeZoneError:
+                flash('Invalid timezone selected.', 'danger')
+        
         # Handle SMTP settings
         elif action == 'save_smtp':
             # Only allow saving if SMTP is unlocked
@@ -2499,6 +2554,10 @@ def admin_settings():
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         label_settings[key] = row[0] if row else None
     
+    # Fetch timezone setting
+    tz_row = conn.execute("SELECT value FROM settings WHERE key = 'timezone'").fetchone()
+    current_timezone = tz_row[0] if tz_row else 'America/Chicago'
+    
     conn.close()
     
     # Fetch SMTP settings
@@ -2513,7 +2572,8 @@ def admin_settings():
                          dev_password_set=bool(DEVELOPER_PASSWORD),
                          label_settings=label_settings,
                          current_logo=current_logo,
-                         current_favicon=current_favicon)
+                         current_favicon=current_favicon,
+                         current_timezone=current_timezone)
 
 @app.route('/admin/families')
 @require_auth
