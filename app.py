@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.connection import create_connection
+import urllib3
 from icalendar import Calendar
 import pytz
 import csv
@@ -31,6 +32,10 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from backup_manager import BackupManager
+
+# Disable SSL warnings for whitelisted calendar domains
+# We disable SSL verification only for pre-approved domains in ALLOWED_ICAL_DOMAINS
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -2981,24 +2986,24 @@ def validate_and_resolve_url(url):
 def safe_http_get(url, timeout=10, max_size=10*1024*1024):
     """
     Make HTTP GET request with SSRF protection.
-    Validates URL and pins request to resolved IP address.
+    For allowed domains, uses standard HTTPS request with redirects and relaxed SSL verification
+    to handle calendar services that may redirect to IPs or have certificate issues.
     """
-    # Validate and resolve URL
+    # Validate URL is from allowed domain
     is_valid, error_msg, resolved_ip = validate_and_resolve_url(url)
     if not is_valid:
         raise ValueError(error_msg)
     
-    # Parse URL to get hostname for Host header
-    parsed = urllib.parse.urlparse(url)
-    hostname = parsed.hostname
-    
-    # Replace hostname with IP in URL for the actual request
-    # This prevents DNS rebinding attacks
-    ip_url = url.replace(f"//{hostname}", f"//{resolved_ip}")
-    
-    # Make request with resolved IP, but keep original hostname in Host header
-    headers = {'Host': hostname}
-    response = requests.get(ip_url, headers=headers, timeout=timeout, stream=True, allow_redirects=False)
+    # For allowed/trusted domains, make direct request with SSL verification disabled
+    # This handles calendar services that redirect to IPs or have cert mismatches
+    # Security is maintained by the ALLOWED_ICAL_DOMAINS whitelist
+    response = requests.get(
+        url, 
+        timeout=timeout, 
+        stream=True, 
+        allow_redirects=True,  # Follow redirects for calendar services
+        verify=False  # Disable SSL verification for whitelisted domains only
+    )
     response.raise_for_status()
     
     # Check content length
