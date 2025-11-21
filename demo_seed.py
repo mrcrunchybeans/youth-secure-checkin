@@ -88,8 +88,29 @@ DEMO_FAMILIES = [
     },
 ]
 
-# Demo events
+# Demo events - dates are relative to current date
 DEMO_EVENTS = [
+    {
+        'name': 'Leadership Training',
+        'start_offset_days': -28,
+        'start_hour': 9,
+        'duration_hours': 6,
+        'description': 'Youth leadership development workshop'
+    },
+    {
+        'name': 'Service Project - Park Cleanup',
+        'start_offset_days': -21,
+        'start_hour': 10,
+        'duration_hours': 4,
+        'description': 'Community service: cleaning up local park trails'
+    },
+    {
+        'name': 'Weekend Camping Trip',
+        'start_offset_days': -14,
+        'start_hour': 9,
+        'duration_hours': 48,
+        'description': 'Two-day camping trip at Pine Ridge State Park'
+    },
     {
         'name': 'Weekly Troop Meeting',
         'start_offset_days': -7,
@@ -105,20 +126,6 @@ DEMO_EVENTS = [
         'description': 'Regular weekly troop meeting with badge work and activities'
     },
     {
-        'name': 'Weekend Camping Trip',
-        'start_offset_days': -14,
-        'start_hour': 9,
-        'duration_hours': 48,
-        'description': 'Two-day camping trip at Pine Ridge State Park'
-    },
-    {
-        'name': 'Service Project - Park Cleanup',
-        'start_offset_days': -21,
-        'start_hour': 10,
-        'duration_hours': 4,
-        'description': 'Community service: cleaning up local park trails'
-    },
-    {
         'name': 'Holiday Party',
         'start_offset_days': 7,
         'start_hour': 14,
@@ -131,6 +138,13 @@ DEMO_EVENTS = [
         'start_hour': 13,
         'duration_hours': 4,
         'description': 'Focused workshop for First Aid and Emergency Preparedness badges'
+    },
+    {
+        'name': 'Family Campout',
+        'start_offset_days': 21,
+        'start_hour': 17,
+        'duration_hours': 40,
+        'description': 'Weekend family camping trip with outdoor activities'
     },
 ]
 
@@ -257,9 +271,16 @@ def seed_events(conn):
 def seed_checkins(conn, family_ids, adult_ids, kid_ids, event_ids):
     """Seed check-ins for past events"""
     checkin_count = 0
+    now = datetime.now()
     
-    # Only create check-ins for past events (negative offset)
-    past_event_ids = [eid for eid in event_ids[:4]]  # First 4 events are in the past
+    # Get all past events dynamically
+    past_event_ids = []
+    for event_id in event_ids:
+        cur = conn.execute("SELECT start_time FROM events WHERE id = ?", (event_id,))
+        event = cur.fetchone()
+        event_start = datetime.strptime(event['start_time'], '%Y-%m-%d %H:%M:%S')
+        if event_start < now:
+            past_event_ids.append(event_id)
     
     for event_id in past_event_ids:
         # Get event time
