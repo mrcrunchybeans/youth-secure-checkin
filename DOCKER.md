@@ -1,7 +1,5 @@
 # YouthCheckIn - Docker Deployment Guide
 
-This guide explains how to deploy YouthCheckIn using Docker containers.
-
 ## 📋 Prerequisites
 
 - Docker Engine 20.10+ or Docker Desktop
@@ -17,11 +15,11 @@ This guide explains how to deploy YouthCheckIn using Docker containers.
 # Pull the latest image
 docker pull mrcrunchybeans/youth-secure-checkin:latest
 
-# Create docker-compose.yml
+# Create docker-compose.yml or download it
 curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
 
-# Start the application
-docker-compose up -d
+# Start the production service
+docker compose --profile production up -d
 ```
 
 ### Option 2: Build from Source
@@ -31,8 +29,8 @@ docker-compose up -d
 git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
 cd youth-secure-checkin
 
-# Start with docker-compose
-docker-compose up -d
+# Start with docker compose (uses profile)
+docker compose --profile production up -d
 ```
 
 ### Access Application
@@ -43,7 +41,7 @@ The setup wizard will guide you through initial configuration:
 1. Organization details and branding
 2. Primary color scheme
 3. Access code for check-in page
-4. Event settings (calendar integration)
+4. Admin password
 
 ## 🎭 Demo Mode
 
@@ -53,8 +51,11 @@ Want to try it with sample data first?
 # Pull demo image
 docker pull mrcrunchybeans/youth-secure-checkin:demo
 
+# Download demo compose file
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.demo.yml
+
 # Run demo with pre-loaded data
-docker-compose -f docker-compose.demo.yml up -d
+docker compose -f docker-compose.demo.yml up -d
 ```
 
 **Demo credentials:**
@@ -62,9 +63,14 @@ docker-compose -f docker-compose.demo.yml up -d
 - Admin password: `demo123`
 - Developer password: `demo2025`
 
-**Test phone numbers:** 555-0101, 555-0102, 555-0103, etc.
+**Test phone numbers:** 555-0101, 555-0102, 555-0103, 555-0104, etc.
 
-Demo data auto-resets every 24 hours.
+**Demo features:**
+- 8 pre-loaded families with kids
+- 8 upcoming events
+- Sample check-in history
+- QR code checkout enabled
+- Auto-resets every 24 hours
 
 ## 🔧 Configuration Options
 
@@ -88,23 +94,30 @@ EOF
 
 ### Docker Compose Configuration
 
-Edit `docker-compose.yml` to customize:
+The main `docker-compose.yml` uses profiles. Available profiles:
+
+- **production** - Production web service (default recommended)
+- **demo** - Demo mode with sample data and auto-reset
+- **with-nginx** - Nginx reverse proxy with SSL support
+
+Edit `docker-compose.yml` to customize production service:
 
 ```yaml
-version: '3.8'
 services:
   web:
-    image: mrcrunchybeans/youth-secure-checkin:latest
+    build: .
     container_name: youth-checkin
     ports:
-      - "5000:5000"  # Change port here if needed
+      - "5000:5000"  # Change port mapping if needed
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
     volumes:
-      - ./data:/app/data
-      - ./uploads:/app/static/uploads
+      - ./data:/app/data           # Database storage
+      - ./uploads:/app/uploads     # Logo/favicon uploads
     restart: unless-stopped
+    profiles:
+      - production
 ```
 
 ## 📁 Data Persistence
@@ -112,36 +125,44 @@ services:
 Data is stored in local directories (automatically created):
 
 - **Database**: `./data/checkin.db` (SQLite database)
-- **Uploads**: `./uploads/` (logos, favicons, custom branding)
+- **Uploads**: `./uploads/` (logos, favicons, custom branding images)
+
+**Note:** Volume paths differ between production and demo:
+- Production: `./uploads` → `/app/uploads`
+- Demo: Docker volumes `demo-uploads` → `/app/static/uploads`
 
 These directories persist between container restarts and updates.
 
 ### Backup Your Data
 
 ```bash
-# Quick backup (recommended)
-docker-compose down
-tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
-docker-compose up -d
+# Stop containers first (recommended)
+docker compose --profile production down
 
-# Or use the built-in export feature:
-# Admin Panel → Utilities → Export Data
+# Backup everything
+tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
+
+# Restart
+docker compose --profile production up -d
 ```
+
+**Or use the built-in backup feature:**
+Admin Panel → Backups → Create Backup
 
 ### Restore from Backup
 
 ```bash
 # Stop containers
-docker-compose down
+docker compose --profile production down
 
 # Extract backup
 tar -xzf backup-YYYYMMDD.tar.gz
 
 # Restart
-docker-compose up -d
-
-# Or use Admin Panel → Utilities → Restore from Backup
+docker compose --profile production up -d
 ```
+
+**Or use Admin Panel → Backups → Restore from Backup**
 
 ## 🔐 Security Best Practices
 
@@ -151,12 +172,12 @@ docker-compose up -d
 2. **Generate strong random secrets**:
 
 ```powershell
-# Generate SECRET_KEY (PowerShell)
+# PowerShell (Windows)
 -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 64 | ForEach-Object {[char]$_})
 ```
 
 ```bash
-# Or use Python
+# Bash (Linux/Mac)
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
@@ -164,8 +185,8 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 4. **Keep images updated**:
 
 ```bash
-docker-compose pull
-docker-compose up -d
+docker compose pull
+docker compose --profile production up -d
 ```
 
 ### SSL/TLS for Production
@@ -175,14 +196,14 @@ docker-compose up -d
 1. **Caddy** (easiest): Automatic Let's Encrypt certificates
 2. **Cloudflare Tunnel**: Zero-config SSL + DDoS protection  
 3. **Nginx/Traefik**: Manual SSL setup
+4. **Built-in Nginx profile**:
 
-See `DEPLOYMENT_CHECKLIST.md` for detailed production hosting guides
-   ```
+```bash
+# Set up nginx.conf and SSL certificates first
+docker compose --profile with-nginx up -d
+```
 
-4. **Start with Nginx**:
-   ```bash
-   docker-compose --profile with-nginx up -d
-   ```
+See `DEPLOYMENT_CHECKLIST.md` for detailed production hosting guides.
 
 ## 🛠️ Management Commands
 
@@ -190,57 +211,67 @@ See `DEPLOYMENT_CHECKLIST.md` for detailed production hosting guides
 
 ```bash
 # View recent logs
-docker-compose logs
+docker compose logs
 
 # Follow logs (live updates)
-docker-compose logs -f
+docker compose logs -f
 
 # Last 50 lines
-docker-compose logs --tail=50
+docker compose logs --tail=50
+
+# Specific service
+docker compose logs web
 ```
 
 ### Restart Application
 
 ```bash
 # Quick restart (keeps data)
-docker-compose restart
+docker compose restart
 
 # Full restart
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose --profile production up -d
 ```
 
 ### Update to Latest Version
 
 ```bash
 # Pull new images from Docker Hub
-docker-compose pull
+docker compose pull
 
-# Apply updates
-docker-compose up -d
+# Recreate containers with new image
+docker compose --profile production up -d
 
-# Verify version
-docker-compose ps
+# Verify update
+docker compose ps
+docker compose exec web python -c "from app import APP_VERSION; print(f'Version: {APP_VERSION}')"
 ```
 
 ### Stop Application
 
 ```bash
-# Stop containers (data safe)
-docker-compose down
+# Stop containers (data is safe)
+docker compose down
 
-# ⚠️ Delete everything including data
-docker-compose down -v
+# ⚠️ Delete everything including volumes
+docker compose down -v
 ```
 
 ### Shell Access (Debugging)
 
 ```bash
-# Access container
-docker-compose exec web /bin/sh
+# Access running container
+docker compose exec web /bin/sh
 
 # Check database
-docker-compose exec web sqlite3 data/checkin.db ".tables"
+docker compose exec web sqlite3 data/checkin.db ".tables"
+
+# View Python version
+docker compose exec web python --version
+
+# Check application files
+docker compose exec web ls -la /app/
 ```
 
 ## 📊 Monitoring
@@ -249,34 +280,49 @@ docker-compose exec web sqlite3 data/checkin.db ".tables"
 
 ```bash
 # View running containers
-docker-compose ps
+docker compose ps
 
 # View resource usage
 docker stats --no-stream
+
+# Check health status
+docker inspect --format='{{.State.Health.Status}}' youth-checkin
 ```
 
 ### Health Checks
 
 ```bash
-# Check if container is healthy
-docker ps
-
 # Test application response
 curl http://localhost:5000
+
+# Check health endpoint
+curl http://localhost:5000/health
 ```
 
 ## 🔍 Troubleshooting
 
 ### Port Already in Use
 
+**Windows PowerShell:**
 ```powershell
 # Find what's using port 5000
 netstat -ano | findstr :5000
 
 # Kill the process (use PID from above)
 taskkill /PID <PID> /F
+```
 
-# Or change port in docker-compose.yml
+**Linux/Mac:**
+```bash
+# Find process
+sudo lsof -i :5000
+
+# Kill process
+sudo kill -9 <PID>
+```
+
+**Or change port in docker-compose.yml:**
+```yaml
 ports:
   - "5001:5000"  # Use 5001 instead
 ```
@@ -285,44 +331,71 @@ ports:
 
 ```bash
 # View detailed logs
-docker-compose logs
+docker compose logs web
 
-# Check for missing .env file
-docker-compose config
+# Check configuration
+docker compose config
+
+# Verify .env file exists
+cat .env
 
 # Recreate containers
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose --profile production up -d --force-recreate
 ```
 
 ### Can't Pull Docker Image
 
 ```bash
-# Check Docker Hub connection
+# Test Docker Hub connection
 docker pull mrcrunchybeans/youth-secure-checkin:latest
 
-# Try alternative registry
-# (if configured in docker-compose.yml)
+# Login if needed (for private images)
+docker login
+
+# Check Docker daemon is running
+docker ps
 ```
 
 ### Database Issues
 
 ```bash
 # Stop containers
-docker-compose down
+docker compose down
 
-# Backup and reset database
-mv data/checkin.db data/checkin.db.backup
-docker-compose up -d
+# Backup current database
+cp data/checkin.db data/checkin.db.backup-$(date +%Y%m%d)
 
-# Restore from backup if needed
+# Option 1: Let app recreate database
+rm data/checkin.db
+docker compose --profile production up -d
+
+# Option 2: Restore from Admin Panel backup
+docker compose --profile production up -d
+# Then use Admin Panel → Backups → Restore
+```
+
+### Volume/Permission Issues
+
+```bash
+# Fix permissions (Linux/Mac)
+sudo chown -R $(id -u):$(id -g) data/ uploads/
+chmod -R 755 data/ uploads/
+
+# Recreate volumes if corrupted
+docker compose down -v
+docker compose --profile production up -d
 ```
 
 ### Clean Up Disk Space
 
-```powershell
-# Remove old images and containers
+```bash
+# Remove unused containers and images
 docker system prune -a
+
+# Remove specific stopped containers
+docker compose down
+docker container prune
 
 # Check disk usage
 docker system df
@@ -338,8 +411,10 @@ Edit `docker-compose.yml`:
 services:
   web:
     ports:
-      - "8080:5000"  # Use port 8080 instead of 5000
+      - "8080:5000"  # External:Internal (container always uses 5000)
 ```
+
+Then access at `http://localhost:8080`
 
 ### Resource Limits
 
@@ -349,19 +424,51 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '1.0'
           memory: 512M
+        reservations:
+          memory: 256M
+```
+
+### Multiple Instances
+
+Run multiple isolated instances:
+
+```yaml
+# docker-compose.troop123.yml
+services:
+  web:
+    container_name: youth-checkin-troop123
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./data-troop123:/app/data
+      - ./uploads-troop123:/app/uploads
+```
+
+Start with:
+```bash
+docker compose -f docker-compose.troop123.yml --profile production up -d
 ```
 
 ### Performance Tuning
 
-Environment variables in `.env`:
+Add to `.env`:
 
 ```bash
-# Number of worker processes (CPU cores * 2 + 1)
-GUNICORN_WORKERS=4
+# Number of Gunicorn workers (formula: CPU cores * 2 + 1)
+GUNICORN_WORKERS=5
+
+# Worker timeout (seconds)
+GUNICORN_TIMEOUT=120
 
 # Max requests per worker (memory leak protection)
 GUNICORN_MAX_REQUESTS=1000
+```
+
+Update Dockerfile CMD or compose command:
+```yaml
+command: gunicorn --bind 0.0.0.0:5000 --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120} --max-requests ${GUNICORN_MAX_REQUESTS:-1000} wsgi:app
 ```
 
 ## 🌐 Production Deployment
@@ -371,45 +478,72 @@ GUNICORN_MAX_REQUESTS=1000
 Before going live:
 
 - [ ] Generate strong `SECRET_KEY` in `.env`
-- [ ] Set secure admin password during setup
-- [ ] Configure SSL (Caddy/Cloudflare/Let's Encrypt)
-- [ ] Set up automated backups (see Backup section)
+- [ ] Set secure `DEVELOPER_PASSWORD` in `.env`
+- [ ] Set strong admin password during setup wizard
+- [ ] Configure SSL/HTTPS (Caddy/Cloudflare/Nginx)
+- [ ] Set up automated backups
 - [ ] Test backup restoration
 - [ ] Configure custom branding (Admin Panel → Branding)
-- [ ] Review firewall rules
+- [ ] Review and test all features
+- [ ] Set up monitoring/alerts
+- [ ] Document your deployment
 
 ### Hosting Options
 
-See `DEPLOYMENT_CHECKLIST.md` for detailed guides:
+Compatible with any Docker-capable host:
 
-- **VPS** (DigitalOcean, Linode, Vultr)
-- **Cloud** (AWS, Google Cloud, Azure)
-- **Managed** (Railway, Render, Fly.io)
+**VPS Providers:**
+- DigitalOcean (Droplets)
+- Linode
+- Vultr
+- Hetzner
 
-All support Docker deployment!
+**Cloud Platforms:**
+- AWS (ECS, Lightsail)
+- Google Cloud (Cloud Run, Compute Engine)
+- Azure (Container Instances, App Service)
+
+**Platform-as-a-Service:**
+- Railway.app
+- Render.com
+- Fly.io
+
+See `DEPLOYMENT_CHECKLIST.md` for platform-specific guides.
 
 ### Automated Backups
 
-Create cron job:
+**Cron job (Linux):**
 
 ```bash
 # Edit crontab
 crontab -e
 
 # Add daily backup at 2 AM
-0 2 * * * cd /path/to/youth-secure-checkin && tar -czf ~/backups/checkin-$(date +\%Y\%m\%d).tar.gz data/ uploads/
+0 2 * * * cd /path/to/youth-secure-checkin && docker compose down && tar -czf ~/backups/checkin-$(date +\%Y\%m\%d-\%H\%M).tar.gz data/ uploads/ && docker compose --profile production up -d
 ```
+
+**Windows Task Scheduler:**
+
+Create PowerShell script `backup.ps1`:
+```powershell
+cd C:\youth-secure-checkin
+docker compose down
+tar -czf "C:\backups\checkin-$(Get-Date -Format 'yyyyMMdd-HHmm').tar.gz" data, uploads
+docker compose --profile production up -d
+```
+
+Schedule via Task Scheduler to run daily.
 
 ### Log Rotation
 
-Create `/etc/logrotate.d/docker-compose`:
+Create `/etc/logrotate.d/docker-youth-checkin`:
 
 ```
 /var/lib/docker/containers/*/*.log {
     rotate 7
     daily
     compress
-    size=10M
+    maxsize 10M
     missingok
     delaycompress
     copytruncate
@@ -418,75 +552,131 @@ Create `/etc/logrotate.d/docker-compose`:
 
 ## 🐋 Docker Commands Reference
 
-### Build
+### Images
 
 ```bash
-docker-compose build              # Build all services
-docker-compose build --no-cache   # Build without cache
-docker build -t youth-checkin .   # Build image directly
+# Pull image
+docker pull mrcrunchybeans/youth-secure-checkin:latest
+docker pull mrcrunchybeans/youth-secure-checkin:demo
+
+# List images
+docker images
+
+# Remove image
+docker rmi mrcrunchybeans/youth-secure-checkin:latest
+
+# Build from Dockerfile
+docker build -t youth-checkin .
 ```
 
-### Run
+### Containers
 
 ```bash
-docker-compose up                 # Start (foreground)
-docker-compose up -d              # Start (background)
-docker-compose up --build         # Build and start
+# Start
+docker compose --profile production up -d
+
+# Stop
+docker compose down
+
+# Restart
+docker compose restart
+
+# View logs
+docker compose logs -f
+
+# Execute command
+docker compose exec web /bin/sh
 ```
 
-### Stop
+### Volumes
 
 ```bash
-docker-compose stop               # Stop services
-docker-compose down               # Stop and remove containers
-docker-compose down -v            # Stop and remove volumes
+# List volumes
+docker volume ls
+
+# Inspect volume
+docker volume inspect youth-secure-checkin_data
+
+# Remove unused volumes
+docker volume prune
 ```
 
-### Logs
+### Networks
 
 ```bash
-docker-compose logs               # View all logs
-docker-compose logs -f            # Follow logs
-docker-compose logs --tail=50     # Last 50 lines
-```
+# List networks
+docker network ls
 
-### Shell Access
-
-```bash
-docker-compose exec web /bin/sh   # Container shell
-docker-compose exec web python    # Python REPL
+# Inspect network
+docker network inspect youth-secure-checkin_checkin-network
 ```
 
 ## 📚 Quick Reference
 
-### Most Used Commands
+### Common Commands
 
 ```bash
-# Start application
-docker-compose up -d
+# Start production
+docker compose --profile production up -d
+
+# Start demo
+docker compose -f docker-compose.demo.yml up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
-# Stop application
-docker-compose down
+# Stop
+docker compose down
 
-# Update to latest
-docker-compose pull && docker-compose up -d
+# Update
+docker compose pull && docker compose --profile production up -d
 
-# Backup data
-docker-compose down
-tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
-docker-compose up -d
+# Backup
+docker compose down && tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/ && docker compose --profile production up -d
+
+# Shell access
+docker compose exec web /bin/sh
+
+# Check version
+docker compose exec web python -c "from app import APP_VERSION; print(APP_VERSION)"
 ```
+
+### File Locations
+
+**In Container:**
+- Application: `/app/`
+- Database: `/app/data/checkin.db`
+- Uploads: `/app/uploads/` (production) or `/app/static/uploads/` (demo)
+- Logs: stdout (view with `docker compose logs`)
+
+**On Host:**
+- Database: `./data/checkin.db`
+- Uploads: `./uploads/`
+- Configuration: `.env`
+- Compose: `docker-compose.yml` or `docker-compose.demo.yml`
+
+### Ports
+
+- **5000**: Application (default, mapped from host to container)
+- **80/443**: Nginx (if using with-nginx profile)
+
+Change host port in docker-compose.yml: `"<host-port>:5000"`
 
 ## 🆘 Need Help?
 
-- **Features**: See `README.md` for application documentation
-- **Deployment**: See `DEPLOYMENT_CHECKLIST.md` for hosting guides  
+- **Application Guide**: See `README.md` for features and usage
+- **Deployment Guide**: See `DEPLOYMENT_CHECKLIST.md` for hosting platforms  
+- **Security Guide**: See `SECURITY.md` for best practices
 - **Issues**: [GitHub Issues](https://github.com/mrcrunchybeans/youth-secure-checkin/issues)
 - **Docker Docs**: [docs.docker.com](https://docs.docker.com/)
+- **Docker Compose**: [docs.docker.com/compose](https://docs.docker.com/compose/)
 
----
+## 📝 Notes
 
-**Deploy from Docker Hub in 30 seconds! 🚀**
+- Docker Compose V2 uses `docker compose` (no hyphen), V1 uses `docker-compose`
+- Always stop containers before backing up database files
+- Demo mode auto-resets every 24 hours and should not be used for production
+- Production uses local directories; demo uses named Docker volumes
+- The application runs on port 5000 inside the container (not configurable)
+- Health checks run every 30 seconds with 3 retries
+- Default worker count is 3 for production, 2 for demo
