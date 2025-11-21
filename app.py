@@ -35,6 +35,24 @@ from cloud_backup import GoogleDriveBackup, DropboxBackup, OneDriveBackup, backu
 # Load environment variables from .env file
 load_dotenv()
 
+# Allowed domains for iCal imports (SSRF protection)
+# Add trusted calendar providers here
+ALLOWED_ICAL_DOMAINS = [
+    'calendar.google.com',
+    'outlook.office365.com',
+    'outlook.live.com',
+    'calendars.icloud.com',
+    'ical.mac.com',
+    'p01-caldav.icloud.com',
+    'p02-caldav.icloud.com',
+    'p03-caldav.icloud.com',
+    'p04-caldav.icloud.com',
+    'p05-caldav.icloud.com',
+    'p06-caldav.icloud.com',
+    'p07-caldav.icloud.com',
+    'p08-caldav.icloud.com',
+]
+
 # Optional label printing support
 try:
     from label_printer import generate_unique_code, print_checkout_label
@@ -3324,10 +3342,12 @@ def validate_and_resolve_url(url):
         if not hostname:
             return False, "Invalid hostname", None
         
-        # Block common private/local hostnames
-        blocked_hosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', 'metadata.google.internal']
-        if hostname.lower() in blocked_hosts:
-            return False, "Access to local/private hostnames is blocked", None
+        # Check if domain is in allowlist (primary SSRF protection)
+        hostname_lower = hostname.lower()
+        if not any(hostname_lower == allowed or hostname_lower.endswith('.' + allowed) 
+                   for allowed in ALLOWED_ICAL_DOMAINS):
+            allowed_list = ', '.join(ALLOWED_ICAL_DOMAINS[:3]) + '...'
+            return False, f"Domain not allowed. Only trusted calendar providers are supported: {allowed_list}", None
         
         # Resolve DNS and validate all IPs
         resolved_ips = []
