@@ -11,7 +11,6 @@ Then open: **http://localhost:5000**
 ## 🔐 Login
 
 **Admin:**
-- Username: `demo`
 - Password: `demo123`
 
 ## 📱 Test Families

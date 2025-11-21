@@ -147,7 +147,6 @@ DEMO_SETTINGS = {
     'checkout_enabled': '1',
     'demo_mode': 'true',
     'demo_banner': 'Resets every 24 hours | Check-in code: demo123 | Admin password: demo123',
-    'admin_username': 'demo',
     'admin_password_hash': 'pbkdf2:sha256:260000$demo$5d8c8a8e8f9e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f',  # password: demo123
     'is_setup_complete': 'true',  # Bypass setup screen for demo
     'app_password': 'demo123',  # Default app password for demo
@@ -347,7 +346,6 @@ def main():
     print("✓ Demo database seeded successfully!")
     print(f"Database location: {DATABASE_PATH}")
     print(f"Demo login credentials:")
-    print(f"  Username: demo")
     print(f"  Password: demo123")
     print("=" * 50)
 

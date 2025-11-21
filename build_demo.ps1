@@ -25,7 +25,6 @@ Write-Host "✓ Demo Build Complete!" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
 Write-Host "`nAccess the demo at: http://localhost:5000" -ForegroundColor White
 Write-Host "`nLogin credentials:" -ForegroundColor White
-Write-Host "  Username: demo" -ForegroundColor Gray
 Write-Host "  Password: demo123" -ForegroundColor Gray
 Write-Host "`nTest phone numbers:" -ForegroundColor White
 Write-Host "  555-0101 (Johnson - 2 kids)" -ForegroundColor Gray

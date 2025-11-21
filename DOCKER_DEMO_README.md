@@ -167,7 +167,6 @@ certbot --nginx -d demo.yourdomain.com
 The demo includes these pre-configured accounts:
 
 ### Admin Access
-- **Username**: `demo`
 - **Password**: `demo123`
 - **Developer Password**: `demo2025`
 
