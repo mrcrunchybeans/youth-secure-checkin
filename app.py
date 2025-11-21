@@ -584,6 +584,11 @@ def auto_sync_ical():
 sync_thread = threading.Thread(target=auto_sync_ical, daemon=True)
 sync_thread.start()
 
+@app.route('/health')
+def health():
+    """Health check endpoint for Docker and monitoring"""
+    return jsonify({'status': 'ok'}), 200
+
 @app.route('/setup', methods=['GET', 'POST'])
 def setup():
     """First-time setup wizard"""
