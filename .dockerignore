@@ -62,6 +62,7 @@ build/
 *.db-backup
 *.bak
 backup*/
+!backup_manager.py
 
 # Personal/local files
 local-scripts/
