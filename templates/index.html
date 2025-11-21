@@ -35,15 +35,27 @@
     <div class="card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="background-color: {{ branding.primary_color }}; color: white;">
         <strong class="mb-1 mb-sm-0">Family Lookup</strong>
-        <!-- Desktop: dropdown select -->
-        <select id="event-select" class="form-select form-select-sm d-none d-sm-inline-block" style="width: auto; max-width: 300px;">
-          {% for event in events %}
-            <option value="{{ event['id'] }}" {% if event['id'] == current_event_id %}selected{% endif %}>{{ event['start_time'][:10] }} - {{ event['name'] }}</option>
-          {% endfor %}
-        </select>
+        <!-- Desktop: Bootstrap dropdown -->
+        <div class="dropdown d-none d-sm-inline-block">
+          <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="eventDropdownIndex" data-bs-toggle="dropdown" aria-expanded="false" title="{{ events|selectattr('id', 'equalto', current_event_id)|map(attribute='name')|first }}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar-event" viewBox="0 0 16 16" style="margin-bottom: 2px;">
+              <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/>
+              <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+            </svg>
+            <span class="d-none d-lg-inline ms-1">{{ events|selectattr('id', 'equalto', current_event_id)|map(attribute='name')|first }}</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="eventDropdownIndex">
+            {% for event in events %}
+            <li><a class="dropdown-item" href="{{ url_for('index', event_id=event['id']) }}">{{ event['name'] }} - {{ event['start_time'][:10] }}</a></li>
+            {% endfor %}
+          </ul>
+        </div>
         <!-- Mobile: button opens modal -->
-        <button type="button" class="btn btn-sm btn-light d-inline d-sm-none" data-bs-toggle="modal" data-bs-target="#eventModalIndex" style="padding: 0.25rem 0.75rem; font-size: 1.2rem;" title="Select Event">
-          &#128197;
+        <button type="button" class="btn btn-sm btn-light d-inline d-sm-none" data-bs-toggle="modal" data-bs-target="#eventModalIndex">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar-event" viewBox="0 0 16 16">
+            <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/>
+            <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+          </svg>
         </button>
       </div>
       <div class="card-body">
