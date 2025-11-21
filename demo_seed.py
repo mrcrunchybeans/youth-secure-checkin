@@ -126,11 +126,11 @@ DEMO_EVENTS = [
         'description': 'Regular weekly troop meeting with badge work and activities'
     },
     {
-        'name': 'Holiday Party',
+        'name': 'Social Event',
         'start_offset_days': 7,
         'start_hour': 14,
         'duration_hours': 3,
-        'description': 'End of year celebration with games and activities'
+        'description': 'Group celebration with games and activities'
     },
     {
         'name': 'Merit Badge Workshop',
