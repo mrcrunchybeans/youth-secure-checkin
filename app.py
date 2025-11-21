@@ -38,9 +38,14 @@ load_dotenv()
 # Allowed domains for iCal imports (SSRF protection)
 # Add trusted calendar providers here
 ALLOWED_ICAL_DOMAINS = [
+    # Google Calendar
     'calendar.google.com',
+    
+    # Microsoft Outlook/Office 365
     'outlook.office365.com',
     'outlook.live.com',
+    
+    # Apple iCloud
     'calendars.icloud.com',
     'ical.mac.com',
     'p01-caldav.icloud.com',
@@ -51,6 +56,29 @@ ALLOWED_ICAL_DOMAINS = [
     'p06-caldav.icloud.com',
     'p07-caldav.icloud.com',
     'p08-caldav.icloud.com',
+    
+    # Trail Life USA
+    'traillifeconnect.com',
+    'www.traillifeconnect.com',
+    
+    # Church Management Systems
+    'planningcenteronline.com',
+    'api.planningcenteronline.com',
+    'churchcenter.com',
+    'breezechms.com',
+    'secure.breezechms.com',
+    'elvanto.com',
+    'elvanto.net',
+    'subsplash.com',
+    'pushpay.com',
+    
+    # Other Calendar Services
+    'calendar.yahoo.com',
+    'zimbra.free-av.de',
+    'calendar.zoho.com',
+    'fastmail.com',
+    'protonmail.com',
+    'tutanota.com',
 ]
 
 # Optional label printing support
