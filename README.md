@@ -40,7 +40,6 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ### 🎫 Checkout Options
 - **QR Codes**: Display on screen for mobile scanning
-- **URL Shortener**: Integrated YOURLS for short, easy-to-type URLs
 - **Label Printing**: Brother QL series thermal printers
 - **Dual Mode**: Support both QR and labels simultaneously
 - **Custom Labels**: Three-line configurable text

@@ -1,4 +1,4 @@
-# 🚀 Youth Secure Check-in + YOURLS - Quick Start Guide
+# 🚀 Youth Secure Check-in - Quick Start Guide
 
 ## One-Command Docker Deployment
 
@@ -12,12 +12,11 @@ cd youth-secure-checkin
 cp .env.example .env
 nano .env  # Edit SECRET_KEY and passwords
 
-# 3. Start everything (check-in + YOURLS)
+# 3. Start application
 docker compose --profile production up -d
 
-# 4. Access applications
+# 4. Access application
 # Youth Check-in: http://localhost:5000
-# YOURLS Admin:   http://localhost:8080/admin
 ```
 
 ### Demo Mode Setup
@@ -28,67 +27,31 @@ docker compose -f docker-compose.demo.yml up -d
 # Demo credentials:
 # Check-in: demo123
 # Admin: demo123
-# YOURLS: admin/admin
 
 # Access:
 # Youth Check-in: http://localhost:5000
-# YOURLS Admin:   http://localhost:8080/admin
 ```
-
-## 5-Minute YOURLS Configuration
-
-1. **Install YOURLS** (first-time only)
-   - Visit: http://localhost:8080/admin
-   - Click "Install YOURLS"
-   - Wait 10 seconds for installation
-
-2. **Get API Token**
-   - Login to YOURLS admin
-   - Navigate to: Tools → API
-   - Copy your signature token
-
-3. **Configure Youth Check-in**
-   - Login to: http://localhost:5000
-   - Go to: Admin → Security → URL Shortener
-   - Enter:
-     ```
-     YOURLS API URL: http://yourls/yourls-api.php
-     API Signature:  [paste token from step 2]
-     ```
-   - Click "Save YOURLS Settings"
-
-4. **Test Integration**
-   - Check-in a family
-   - View QR code modal
-   - Short URL appears below QR code! 🎉
 
 ## Port Reference
 
 | Service | Port | URL |
 |---------|------|-----|
 | Youth Check-in | 5000 | http://localhost:5000 |
-| YOURLS | 8080 | http://localhost:8080/admin |
-| MySQL (internal) | 3306 | (Not exposed) |
 
 ## Container Reference
 
 ### Production
 - `youth-checkin` - Main application
-- `youth-checkin-yourls` - URL shortener
-- `youth-checkin-yourls-db` - MySQL database
 
 ### Demo
 - `youth-checkin-demo` - Demo application
 - `youth-checkin-demo-reset` - Auto-reset service
-- `youth-checkin-demo-yourls` - URL shortener
-- `youth-checkin-demo-yourls-db` - MySQL database
 
 ## Common Commands
 
 ```bash
 # View logs
 docker logs youth-checkin
-docker logs youth-checkin-yourls
 
 # Stop all services
 docker compose --profile production down

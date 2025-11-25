@@ -531,43 +531,12 @@ def require_auth(f):
     return decorated_function
 
 def generate_share_token():
-    """Generate a secure random token for sharing checkout codes"""
-    return secrets.token_urlsafe(32)
-
-def shorten_url_with_yourls(long_url):
-    """Shorten URL using YOURLS API if configured"""
-    try:
-        conn = get_db()
-        yourls_api = conn.execute("SELECT value FROM settings WHERE key = 'yourls_api_url'").fetchone()
-        yourls_signature = conn.execute("SELECT value FROM settings WHERE key = 'yourls_signature'").fetchone()
-        conn.close()
-        
-        if not yourls_api or not yourls_signature or not yourls_api[0] or not yourls_signature[0]:
-            return long_url  # Return original URL if YOURLS not configured
-        
-        # Set a reasonable timeout to avoid blocking the check-in process
-        response = requests.get(yourls_api[0], params={
-            'signature': yourls_signature[0],
-            'action': 'shorturl',
-            'url': long_url,
-            'format': 'json'
-        }, timeout=3.0)  # 3 second timeout
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('status') == 'success' or data.get('shorturl'):
-                return data.get('shorturl', long_url)
-            else:
-                app.logger.warning(f"YOURLS returned error: {data.get('message')}")
-        else:
-            app.logger.warning(f"YOURLS HTTP error: {response.status_code}")
-            
-    except requests.exceptions.Timeout:
-        app.logger.warning("YOURLS API timed out")
-    except Exception as e:
-        app.logger.error(f"YOURLS shortening error: {e}")
-    
-    return long_url  # Return original URL if shortening fails
+    """Generate a secure random token for sharing checkout codes.
+    Using 6 bytes results in an 8-character URL-safe string.
+    This is short enough for simple QR codes without needing an external shortener,
+    while still providing sufficient entropy for temporary tokens.
+    """
+    return secrets.token_urlsafe(6)
 
 def create_qr_code(url):
     """Generate a QR code image as base64 string"""
@@ -590,6 +559,37 @@ def cleanup_expired_tokens():
     conn.execute("DELETE FROM share_tokens WHERE expires_at < ? OR used = 1", (now,))
     conn.commit()
     conn.close()
+
+def safe_http_get(url, timeout=10, max_size=10*1024*1024):
+    """
+    Perform a safe HTTP GET request with SSRF protection.
+    Validates that the domain is in ALLOWED_ICAL_DOMAINS.
+    """
+    parsed = urllib.parse.urlparse(url)
+    domain = parsed.netloc.lower()
+    
+    # Basic SSRF protection: only allow whitelisted domains
+    allowed = False
+    for allowed_domain in ALLOWED_ICAL_DOMAINS:
+        if domain == allowed_domain or domain.endswith('.' + allowed_domain):
+            allowed = True
+            break
+            
+    if not allowed:
+        # Also allow localhost for testing if needed, or just fail
+        # For now, strict whitelist
+        raise ValueError(f"Domain {domain} is not in the allowed list")
+        
+    response = requests.get(url, timeout=timeout, stream=True)
+    response.raise_for_status()
+    
+    content = b''
+    for chunk in response.iter_content(chunk_size=8192):
+        content += chunk
+        if len(content) > max_size:
+            raise ValueError("Response too large")
+            
+    return content
 
 def sync_ical_events():
     """Sync events from iCal URL - can be called manually or automatically"""
@@ -1328,10 +1328,9 @@ def checkin_selected():
         """, (share_token, family_id, event_id, checkin_ids, now, expires_at))
         conn.commit()
         
-        # Generate QR code URL and short URL
+        # Generate QR code URL
         share_url = url_for('share_codes', token=share_token, _external=True)
-        short_url = shorten_url_with_yourls(share_url)
-        qr_code_data = create_qr_code(short_url)
+        qr_code_data = create_qr_code(share_url)
     
     conn.close()
     
@@ -2302,16 +2301,6 @@ def admin_security():
             conn.commit()
             flash('Checkout code settings updated successfully!', 'success')
         
-        # Handle YOURLS settings
-        elif request.form.get('action') == 'yourls_settings':
-            yourls_api_url = request.form.get('yourls_api_url', '').strip()
-            yourls_signature = request.form.get('yourls_signature', '').strip()
-            
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('yourls_api_url', ?)", (yourls_api_url,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('yourls_signature', ?)", (yourls_signature,))
-            conn.commit()
-            flash('YOURLS URL shortener settings updated successfully!', 'success')
-        
         conn.close()
         return redirect(url_for('admin_security'))
     
@@ -2694,8 +2683,8 @@ def admin_import_families():
                     families[key]['authorized_adults'] = authorized_adults
             
             conn = get_db()
-            imported = 0
-            skipped = 0
+            imported_count = 0
+            skipped_count = 0
             
             for fam_data in families.values():
                 # Use last 4 digits of first phone, or None if no phones
@@ -2729,9 +2718,9 @@ def admin_import_families():
                         conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
                                    (family_id, kid_name, kid_notes))
                     
-                    imported += 1
+                    imported_count += 1
                 except Exception as e:
-                    skipped += 1
+                    skipped_count += 1
                     family_name = fam_data["adults"][0] if fam_data["adults"] else "unknown"
                     flash(f'Error importing family {family_name}: {e}', 'warning')
                     continue
@@ -2739,10 +2728,10 @@ def admin_import_families():
             conn.commit()
             conn.close()
             
-            if imported > 0:
-                flash(f'Successfully imported {imported} families!', 'success')
-            if skipped > 0:
-                flash(f'Skipped {skipped} families due to errors.', 'warning')
+            if imported_count > 0:
+                flash(f'Successfully imported {imported_count} families!', 'success')
+            if skipped_count > 0:
+                flash(f'Skipped {skipped_count} families due to errors.', 'warning')
             
         except Exception as e:
             flash(f'Error parsing CSV file: {e}. Please check the file format.', 'danger')
@@ -2956,46 +2945,4 @@ def admin_sync_ical():
         flash(message, 'danger')
     return redirect(url_for('admin_events'))
 
-@app.route('/admin/security/test_yourls', methods=['POST'])
-@login_required
-def test_yourls_connection():
-    """Test connection to YOURLS API"""
-    api_url = request.form.get('api_url')
-    signature = request.form.get('signature')
-    
-    if not api_url or not signature:
-        return jsonify({'success': False, 'message': 'Missing API URL or Signature'})
-    
-    try:
-        # Test by shortening a dummy URL
-        response = requests.get(api_url, params={
-            'signature': signature,
-            'action': 'shorturl',
-            'url': 'https://example.com',
-            'format': 'json'
-        }, timeout=5.0)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('status') == 'success' or data.get('shorturl'):
-                return jsonify({
-                    'success': True, 
-                    'message': f"Connection successful! Shortened example.com to {data.get('shorturl')}"
-                })
-            else:
-                return jsonify({
-                    'success': False, 
-                    'message': f"YOURLS Error: {data.get('message', 'Unknown error')}"
-                })
-        else:
-            return jsonify({
-                'success': False, 
-                'message': f"HTTP Error: {response.status_code}"
-            })
-            
-    except requests.exceptions.ConnectionError:
-        return jsonify({'success': False, 'message': 'Connection failed. Check the URL.'})
-    except requests.exceptions.Timeout:
-        return jsonify({'success': False, 'message': 'Connection timed out.'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f"Error: {str(e)}"})
+
