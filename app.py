@@ -536,28 +536,36 @@ def generate_share_token():
 
 def shorten_url_with_yourls(long_url):
     """Shorten URL using YOURLS API if configured"""
-    conn = get_db()
-    yourls_api = conn.execute("SELECT value FROM settings WHERE key = 'yourls_api_url'").fetchone()
-    yourls_signature = conn.execute("SELECT value FROM settings WHERE key = 'yourls_signature'").fetchone()
-    conn.close()
-    
-    if not yourls_api or not yourls_signature:
-        return long_url  # Return original URL if YOURLS not configured
-    
     try:
+        conn = get_db()
+        yourls_api = conn.execute("SELECT value FROM settings WHERE key = 'yourls_api_url'").fetchone()
+        yourls_signature = conn.execute("SELECT value FROM settings WHERE key = 'yourls_signature'").fetchone()
+        conn.close()
+        
+        if not yourls_api or not yourls_signature or not yourls_api[0] or not yourls_signature[0]:
+            return long_url  # Return original URL if YOURLS not configured
+        
+        # Set a reasonable timeout to avoid blocking the check-in process
         response = requests.get(yourls_api[0], params={
             'signature': yourls_signature[0],
             'action': 'shorturl',
             'url': long_url,
             'format': 'json'
-        }, timeout=5)
+        }, timeout=3.0)  # 3 second timeout
         
         if response.status_code == 200:
             data = response.json()
             if data.get('status') == 'success' or data.get('shorturl'):
                 return data.get('shorturl', long_url)
+            else:
+                app.logger.warning(f"YOURLS returned error: {data.get('message')}")
+        else:
+            app.logger.warning(f"YOURLS HTTP error: {response.status_code}")
+            
+    except requests.exceptions.Timeout:
+        app.logger.warning("YOURLS API timed out")
     except Exception as e:
-        print(f"YOURLS shortening error: {e}")
+        app.logger.error(f"YOURLS shortening error: {e}")
     
     return long_url  # Return original URL if shortening fails
 
@@ -2948,517 +2956,46 @@ def admin_sync_ical():
         flash(message, 'danger')
     return redirect(url_for('admin_events'))
 
-def validate_and_resolve_url(url):
-    """
-    Validate URL and resolve to safe IP address to prevent SSRF attacks.
-    Returns (is_valid, error_message, resolved_ip) tuple.
-    """
+@app.route('/admin/security/test_yourls', methods=['POST'])
+@login_required
+def test_yourls_connection():
+    """Test connection to YOURLS API"""
+    api_url = request.form.get('api_url')
+    signature = request.form.get('signature')
+    
+    if not api_url or not signature:
+        return jsonify({'success': False, 'message': 'Missing API URL or Signature'})
+    
     try:
-        # Only allow http(s)
-        parsed = urllib.parse.urlparse(url)
-        if parsed.scheme not in ('http', 'https'):
-            return False, "Only HTTP/HTTPS URLs are allowed", None
+        # Test by shortening a dummy URL
+        response = requests.get(api_url, params={
+            'signature': signature,
+            'action': 'shorturl',
+            'url': 'https://example.com',
+            'format': 'json'
+        }, timeout=5.0)
         
-        hostname = parsed.hostname
-        if not hostname:
-            return False, "Invalid hostname", None
-        
-        # Check if domain is in allowlist (primary SSRF protection)
-        hostname_lower = hostname.lower()
-        if not any(hostname_lower == allowed or hostname_lower.endswith('.' + allowed) 
-                   for allowed in ALLOWED_ICAL_DOMAINS):
-            allowed_list = ', '.join(ALLOWED_ICAL_DOMAINS[:3]) + '...'
-            return False, f"Domain not allowed. Only trusted calendar providers are supported: {allowed_list}", None
-        
-        # Resolve DNS and validate all IPs
-        resolved_ips = []
-        for res in socket.getaddrinfo(hostname, None):
-            ip = res[4][0]
-            ip_obj = ipaddress.ip_address(ip)
-            # Block private, loopback, link-local, reserved, multicast IPs
-            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast:
-                return False, "Cannot access private/internal IP addresses", None
-            resolved_ips.append(ip)
-        
-        if not resolved_ips:
-            return False, "Could not resolve hostname", None
-        
-        # Return first valid IP
-        return True, None, resolved_ips[0]
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success' or data.get('shorturl'):
+                return jsonify({
+                    'success': True, 
+                    'message': f"Connection successful! Shortened example.com to {data.get('shorturl')}"
+                })
+            else:
+                return jsonify({
+                    'success': False, 
+                    'message': f"YOURLS Error: {data.get('message', 'Unknown error')}"
+                })
+        else:
+            return jsonify({
+                'success': False, 
+                'message': f"HTTP Error: {response.status_code}"
+            })
+            
+    except requests.exceptions.ConnectionError:
+        return jsonify({'success': False, 'message': 'Connection failed. Check the URL.'})
+    except requests.exceptions.Timeout:
+        return jsonify({'success': False, 'message': 'Connection timed out.'})
     except Exception as e:
-        return False, f"URL validation error: {str(e)}", None
-
-def safe_http_get(url, timeout=10, max_size=10*1024*1024):
-    """
-    Make HTTP GET request with SSRF protection.
-    For allowed domains, uses standard HTTPS request with redirects and relaxed SSL verification
-    to handle calendar services that may redirect to IPs or have certificate issues.
-    """
-    # Validate URL is from allowed domain
-    is_valid, error_msg, resolved_ip = validate_and_resolve_url(url)
-    if not is_valid:
-        raise ValueError(error_msg)
-    
-    # For allowed/trusted domains, make direct request with SSL verification disabled
-    # This handles calendar services that redirect to IPs or have cert mismatches
-    # Security is maintained by the ALLOWED_ICAL_DOMAINS whitelist
-    response = requests.get(
-        url, 
-        timeout=timeout, 
-        stream=True, 
-        allow_redirects=True,  # Follow redirects for calendar services
-        verify=False  # Disable SSL verification for whitelisted domains only
-    )
-    response.raise_for_status()
-    
-    # Check content length
-    content_length = response.headers.get('content-length')
-    if content_length and int(content_length) > max_size:
-        raise ValueError(f"Response too large (max {max_size} bytes)")
-    
-    # Read in chunks with size limit
-    content = b''
-    for chunk in response.iter_content(chunk_size=8192):
-        content += chunk
-        if len(content) > max_size:
-            raise ValueError(f"Response too large (max {max_size} bytes)")
-    
-    return content
-
-@app.route('/admin/events/import', methods=['GET', 'POST'])
-@require_auth
-def admin_import_events():
-    
-    if request.method == 'POST':
-        ical_url = request.form.get('ical_url', '').strip()
-        if not ical_url:
-            flash('iCal URL required', 'danger')
-            return redirect(request.url)
-            
-        try:
-            # Use safe HTTP get with SSRF protection
-            content = safe_http_get(ical_url, timeout=10, max_size=10*1024*1024)
-            cal = Calendar.from_ical(content.decode('utf-8'))
-            conn = get_db()
-            for component in cal.walk():
-                if component.name == "VEVENT":
-                    name = str(component.get('summary', 'Event'))
-                    start_dt = component.get('dtstart')
-                    end_dt = component.get('dtend')
-                    start_time = None
-                    end_time = None
-                    if start_dt:
-                        dt = start_dt.dt
-                        if hasattr(dt, 'tzinfo') and dt.tzinfo:
-                            dt = dt.astimezone(local_tz)
-                        else:
-                            dt = local_tz.localize(dt)
-                        start_time = dt.isoformat()
-                    if end_dt:
-                        dt = end_dt.dt
-                        if hasattr(dt, 'tzinfo') and dt.tzinfo:
-                            dt = dt.astimezone(local_tz)
-                        else:
-                            dt = local_tz.localize(dt)
-                        end_time = dt.isoformat()
-                    description = str(component.get('description', ''))
-                    if start_time:
-                        conn.execute("INSERT OR IGNORE INTO events (name, start_time, end_time, description) VALUES (?, ?, ?, ?)",
-                                     (name, start_time, end_time, description))
-            conn.commit()
-            conn.close()
-            flash('Events imported successfully', 'success')
-        except Exception as e:
-            flash(f'Error importing: {str(e)}', 'danger')
-        return redirect(url_for('admin_events'))
-    return render_template('admin/import_events.html')
-
-@app.route('/admin/events/add', methods=['GET', 'POST'])
-@require_auth
-def admin_add_event():
-    """Manually add a new event"""
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        date = request.form.get('date', '').strip()
-        time = request.form.get('time', '').strip()
-        end_time = request.form.get('end_time', '').strip()
-        description = request.form.get('description', '').strip()
-        
-        if not name or not date:
-            flash('Event name and date are required', 'danger')
-            return redirect(request.url)
-        
-        try:
-            # Combine date and time into ISO format
-            if time:
-                start_datetime = f"{date}T{time}:00"
-            else:
-                start_datetime = f"{date}T00:00:00"
-            
-            if end_time:
-                end_datetime = f"{date}T{end_time}:00"
-            else:
-                end_datetime = None
-            
-            conn = get_db()
-            conn.execute("INSERT INTO events (name, start_time, end_time, description) VALUES (?, ?, ?, ?)",
-                        (name, start_datetime, end_datetime, description))
-            conn.commit()
-            conn.close()
-            
-            flash(f'Event "{name}" added successfully!', 'success')
-            return redirect(url_for('admin_events'))
-            
-        except Exception as e:
-            flash(f'Error adding event: {str(e)}', 'danger')
-            return redirect(request.url)
-    
-    return render_template('admin/add_event.html')
-
-@app.route('/admin/events/edit/<int:event_id>', methods=['GET', 'POST'])
-@require_auth
-def admin_edit_event(event_id):
-    """Edit an existing event"""
-    conn = get_db()
-    
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        date = request.form.get('date', '').strip()
-        time = request.form.get('time', '').strip()
-        end_time = request.form.get('end_time', '').strip()
-        description = request.form.get('description', '').strip()
-        
-        if not name or not date:
-            flash('Event name and date are required', 'danger')
-            return redirect(request.url)
-        
-        try:
-            # Combine date and time
-            if time:
-                start_datetime = f"{date}T{time}:00"
-            else:
-                start_datetime = f"{date}T00:00:00"
-            
-            if end_time:
-                end_datetime = f"{date}T{end_time}:00"
-            else:
-                end_datetime = None
-            
-            conn.execute("UPDATE events SET name = ?, start_time = ?, end_time = ?, description = ? WHERE id = ?",
-                        (name, start_datetime, end_datetime, description, event_id))
-            conn.commit()
-            conn.close()
-            
-            flash(f'Event "{name}" updated successfully!', 'success')
-            return redirect(url_for('admin_events'))
-            
-        except Exception as e:
-            flash(f'Error updating event: {str(e)}', 'danger')
-            conn.close()
-            return redirect(request.url)
-    
-    # GET request - load event data
-    event = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
-    conn.close()
-    
-    if not event:
-        flash('Event not found', 'danger')
-        return redirect(url_for('admin_events'))
-    
-    return render_template('admin/edit_event.html', event=event)
-
-@app.route('/admin/events/delete/<int:event_id>', methods=['POST'])
-@require_auth
-def admin_delete_event(event_id):
-    """Delete an event"""
-    conn = get_db()
-    event = conn.execute("SELECT name FROM events WHERE id = ?", (event_id,)).fetchone()
-    
-    if event:
-        conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
-        conn.commit()
-        flash(f'Event "{event["name"]}" deleted successfully!', 'success')
-    else:
-        flash('Event not found', 'danger')
-    
-    conn.close()
-    return redirect(url_for('admin_events'))
-
-@app.route('/admin/events/clear', methods=['POST'])
-@require_auth
-def admin_clear_events():
-    """Delete all events"""
-    conn = get_db()
-    conn.execute("DELETE FROM events")
-    conn.commit()
-    conn.close()
-    flash('All events cleared!', 'info')
-    return redirect(url_for('admin_events'))
-
-@app.route('/admin/history/export')
-@require_auth
-def export_checkin_history():
-    """Export all check-in history to CSV"""
-    conn = get_db()
-    
-    # Fetch all check-ins with family and kid information
-    history = conn.execute("""
-        SELECT 
-            c.id,
-            c.kid_id,
-            k.name as kid_name,
-            f.phone,
-            f.troop,
-            e.name as event_name,
-            e.start_time as event_date,
-            c.checkin_time,
-            c.checkout_time,
-            c.checkout_code
-        FROM checkins c
-        JOIN kids k ON c.kid_id = k.id
-        JOIN families f ON k.family_id = f.id
-        LEFT JOIN events e ON c.event_id = e.id
-        ORDER BY c.checkin_time DESC
-    """).fetchall()
-    
-    conn.close()
-    
-    # Build CSV data
-    csv_data = []
-    csv_data.append(['Check-in ID', 'Kid Name', 'Phone', 'Group', 'Event', 'Event Date', 
-                     'Check-in Time', 'Check-out Time', 'Checkout Code', 'Status'])
-    
-    for record in history:
-        # Parse timestamps
-        checkin_time = record['checkin_time']
-        checkout_time = record['checkout_time'] or ''
-        
-        # Format event date
-        event_date = ''
-        if record['event_date']:
-            try:
-                dt = datetime.fromisoformat(record['event_date'])
-                event_date = dt.strftime('%Y-%m-%d %H:%M')
-            except:
-                event_date = record['event_date'][:16]
-        
-        # Determine status
-        status = 'Checked Out' if record['checkout_time'] else 'Checked In'
-        
-        csv_data.append([
-            record['id'],
-            record['kid_name'],
-            record['phone'] or '',
-            record['troop'] or '',
-            record['event_name'] or 'No Event',
-            event_date,
-            checkin_time,
-            checkout_time,
-            record['checkout_code'] or '',
-            status
-        ])
-    
-    # Generate CSV
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerows(csv_data)
-    
-    response = app.response_class(
-        response=output.getvalue(),
-        status=200,
-        mimetype='text/csv'
-    )
-    response.headers['Content-Disposition'] = f'attachment; filename=checkin_history_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    return response
-
-@app.route('/admin/utilities')
-@require_auth
-def admin_utilities():
-    """Admin utilities page for database maintenance and cleanup operations"""
-    conn = get_db()
-    
-    # Get statistics
-    stats = {}
-    
-    # Check-in statistics
-    cursor = conn.execute("SELECT COUNT(*) FROM checkins")
-    stats['total_checkins'] = cursor.fetchone()[0]
-    
-    cursor = conn.execute("SELECT COUNT(*) FROM checkins WHERE checkout_time IS NULL")
-    stats['active_checkins'] = cursor.fetchone()[0]
-    
-    # Orphaned check-ins (kid_id doesn't exist)
-    cursor = conn.execute("""
-        SELECT COUNT(*) 
-        FROM checkins c 
-        LEFT JOIN kids k ON c.kid_id = k.id 
-        WHERE k.id IS NULL
-    """)
-    stats['orphaned_checkins'] = cursor.fetchone()[0]
-    
-    # Family statistics
-    cursor = conn.execute("SELECT COUNT(*) FROM families")
-    stats['total_families'] = cursor.fetchone()[0]
-    
-    cursor = conn.execute("SELECT COUNT(*) FROM kids")
-    stats['total_kids'] = cursor.fetchone()[0]
-    
-    # Event statistics
-    cursor = conn.execute("SELECT COUNT(*) FROM events")
-    stats['total_events'] = cursor.fetchone()[0]
-    
-    # Database size
-    cursor = conn.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
-    stats['db_size_bytes'] = cursor.fetchone()[0]
-    stats['db_size_mb'] = round(stats['db_size_bytes'] / (1024 * 1024), 2)
-    
-    conn.close()
-    
-    return render_template('admin/utilities.html', stats=stats)
-
-@app.route('/admin/utilities/cleanup-orphaned', methods=['POST'])
-@require_auth
-def admin_cleanup_orphaned():
-    """Remove orphaned check-in records (where kid no longer exists)"""
-    confirm = request.form.get('confirm_orphaned')
-    if confirm != 'CLEANUP':
-        flash('Confirmation text did not match. Operation cancelled.', 'danger')
-        return redirect(url_for('admin_utilities'))
-    
-    conn = get_db()
-    
-    # Find orphaned check-ins first
-    cursor = conn.execute("""
-        SELECT c.id 
-        FROM checkins c 
-        LEFT JOIN kids k ON c.kid_id = k.id 
-        WHERE k.id IS NULL
-    """)
-    orphaned = cursor.fetchall()
-    orphaned_count = len(orphaned)
-    
-    if orphaned_count == 0:
-        flash('No orphaned check-ins found.', 'info')
-    else:
-        # Delete orphaned check-ins
-        conn.execute("""
-            DELETE FROM checkins 
-            WHERE id IN (
-                SELECT c.id 
-                FROM checkins c 
-                LEFT JOIN kids k ON c.kid_id = k.id 
-                WHERE k.id IS NULL
-            )
-        """)
-        conn.commit()
-        flash(f'Successfully removed {orphaned_count} orphaned check-in record(s).', 'success')
-    
-    conn.close()
-    return redirect(url_for('admin_utilities'))
-
-@app.route('/admin/utilities/clear-history', methods=['POST'])
-@require_auth
-def admin_clear_history():
-    """Clear all check-in history from database"""
-    confirm = request.form.get('confirm_history')
-    if confirm != 'DELETE ALL':
-        flash('Confirmation text did not match. Operation cancelled.', 'danger')
-        return redirect(url_for('admin_utilities'))
-    
-    conn = get_db()
-    cursor = conn.execute("SELECT COUNT(*) FROM checkins")
-    count = cursor.fetchone()[0]
-    
-    if count == 0:
-        flash('No check-in history to clear.', 'info')
-    else:
-        conn.execute("DELETE FROM checkins")
-        conn.commit()
-        flash(f'Successfully deleted {count} check-in record(s).', 'success')
-    
-    conn.close()
-    return redirect(url_for('admin_utilities'))
-
-@app.route('/admin/utilities/reset-checkin-ids', methods=['POST'])
-@require_auth
-def admin_reset_checkin_ids():
-    """Reset the auto-increment counter for check-in IDs"""
-    confirm = request.form.get('confirm_reset')
-    if confirm != 'RESET':
-        flash('Confirmation text did not match. Operation cancelled.', 'danger')
-        return redirect(url_for('admin_utilities'))
-    
-    conn = get_db()
-    
-    # Check current state
-    cursor = conn.execute("SELECT COUNT(*) FROM checkins")
-    count = cursor.fetchone()[0]
-    
-    # Reset the auto-increment counter
-    conn.execute("DELETE FROM sqlite_sequence WHERE name='checkins'")
-    conn.commit()
-    
-    if count == 0:
-        flash('Auto-increment counter reset successfully. Next check-in will have ID 1.', 'success')
-    else:
-        cursor = conn.execute("SELECT MAX(id) FROM checkins")
-        max_id = cursor.fetchone()[0]
-        flash(f'Counter reset. Note: {count} check-in(s) still exist. Next ID will be {max_id + 1}.', 'warning')
-    
-    conn.close()
-    return redirect(url_for('admin_utilities'))
-
-@app.route('/admin/utilities/vacuum', methods=['POST'])
-@require_auth
-def admin_vacuum_database():
-    """Optimize and compact the database file"""
-    confirm = request.form.get('confirm_vacuum')
-    if confirm != 'OPTIMIZE':
-        flash('Confirmation text did not match. Operation cancelled.', 'danger')
-        return redirect(url_for('admin_utilities'))
-    
-    conn = get_db()
-    
-    # Get size before
-    cursor = conn.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
-    size_before = cursor.fetchone()[0]
-    
-    # Run VACUUM to optimize database
-    conn.execute("VACUUM")
-    conn.commit()
-    
-    # Get size after
-    cursor = conn.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
-    size_after = cursor.fetchone()[0]
-    
-    size_saved = size_before - size_after
-    size_saved_mb = round(size_saved / (1024 * 1024), 2)
-    
-    conn.close()
-    
-    if size_saved > 0:
-        flash(f'Database optimized successfully. Reclaimed {size_saved_mb} MB of space.', 'success')
-    else:
-        flash('Database optimized successfully.', 'success')
-    
-    return redirect(url_for('admin_utilities'))
-
-if __name__ == '__main__':
-    # ensure DB exists when running the server directly
-    ensure_db()
-    
-    # Clean up expired tokens on startup
-    cleanup_expired_tokens()
-    
-    # Start background thread to clean up tokens periodically
-    def periodic_cleanup():
-        while True:
-            time.sleep(3600)  # Run every hour
-            cleanup_expired_tokens()
-    
-    cleanup_thread = threading.Thread(target=periodic_cleanup, daemon=True)
-    cleanup_thread.start()
-    
-    # Get debug mode from environment variable (default False for security)
-    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
-    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
+        return jsonify({'success': False, 'message': f"Error: {str(e)}"})

@@ -226,11 +226,15 @@
               If not configured, full URLs will be used.
             </div>
 
-            <div class="mt-3">
+            <div class="mt-3 d-flex gap-2">
               <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-circle"></i> Save YOURLS Settings
               </button>
+              <button type="button" class="btn btn-outline-secondary" id="testYourlsBtn">
+                <i class="bi bi-lightning-charge"></i> Test Connection
+              </button>
             </div>
+            <div id="yourlsTestResult" class="mt-2"></div>
           </form>
         </div>
       </div>
@@ -248,7 +252,56 @@
             <li class="mb-2">Use a memorable but secure access code</li>
             <li class="mb-2">Change codes regularly for better security</li>
             <li class="mb-2">Admin override code should be different from login code</li>
-            <li class="mb-2">Developer password is set via .env file for extra protection</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('testYourlsBtn').addEventListener('click', function() {
+    const btn = this;
+    const resultDiv = document.getElementById('yourlsTestResult');
+    const apiUrl = document.getElementById('yourls_api_url').value;
+    const signature = document.getElementById('yourls_signature').value;
+    
+    if (!apiUrl || !signature) {
+        resultDiv.innerHTML = '<div class="alert alert-warning py-2 small">Please enter both API URL and Signature first.</div>';
+        return;
+    }
+    
+    // Loading state
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Testing...';
+    resultDiv.innerHTML = '';
+    
+    const formData = new FormData();
+    formData.append('api_url', apiUrl);
+    formData.append('signature', signature);
+    
+    fetch('/admin/security/test_yourls', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = `<div class="alert alert-success py-2 small"><i class="bi bi-check-circle-fill"></i> ${data.message}</div>`;
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger py-2 small"><i class="bi bi-exclamation-triangle-fill"></i> ${data.message}</div>`;
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `<div class="alert alert-danger py-2 small">Error: ${error.message}</div>`;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-lightning-charge"></i> Test Connection';
+    });
+});
+</script>
+{% endblock %}            <li class="mb-2">Developer password is set via .env file for extra protection</li>
           </ul>
         </div>
       </div>
