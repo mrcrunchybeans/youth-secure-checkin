@@ -1,3 +1,16 @@
+# Youth Secure Check-in - Docker Compose Configuration
+# 
+# Usage:
+#   docker compose --profile production up -d    # Start production with YOURLS
+#   docker compose --profile demo up -d          # Start demo mode with YOURLS
+#
+# Services:
+#   - web/demo-app: Youth check-in application (port 5000)
+#   - yourls: URL shortener for QR codes (port 8080)
+#   - yourls-db: MySQL database for YOURLS
+#
+# See DOCKER.md and YOURLS_SETUP.md for detailed instructions
+
 services:
   # Production web service
   web:
@@ -67,6 +80,51 @@ services:
     profiles:
       - demo
 
+  # YOURLS URL Shortener (optional)
+  yourls:
+    image: yourls:latest
+    container_name: youth-checkin-yourls
+    ports:
+      - "8080:80"
+    environment:
+      - YOURLS_DB_HOST=yourls-db
+      - YOURLS_DB_NAME=yourls
+      - YOURLS_DB_USER=yourls
+      - YOURLS_DB_PASS=${YOURLS_DB_PASSWORD:-yourlspass}
+      - YOURLS_SITE=http://localhost:8080
+      - YOURLS_USER=${YOURLS_USER:-admin}
+      - YOURLS_PASS=${YOURLS_PASSWORD:-admin}
+    volumes:
+      - yourls-data:/var/www/html
+    depends_on:
+      - yourls-db
+    restart: unless-stopped
+    networks:
+      - checkin-network
+    profiles:
+      - production
+      - with-yourls
+      - demo
+
+  # YOURLS MySQL Database
+  yourls-db:
+    image: mysql:8.0
+    container_name: youth-checkin-yourls-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${YOURLS_DB_ROOT_PASSWORD:-rootpass}
+      - MYSQL_DATABASE=yourls
+      - MYSQL_USER=yourls
+      - MYSQL_PASSWORD=${YOURLS_DB_PASSWORD:-yourlspass}
+    volumes:
+      - yourls-db-data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - checkin-network
+    profiles:
+      - production
+      - with-yourls
+      - demo
+
   # Optional: Nginx reverse proxy with SSL
   nginx:
     image: nginx:alpine
@@ -94,3 +152,5 @@ volumes:
   uploads:
   demo-data:
   demo-uploads:
+  yourls-data:
+  yourls-db-data:

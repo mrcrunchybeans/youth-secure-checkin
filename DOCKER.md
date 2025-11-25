@@ -35,13 +35,19 @@ docker compose --profile production up -d
 
 ### Access Application
 
-Open your browser to: `http://localhost:5000`
+**Youth Check-in:** `http://localhost:5000`
+**YOURLS (URL Shortener):** `http://localhost:8080/admin`
 
 The setup wizard will guide you through initial configuration:
 1. Organization details and branding
 2. Primary color scheme
 3. Access code for check-in page
 4. Admin password
+
+**Services started:**
+- Youth Secure Check-in (port 5000)
+- YOURLS URL Shortener (port 8080)
+- MySQL database for YOURLS
 
 ## 🎭 Demo Mode
 
@@ -72,6 +78,24 @@ docker compose -f docker-compose.demo.yml up -d
 - QR code checkout enabled
 - Auto-resets every 24 hours
 
+## 🔗 URL Shortener (YOURLS)
+
+YOURLS creates short URLs for checkout QR codes, making them easier to scan and type.
+
+**Included automatically** in both production and demo modes! 
+
+- Access: http://localhost:8080/admin
+- Default credentials: `admin` / `admin`
+
+**Setup steps:**
+1. Visit http://localhost:8080/admin and click "Install YOURLS"
+2. Go to Tools → API and copy your signature token
+3. In Youth Check-in: Admin → Security → URL Shortener
+4. Enter API URL: `http://yourls/yourls-api.php`
+5. Paste your signature token and save
+
+**See `YOURLS_SETUP.md` for detailed setup and bare-metal installation.**
+
 ## 🔧 Configuration Options
 
 ### Environment Variables
@@ -82,11 +106,18 @@ Create a `.env` file for production secrets:
 # Generate secure keys
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 DEVELOPER_PASSWORD=$(python3 -c "import secrets; print(secrets.token_urlsafe(16))")
+YOURLS_PASSWORD=$(python3 -c "import secrets; print(secrets.token_urlsafe(12))")
 
 # Create .env file
 cat > .env << EOF
 SECRET_KEY=${SECRET_KEY}
 DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
+
+# YOURLS Configuration
+YOURLS_DB_PASSWORD=${YOURLS_PASSWORD}
+YOURLS_DB_ROOT_PASSWORD=${YOURLS_PASSWORD}
+YOURLS_USER=admin
+YOURLS_PASSWORD=change_this_password
 EOF
 ```
 

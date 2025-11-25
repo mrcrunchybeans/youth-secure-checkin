@@ -166,6 +166,9 @@ DEMO_SETTINGS = {
     'admin_password_hash': 'pbkdf2:sha256:260000$demo$5d8c8a8e8f9e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f',  # password: demo123
     'is_setup_complete': 'true',  # Bypass setup screen for demo
     'app_password': 'demo123',  # Default app password for demo
+    # YOURLS URL Shortener Configuration
+    'yourls_api_url': 'http://yourls/yourls-api.php',
+    'yourls_signature': '',  # Will be set after YOURLS initial setup
 }
 
 
