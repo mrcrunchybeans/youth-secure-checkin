@@ -23,31 +23,38 @@ docker-compose -f docker-compose.demo.yml up -d
 
 ### Initial YOURLS Configuration
 
+> **Note:** Demo mode pre-configures the YOURLS API URL. You only need to complete steps 1-3 below and add the signature token.
+
 1. **Access YOURLS admin panel:**
    - Production: http://localhost:8080/admin
    - Demo: http://localhost:8080/admin
    - Default credentials: `admin` / `admin` (change in `.env` file)
 
-2. **Complete YOURLS installation:**
+2. **Complete YOURLS installation (first time only):**
    - Visit http://localhost:8080/admin on first run
    - Click "Install YOURLS" button
    - YOURLS will create database tables automatically
+   - You'll see a success message with your site details
 
 3. **Get your API Signature Token:**
-   - In YOURLS admin, go to **Tools → API**
-   - Copy your signature token (looks like: `abc123def456`)
+   - Still in YOURLS admin, click **Tools** in the top menu
+   - Look for the **API** section
+   - Copy your **signature token** (looks like: `abc123def456` or similar)
+   - **This token is unique to your installation**
 
-4. **Configure Youth Check-in:**
+4. **Add Signature to Youth Check-in:**
    - Login to Youth Check-in: http://localhost:5000
-   - Go to **Admin → Security → URL Shortener (YOURLS)**
-   - Enter:
-     - **YOURLS API URL:** `http://yourls/yourls-api.php`
-     - **API Signature Token:** (paste from step 3)
+   - Password: `demo123` (demo) or your configured password (production)
+   - Go to **Admin → Security** (scroll down to URL Shortener section)
+   - The API URL should already show: `http://yourls/yourls-api.php` (demo mode)
+   - Paste your **API Signature Token** from step 3
    - Click **Save YOURLS Settings**
 
 5. **Test the integration:**
-   - Check-in a family
-   - QR code modal will show a short URL below the QR code
+   - Go to the check-in kiosk or main page
+   - Check-in a family member
+   - QR code modal will now show a short URL below the QR code
+   - Example: `http://localhost:8080/1` instead of the full share URL
    - Example: `http://localhost:8080/1` instead of full URL
 
 ### Environment Variables (.env file)
