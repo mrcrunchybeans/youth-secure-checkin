@@ -4,13 +4,13 @@
 
 {% block head %}
 <style>
-/* Universal Kiosk Layout - Resolution Agnostic */
-/* Optimized for parent check-in: 4 numbers + 1 click, no scrolling */
+/* iPad-Optimized Kiosk Layout */
+/* CRITICAL: Keypad must be visible on all devices without scrolling */
 
 /* Container layout based on viewport aspect ratio */
 .kiosk-container {
     display: grid;
-    gap: 1.5rem;
+    gap: 1rem;
     padding: 0.5rem;
     max-width: 100%;
 }
@@ -24,50 +24,51 @@
     
     .kiosk-left {
         position: sticky;
-        top: 1rem;
+        top: 0.5rem;
     }
     
     .kiosk-right {
-        max-height: calc(100vh - 100px);
+        max-height: calc(100vh - 80px);
         overflow-y: auto;
     }
 }
 
-/* Portrait or square: Stack vertically, prioritize check-in form */
+/* Portrait/Tablet: Compact layout to fit everything on screen */
 @media (max-aspect-ratio: 13/10) {
     .kiosk-container {
         grid-template-columns: 1fr;
-        overflow: visible;
+        gap: 0.5rem;
     }
     
     .kiosk-left {
-        /* Don't make sticky in portrait - allow scrolling to see everything */
+        /* Keep form visible at top */
         position: relative;
+        margin-bottom: 0.5rem;
     }
     
     .kiosk-checkin-card {
         background: white;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     
     .kiosk-right {
-        /* Checked-in list below form in portrait */
-        margin-top: 1rem;
+        /* Checked-in list below, scrollable if needed */
+        max-height: 40vh;
+        overflow-y: auto;
     }
 }
 
-/* Phone number input - large, centered, prominent */
+/* Phone number input - compact but readable */
 #phone {
-    font-size: clamp(1.8rem, 4vw, 3rem);
-    padding: clamp(0.8rem, 2vh, 1.5rem);
+    font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+    padding: 0.6rem 1rem;
     height: auto;
     text-align: center;
-    letter-spacing: 0.5rem;
+    letter-spacing: 0.4rem;
     font-weight: 700;
     max-width: 100%;
-    border: 3px solid #dee2e6;
-    border-radius: 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
     transition: border-color 0.2s ease;
 }
 
@@ -83,15 +84,19 @@
 }
 
 .keypad-key {
-    font-size: clamp(1.5rem, 3.5vw, 2.5rem);
-    padding: clamp(0.8rem, 2vh, 1.5rem);
-    /* Use fixed 70px minimum to ensure visibility on all tablets */
-    min-height: 70px;
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    padding: 0.6rem;
+    /* Fixed height for consistent layout - 60px is large enough for touch */
+    height: 60px;
+    min-height: 60px;
     font-weight: 700;
     border: 2px solid #dee2e6;
     transition: all 0.15s ease;
-    border-radius: 8px;
+    border-radius: 6px;
     background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .keypad-key:hover {
@@ -107,11 +112,15 @@
 }
 
 #keypad-clear, #keypad-back {
-    font-size: clamp(1rem, 2.5vw, 1.5rem);
-    padding: clamp(0.8rem, 2vh, 1.5rem);
-    min-height: clamp(60px, 8vh, 100px);
+    font-size: clamp(0.9rem, 2vw, 1.3rem);
+    padding: 0.6rem;
+    height: 60px;
+    min-height: 60px;
     font-weight: 600;
-    border-radius: 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #keypad-clear {
@@ -126,13 +135,14 @@
     color: #856404;
 }
 
-/* Search button - prominent and obvious */
+/* Check In button - compact but prominent */
 #search-btn {
-    font-size: clamp(1.3rem, 3vw, 2rem);
-    padding: clamp(0.8rem, 2.5vh, 1.5rem);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+    padding: 0.8rem 1rem;
+    height: 55px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
     transition: all 0.2s ease;
-    border-radius: 12px;
+    border-radius: 8px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -156,21 +166,21 @@
 }
 
 .card-body {
-    /* Use fixed padding to prevent vertical squishing on tablets */
-    padding: 1.5rem;
+    /* Compact padding to maximize space for keypad */
+    padding: 1rem;
 }
 
 .card-title {
     color: {{ branding.primary_color }};
     font-weight: 700;
-    font-size: clamp(1.3rem, 2.5vw, 1.8rem);
-    margin-bottom: 1.5rem;
+    font-size: clamp(1.2rem, 2.2vw, 1.6rem);
+    margin-bottom: 0.8rem;
 }
 
 /* Form label */
 .form-label {
-    font-size: clamp(1rem, 2vw, 1.3rem);
-    margin-bottom: 1rem;
+    font-size: clamp(0.95rem, 1.8vw, 1.2rem);
+    margin-bottom: 0.6rem;
     display: block;
     text-align: center;
     font-weight: 600;
@@ -318,19 +328,19 @@ h1 {
     <div class="kiosk-container">
         <!-- Left column: Check-in Form -->
         <div class="kiosk-left">
-            <div class="card mb-3 kiosk-checkin-card">
-                <div class="card-body" style="padding: 1.5rem;">
+            <div class="card kiosk-checkin-card" style="margin-bottom: 0.5rem;">
+                <div class="card-body">
                     <h3 class="card-title">Family Lookup</h3>
                     <form id="checkin-form">
                         <input type="hidden" id="event-id" value="{{ current_event_id }}">
-                        <div class="mb-3">
-                            <label for="phone" class="form-label">Last 4 digits of phone number:</label>
+                        <div style="margin-bottom: 0.5rem;">
+                            <label for="phone" class="form-label">Last 4 digits:</label>
                             <input type="tel" inputmode="numeric" class="form-control" id="phone" name="phone" maxlength="4" pattern="\d{4}" required aria-label="Last four digits" autocomplete="off">
                         </div>
 
                         <!-- On-screen numeric keypad for touch screens -->
-                        <div id="keypad" class="mb-3">
-                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: clamp(0.5rem, 1.5vw, 1rem);">
+                        <div id="keypad" style="margin-bottom: 0.5rem;">
+                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
                                 <button type="button" class="btn keypad-key" data-value="1">1</button>
                                 <button type="button" class="btn keypad-key" data-value="2">2</button>
                                 <button type="button" class="btn keypad-key" data-value="3">3</button>
