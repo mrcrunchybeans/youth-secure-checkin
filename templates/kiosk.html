@@ -13,6 +13,9 @@
     gap: 1rem;
     padding: 0.5rem;
     max-width: 100%;
+    /* Use dynamic viewport height if supported, fallback to vh */
+    height: calc(100vh - 70px);
+    height: calc(100dvh - 70px);
 }
 
 /* Landscape orientation: Side-by-side split */
@@ -22,6 +25,7 @@
         grid-template-rows: 1fr;
         align-items: start;
         height: calc(100vh - 70px); /* Use available height */
+        height: calc(100dvh - 70px);
         overflow: hidden;
     }
     
@@ -45,6 +49,7 @@
         grid-template-columns: 1fr;
         grid-template-rows: auto minmax(0, 1fr); /* Form takes natural height, list takes rest */
         height: calc(100vh - 70px); /* Constrain to viewport */
+        height: calc(100dvh - 70px);
         gap: 0.5rem;
         overflow: hidden;
     }
@@ -98,9 +103,9 @@
 .keypad-key {
     font-size: clamp(1.2rem, 3vw, 2rem);
     padding: 0.6rem;
-    /* Fixed height for consistent layout - 60px is large enough for touch */
-    height: 60px;
-    min-height: 60px;
+    /* Flexible height for consistent layout */
+    height: clamp(45px, 7vh, 70px);
+    min-height: 45px;
     font-weight: 700;
     border: 2px solid #dee2e6;
     transition: all 0.15s ease;
@@ -249,7 +254,9 @@ h1 {
 
 /* Logo sizing */
 .text-center.mb-3 img {
-    max-height: clamp(100px, 15vh, 180px) !important;
+    max-height: clamp(60px, 12vh, 150px) !important;
+    width: auto;
+    object-fit: contain;
 }
 
 /* Mobile-specific adjustments (very small screens) */
