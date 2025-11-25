@@ -15,46 +15,58 @@
     max-width: 100%;
 }
 
-/* Landscape orientation (width > height): Side-by-side split */
-@media (min-aspect-ratio: 13/10) {
+/* Landscape orientation: Side-by-side split */
+@media (orientation: landscape) {
     .kiosk-container {
         grid-template-columns: minmax(350px, 45%) 1fr;
+        grid-template-rows: 1fr;
         align-items: start;
+        height: calc(100vh - 70px); /* Use available height */
+        overflow: hidden;
     }
     
     .kiosk-left {
-        position: sticky;
-        top: 0.5rem;
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 0.5rem;
     }
     
     .kiosk-right {
-        max-height: calc(100vh - 80px);
+        height: 100%;
         overflow-y: auto;
+        border-left: 1px solid #dee2e6;
+        padding-left: 0.5rem;
     }
 }
 
-/* Portrait/Tablet: Compact layout to fit everything on screen */
-@media (max-aspect-ratio: 13/10) {
+/* Portrait orientation: Stack vertically with fixed form and scrolling list */
+@media (orientation: portrait) {
     .kiosk-container {
         grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr); /* Form takes natural height, list takes rest */
+        height: calc(100vh - 70px); /* Constrain to viewport */
         gap: 0.5rem;
+        overflow: hidden;
     }
     
     .kiosk-left {
-        /* Keep form visible at top */
-        position: relative;
-        margin-bottom: 0.5rem;
+        /* Form section - should fit on screen */
+        width: 100%;
+        z-index: 10;
+        background: #f9f7f5; /* Match background to cover list when scrolling? No, it's separate */
     }
     
     .kiosk-checkin-card {
         background: white;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 0;
     }
     
     .kiosk-right {
-        /* Checked-in list below, scrollable if needed */
-        max-height: 40vh;
+        /* Checked-in list below, scrollable */
         overflow-y: auto;
+        border-top: 1px solid #dee2e6;
+        padding-top: 0.5rem;
     }
 }
 
@@ -218,8 +230,8 @@
 }
 
 .checkout-btn {
-    font-size: clamp(0.8rem, 1.5vw, 1rem);
-    padding: clamp(0.3rem, 1vh, 0.6rem) clamp(0.6rem, 2vw, 1rem);
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
     font-weight: 600;
     border-radius: 6px;
     white-space: nowrap;
