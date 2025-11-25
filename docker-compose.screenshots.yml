@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Screenshot/Marketing web application
+  screenshot-app:
+    image: mrcrunchybeans/youth-secure-checkin:demo
+    container_name: youth-checkin-screenshots
+    ports:
+      - "5000:5000"
+    environment:
+      # Production-like settings (no demo banner)
+      FLASK_ENV: production
+      DEMO_MODE: "false"
+      DATABASE_PATH: /app/data/screenshots.db
+      
+      # Security
+      SECRET_KEY: screenshot-secret-key-change-for-production
+      DEVELOPER_PASSWORD: demo2025
+      
+      # Reset interval (hours)
+      RESET_INTERVAL_HOURS: "24"
+    volumes:
+      - screenshots-data:/app/data
+      - screenshots-uploads:/app/static/uploads
+      # Mount the screenshot scripts into the container
+      - ./screenshot_seed.py:/app/screenshot_seed.py
+    restart: unless-stopped
+    networks:
+      - screenshots-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: sh -c "python screenshot_seed.py && gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 wsgi:app"
+
+  # Auto-reset service - resets data periodically to keep dates fresh
+  screenshot-reset:
+    image: mrcrunchybeans/youth-secure-checkin:demo
+    container_name: youth-checkin-screenshots-reset
+    environment:
+      DATABASE_PATH: /app/data/screenshots.db
+      RESET_INTERVAL_HOURS: "24"
+      UPLOAD_PATH: /app/static/uploads
+    volumes:
+      - screenshots-data:/app/data
+      - screenshots-uploads:/app/static/uploads
+      # Mount the screenshot scripts into the container
+      - ./screenshot_seed.py:/app/screenshot_seed.py
+      - ./screenshot_reset_scheduler.py:/app/screenshot_reset_scheduler.py
+    command: python screenshot_reset_scheduler.py
+    depends_on:
+      - screenshot-app
+    restart: unless-stopped
+    networks:
+      - screenshots-network
+
+networks:
+  screenshots-network:
+    driver: bridge
+
+volumes:
+  screenshots-data:
+  screenshots-uploads:
