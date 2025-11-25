@@ -1,6 +1,51 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
+  /* Ensure checkout keypad is always visible and accessible */
+  #checkout-keypad {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    z-index: 10;
+    padding: 0.5rem 0;
+    margin: 0 !important;
+  }
+  
+  /* Improve modal scrolling on tablets */
+  .modal-dialog {
+    max-height: 90vh;
+  }
+  
+  .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  /* iPad Pro and tablet-specific optimizations (768px - 1366px) */
+  @media (min-width: 768px) and (max-width: 1366px) {
+    #checkout-keypad {
+      margin-top: 1rem !important;
+      padding: 0.75rem;
+      border-radius: 8px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+    
+    #checkout-keypad .btn {
+      font-size: 1.4rem !important;
+      padding: 0.75rem !important;
+      min-height: 60px;
+    }
+    
+    #checkout-code-input {
+      font-size: 1.8rem !important;
+      padding: 0.75rem !important;
+    }
+    
+    .modal-content {
+      border-radius: 12px;
+    }
+  }
+  
   @media (max-width: 768px) {
     .card-header {
       padding: 0.5rem 0.75rem;
