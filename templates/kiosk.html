@@ -37,17 +37,23 @@
 @media (max-aspect-ratio: 13/10) {
     .kiosk-container {
         grid-template-columns: 1fr;
+        overflow: visible;
     }
     
     .kiosk-left {
-        position: sticky;
-        top: 0.5rem;
-        z-index: 100;
+        /* Don't make sticky in portrait - allow scrolling to see everything */
+        position: relative;
     }
     
     .kiosk-checkin-card {
         background: white;
         box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        margin-bottom: 1rem;
+    }
+    
+    .kiosk-right {
+        /* Checked-in list below form in portrait */
+        margin-top: 1rem;
     }
 }
 
@@ -79,7 +85,8 @@
 .keypad-key {
     font-size: clamp(1.5rem, 3.5vw, 2.5rem);
     padding: clamp(0.8rem, 2vh, 1.5rem);
-    min-height: clamp(60px, 8vh, 100px);
+    /* Use fixed 70px minimum to ensure visibility on all tablets */
+    min-height: 70px;
     font-weight: 700;
     border: 2px solid #dee2e6;
     transition: all 0.15s ease;
@@ -145,10 +152,12 @@
     border: 2px solid #dee2e6;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     border-radius: 16px;
+    overflow: visible;
 }
 
 .card-body {
-    padding: clamp(1rem, 3vh, 2rem);
+    /* Use fixed padding to prevent vertical squishing on tablets */
+    padding: 1.5rem;
 }
 
 .card-title {
