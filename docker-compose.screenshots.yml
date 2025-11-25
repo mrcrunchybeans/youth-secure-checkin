@@ -22,8 +22,6 @@ services:
     volumes:
       - screenshots-data:/app/data
       - screenshots-uploads:/app/static/uploads
-      # Mount the screenshot scripts into the container
-      - ./screenshot_seed.py:/app/screenshot_seed.py
     restart: unless-stopped
     networks:
       - screenshots-network
@@ -33,7 +31,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: sh -c "python screenshot_seed.py && gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 wsgi:app"
+    command: >
+      sh -c "wget -O screenshot_seed.py https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/screenshot_seed.py &&
+             python screenshot_seed.py &&
+             gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 wsgi:app"
 
   # Auto-reset service - resets data periodically to keep dates fresh
   screenshot-reset:
@@ -46,10 +47,10 @@ services:
     volumes:
       - screenshots-data:/app/data
       - screenshots-uploads:/app/static/uploads
-      # Mount the screenshot scripts into the container
-      - ./screenshot_seed.py:/app/screenshot_seed.py
-      - ./screenshot_reset_scheduler.py:/app/screenshot_reset_scheduler.py
-    command: python screenshot_reset_scheduler.py
+    command: >
+      sh -c "wget -O screenshot_seed.py https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/screenshot_seed.py &&
+             wget -O screenshot_reset_scheduler.py https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/screenshot_reset_scheduler.py &&
+             python screenshot_reset_scheduler.py"
     depends_on:
       - screenshot-app
     restart: unless-stopped
