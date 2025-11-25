@@ -534,6 +534,33 @@ def generate_share_token():
     """Generate a secure random token for sharing checkout codes"""
     return secrets.token_urlsafe(32)
 
+def shorten_url_with_yourls(long_url):
+    """Shorten URL using YOURLS API if configured"""
+    conn = get_db()
+    yourls_api = conn.execute("SELECT value FROM settings WHERE key = 'yourls_api_url'").fetchone()
+    yourls_signature = conn.execute("SELECT value FROM settings WHERE key = 'yourls_signature'").fetchone()
+    conn.close()
+    
+    if not yourls_api or not yourls_signature:
+        return long_url  # Return original URL if YOURLS not configured
+    
+    try:
+        response = requests.get(yourls_api[0], params={
+            'signature': yourls_signature[0],
+            'action': 'shorturl',
+            'url': long_url,
+            'format': 'json'
+        }, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success' or data.get('shorturl'):
+                return data.get('shorturl', long_url)
+    except Exception as e:
+        print(f"YOURLS shortening error: {e}")
+    
+    return long_url  # Return original URL if shortening fails
+
 def create_qr_code(url):
     """Generate a QR code image as base64 string"""
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
@@ -1281,6 +1308,7 @@ def checkin_selected():
     # Generate share token and QR code ONLY if codes are required and method includes QR
     share_token = None
     qr_code_data = None
+    short_url = None
     if require_codes and checkout_method in ['qr', 'both'] and checked_in_data and len(checked_in_data) > 0 and any(c['id'] for c in checked_in_data):
         share_token = generate_share_token()
         expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
@@ -1292,9 +1320,10 @@ def checkin_selected():
         """, (share_token, family_id, event_id, checkin_ids, now, expires_at))
         conn.commit()
         
-        # Generate QR code URL
+        # Generate QR code URL and short URL
         share_url = url_for('share_codes', token=share_token, _external=True)
-        qr_code_data = create_qr_code(share_url)
+        short_url = shorten_url_with_yourls(share_url)
+        qr_code_data = create_qr_code(short_url)
     
     conn.close()
     
@@ -1307,6 +1336,7 @@ def checkin_selected():
         'checkins': checked_in_data,
         'share_token': share_token,
         'qr_code': qr_code_data,
+        'short_url': short_url,
         'checkout_code': family_checkout_code
     })
 
@@ -2264,6 +2294,16 @@ def admin_security():
             conn.commit()
             flash('Checkout code settings updated successfully!', 'success')
         
+        # Handle YOURLS settings
+        elif request.form.get('action') == 'yourls_settings':
+            yourls_api_url = request.form.get('yourls_api_url', '').strip()
+            yourls_signature = request.form.get('yourls_signature', '').strip()
+            
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('yourls_api_url', ?)", (yourls_api_url,))
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('yourls_signature', ?)", (yourls_signature,))
+            conn.commit()
+            flash('YOURLS URL shortener settings updated successfully!', 'success')
+        
         conn.close()
         return redirect(url_for('admin_security'))
     
@@ -2280,6 +2320,12 @@ def admin_security():
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         label_settings[key] = row[0] if row else None
     
+    # Fetch YOURLS settings
+    yourls_settings = {}
+    for key in ['yourls_api_url', 'yourls_signature']:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        yourls_settings[key] = row[0] if row else None
+    
     conn.close()
     
     return render_template('admin/security.html', 
@@ -2287,7 +2333,8 @@ def admin_security():
                          current_override_password=current_override_password,
                          override_unlocked=override_unlocked,
                          dev_password_set=bool(DEVELOPER_PASSWORD),
-                         label_settings=label_settings)
+                         label_settings=label_settings,
+                         yourls_settings=yourls_settings)
 
 @app.route('/admin/branding', methods=['GET', 'POST'])
 @require_auth

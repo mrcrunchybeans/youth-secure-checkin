@@ -442,7 +442,11 @@ h1 {
           <div class="text-muted mb-1" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05rem;">Checkout Code</div>
           <div id="qr-code-text" style="font-size: 1.8rem; font-weight: bold; color: {{ branding.primary_color }}; font-family: 'Courier New', monospace; letter-spacing: 0.3rem;"></div>
         </div>
-        <p class="text-muted mb-0" style="font-size: 0.85rem; line-height: 1.4;">Scan QR code or write down the code above</p>
+        <div id="short-url-container-kiosk" style="display: none; margin-top: 1rem;">
+          <p class="text-muted mb-1" style="font-size: 0.75rem;">Or visit:</p>
+          <a id="short-url-link-kiosk" href="" target="_blank" style="font-size: 1.1rem; font-weight: 600; color: {{ branding.primary_color }}; text-decoration: none; word-break: break-all;"></a>
+        </div>
+        <p class="text-muted mb-0 mt-2" style="font-size: 0.85rem; line-height: 1.4;">Scan QR code, visit the link, or write down the code above</p>
       </div>
       <div class="modal-footer" style="border: none; justify-content: center; padding: 1rem 1.5rem;">
         <button type="button" class="btn" style="background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%); color: white; border: none; border-radius: 10px; padding: 0.6rem 2rem; font-size: 1.1rem; font-weight: 600;" data-bs-dismiss="modal">Done</button>
@@ -509,9 +513,21 @@ h1 {
 </div>
 
 <script>
-function showQRCodeModal(qrCodeData, checkoutCode) {
+function showQRCodeModal(qrCodeData, checkoutCode, shortUrl) {
     document.getElementById('qr-code-img').src = qrCodeData;
     document.getElementById('qr-code-text').textContent = checkoutCode || '';
+    
+    // Show short URL if available
+    const shortUrlContainer = document.getElementById('short-url-container-kiosk');
+    const shortUrlLink = document.getElementById('short-url-link-kiosk');
+    if (shortUrl) {
+        shortUrlLink.href = shortUrl;
+        shortUrlLink.textContent = shortUrl;
+        shortUrlContainer.style.display = 'block';
+    } else {
+        shortUrlContainer.style.display = 'none';
+    }
+    
     new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
 }
 
@@ -645,7 +661,7 @@ function showFamilyModal(data) {
                     
                     // Show QR code if available
                     if (resp.qr_code) {
-                        showQRCodeModal(resp.qr_code, resp.checkout_code);
+                        showQRCodeModal(resp.qr_code, resp.checkout_code, resp.short_url);
                     }
                     
                     // Print labels if any were returned (deferred to prevent UI blocking)
