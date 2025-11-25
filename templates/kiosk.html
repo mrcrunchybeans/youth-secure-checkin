@@ -2,6 +2,260 @@
 
 {% block title %}Check-in Kiosk | {{ current_event_name }} - {{ current_event_date }}{% endblock %}
 
+{% block head %}
+<style>
+/* Universal Kiosk Layout - Resolution Agnostic */
+/* Optimized for parent check-in: 4 numbers + 1 click, no scrolling */
+
+/* Container layout based on viewport aspect ratio */
+.kiosk-container {
+    display: grid;
+    gap: 1.5rem;
+    padding: 0.5rem;
+    max-width: 100%;
+}
+
+/* Landscape orientation (width > height): Side-by-side split */
+@media (min-aspect-ratio: 13/10) {
+    .kiosk-container {
+        grid-template-columns: minmax(350px, 45%) 1fr;
+        align-items: start;
+    }
+    
+    .kiosk-left {
+        position: sticky;
+        top: 1rem;
+    }
+    
+    .kiosk-right {
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+    }
+}
+
+/* Portrait or square: Stack vertically, prioritize check-in form */
+@media (max-aspect-ratio: 13/10) {
+    .kiosk-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .kiosk-left {
+        position: sticky;
+        top: 0.5rem;
+        z-index: 100;
+    }
+    
+    .kiosk-checkin-card {
+        background: white;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+}
+
+/* Phone number input - large, centered, prominent */
+#phone {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    padding: clamp(0.8rem, 2vh, 1.5rem);
+    height: auto;
+    text-align: center;
+    letter-spacing: 0.5rem;
+    font-weight: 700;
+    max-width: 100%;
+    border: 3px solid #dee2e6;
+    border-radius: 12px;
+    transition: border-color 0.2s ease;
+}
+
+#phone:focus {
+    border-color: {{ branding.primary_color }};
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Keypad - fluid sizing based on viewport */
+#keypad {
+    max-width: 100%;
+    width: 100%;
+}
+
+.keypad-key {
+    font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+    padding: clamp(0.8rem, 2vh, 1.5rem);
+    min-height: clamp(60px, 8vh, 100px);
+    font-weight: 700;
+    border: 2px solid #dee2e6;
+    transition: all 0.15s ease;
+    border-radius: 8px;
+    background: white;
+}
+
+.keypad-key:hover {
+    background: #f8f9fa;
+    border-color: {{ branding.primary_color }};
+}
+
+.keypad-key:active {
+    transform: scale(0.95);
+    background-color: {{ branding.primary_color }} !important;
+    color: white !important;
+    border-color: {{ branding.primary_color }} !important;
+}
+
+#keypad-clear, #keypad-back {
+    font-size: clamp(1rem, 2.5vw, 1.5rem);
+    padding: clamp(0.8rem, 2vh, 1.5rem);
+    min-height: clamp(60px, 8vh, 100px);
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+#keypad-clear {
+    background: #f8f9fa;
+    border: 2px solid #6c757d;
+    color: #6c757d;
+}
+
+#keypad-back {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    color: #856404;
+}
+
+/* Search button - prominent and obvious */
+#search-btn {
+    font-size: clamp(1.3rem, 3vw, 2rem);
+    padding: clamp(0.8rem, 2.5vh, 1.5rem);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+    border-radius: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+#search-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+#search-btn:active {
+    transform: scale(0.98);
+}
+
+/* Cards - clean, modern styling */
+.card {
+    border: 2px solid #dee2e6;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 16px;
+}
+
+.card-body {
+    padding: clamp(1rem, 3vh, 2rem);
+}
+
+.card-title {
+    color: {{ branding.primary_color }};
+    font-weight: 700;
+    font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+    margin-bottom: 1.5rem;
+}
+
+/* Form label */
+.form-label {
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    margin-bottom: 1rem;
+    display: block;
+    text-align: center;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Table styling for checked-in list */
+.table-responsive {
+    border-radius: 12px;
+    border: 2px solid #dee2e6;
+    max-height: calc(100vh - 150px);
+}
+
+.table {
+    margin-bottom: 0;
+    font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    font-weight: 700;
+    border-bottom: 3px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    color: {{ branding.primary_color }};
+}
+
+.table tbody tr {
+    height: clamp(2.5rem, 5vh, 4rem);
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.checkout-btn {
+    font-size: clamp(0.8rem, 1.5vw, 1rem);
+    padding: clamp(0.3rem, 1vh, 0.6rem) clamp(0.6rem, 2vw, 1rem);
+    font-weight: 600;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+/* Header sizing */
+h1 {
+    font-size: clamp(1.5rem, 3.5vw, 2.5rem) !important;
+    font-weight: 700;
+}
+
+.text-center.mb-3 {
+    font-size: clamp(0.9rem, 1.8vw, 1.2rem);
+}
+
+/* Logo sizing */
+.text-center.mb-3 img {
+    max-height: clamp(100px, 15vh, 180px) !important;
+}
+
+/* Mobile-specific adjustments (very small screens) */
+@media (max-width: 480px) {
+    .kiosk-container {
+        padding: 0.25rem;
+        gap: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    #keypad {
+        gap: 0.5rem;
+    }
+}
+
+/* Very large screens - constrain maximum sizes */
+@media (min-width: 1920px) {
+    .kiosk-container {
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+    
+    .keypad-key {
+        max-height: 100px;
+    }
+    
+    #phone {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+}
+</style>
+{% endblock %}
+
 {% block navbar_buttons %}
 <button id="fullscreen-btn-nav" class="btn btn-outline-light btn-sm me-2">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-arrows-fullscreen" viewBox="0 0 16 16">
@@ -42,58 +296,61 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            {% if logo_filename %}
-            <div class="text-center mb-3">
-                <img src="{{ url_for('static', filename='uploads/' + logo_filename) }}" alt="Logo" style="max-height: 150px; max-width: 100%;">
-            </div>
-            {% endif %}
-            
-            <h1 class="text-center mb-1" style="font-size: 2rem;">Check-in Kiosk</h1>
-            <p class="text-center mb-2" style="font-size: 1rem; color: #666; font-weight: normal;">{{ current_event_name }} - {{ current_event_date }}</p>
+    {% if logo_filename %}
+    <div class="text-center mb-3">
+        <img src="{{ url_for('static', filename='uploads/' + logo_filename) }}" alt="Logo" style="max-height: 150px; max-width: 100%;">
+    </div>
+    {% endif %}
+    
+    <h1 class="text-center mb-1" style="font-size: 2rem;">Check-in Kiosk</h1>
+    <p class="text-center mb-3" style="font-size: 1rem; color: #666; font-weight: normal;">{{ current_event_name }} - {{ current_event_date }}</p>
 
-            <!-- Check-in Form -->
-            <div class="card mb-2">
-                <div class="card-body" style="padding: 1rem;">
-                    <h3 class="card-title" style="font-size: 1.5rem; margin-bottom: 1rem;">Family Lookup</h3>
+    <!-- Responsive kiosk container: stacks on portrait, splits on landscape -->
+    <div class="kiosk-container">
+        <!-- Left column: Check-in Form -->
+        <div class="kiosk-left">
+            <div class="card mb-3 kiosk-checkin-card">
+                <div class="card-body" style="padding: 1.5rem;">
+                    <h3 class="card-title">Family Lookup</h3>
                     <form id="checkin-form">
                         <input type="hidden" id="event-id" value="{{ current_event_id }}">
-                        <div class="mb-2">
-                            <label for="phone" class="form-label" style="font-size: 1.1rem; margin-bottom: 0.5rem;">Last 4 digits of phone number:</label>
-                            <input type="tel" inputmode="numeric" class="form-control" id="phone" name="phone" maxlength="4" pattern="\d{4}" required style="font-size: 1.5rem; padding: 0.6rem; height: auto;" aria-label="Last four digits">
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Last 4 digits of phone number:</label>
+                            <input type="tel" inputmode="numeric" class="form-control" id="phone" name="phone" maxlength="4" pattern="\d{4}" required aria-label="Last four digits" autocomplete="off">
                         </div>
 
                         <!-- On-screen numeric keypad for touch screens -->
-                        <div id="keypad" class="mb-2" style="max-width: 350px; margin: 0 auto;">
-                            <div class="d-grid gap-1" style="grid-template-columns: repeat(3, 1fr); display: grid;">
-                                <button type="button" class="btn btn-light keypad-key" data-value="1" style="font-size: 1.2rem; padding: 0.5rem;">1</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="2" style="font-size: 1.2rem; padding: 0.5rem;">2</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="3" style="font-size: 1.2rem; padding: 0.5rem;">3</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="4" style="font-size: 1.2rem; padding: 0.5rem;">4</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="5" style="font-size: 1.2rem; padding: 0.5rem;">5</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="6" style="font-size: 1.2rem; padding: 0.5rem;">6</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="7" style="font-size: 1.2rem; padding: 0.5rem;">7</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="8" style="font-size: 1.2rem; padding: 0.5rem;">8</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="9" style="font-size: 1.2rem; padding: 0.5rem;">9</button>
-                                <button type="button" id="keypad-clear" class="btn btn-outline-secondary" style="font-size: 1rem; padding: 0.5rem;">Clear</button>
-                                <button type="button" class="btn btn-light keypad-key" data-value="0" style="font-size: 1.2rem; padding: 0.5rem;">0</button>
-                                <button type="button" id="keypad-back" class="btn btn-outline-secondary" style="font-size: 1rem; padding: 0.5rem;">⌫</button>
+                        <div id="keypad" class="mb-3">
+                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: clamp(0.5rem, 1.5vw, 1rem);">
+                                <button type="button" class="btn keypad-key" data-value="1">1</button>
+                                <button type="button" class="btn keypad-key" data-value="2">2</button>
+                                <button type="button" class="btn keypad-key" data-value="3">3</button>
+                                <button type="button" class="btn keypad-key" data-value="4">4</button>
+                                <button type="button" class="btn keypad-key" data-value="5">5</button>
+                                <button type="button" class="btn keypad-key" data-value="6">6</button>
+                                <button type="button" class="btn keypad-key" data-value="7">7</button>
+                                <button type="button" class="btn keypad-key" data-value="8">8</button>
+                                <button type="button" class="btn keypad-key" data-value="9">9</button>
+                                <button type="button" id="keypad-clear" class="btn">Clear</button>
+                                <button type="button" class="btn keypad-key" data-value="0">0</button>
+                                <button type="button" id="keypad-back" class="btn">⌫</button>
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-lg w-100" id="search-btn" style="font-size: 1.3rem; padding: 0.6rem; margin-top: 0.5rem; background-color: {{ branding.primary_color }}; color: white; border: none;">Search</button>
+                        <button type="submit" class="btn btn-lg w-100" id="search-btn" style="background-color: {{ branding.primary_color }}; color: white; border: none;">Check In</button>
                     </form>
                 </div>
             </div>
+        </div>
 
-            <!-- Currently Checked In -->
+        <!-- Right column: Currently Checked In -->
+        <div class="kiosk-right">
             <div class="card">
-                <div class="card-body" style="padding: 1rem;">
-                    <h3 class="card-title" style="font-size: 1.5rem; margin-bottom: 1rem;">Currently Checked In</h3>
-                    <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                        <table class="table table-striped table-sm" style="font-size: 0.9rem;">
-                            <thead style="font-size: 1rem; position: sticky; top: 0; background: white;">
+                <div class="card-body">
+                    <h3 class="card-title">Currently Checked In</h3>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
                                 <tr>
                                     <th>Kid Name</th>
                                     <th>Phone</th>
@@ -104,25 +361,25 @@
                             </thead>
                             <tbody id="checked-in-list">
                                 {% for checkin in checked_in %}
-                                <tr style="height: 2rem;">
+                                <tr>
                                     <td style="vertical-align: middle;">
                                         {{ checkin.kid_name }}
                                         {% if checkin.kid_notes %}
-                                          <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.65rem; opacity: 0.6;" 
+                                          <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6;" 
                                                 data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
                                                 title="{{ checkin.kid_notes | replace('\n', '<br>') }}">ℹ️</span>
                                         {% endif %}
                                         {% if checkin.authorized_adults %}
-                                          <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.65rem; opacity: 0.6;" 
+                                          <span class="text-muted ms-1" style="cursor: pointer; font-size: 0.75rem; opacity: 0.6;" 
                                                 data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true"
                                                 title="<strong>Authorized for Checkout:</strong><br>{{ checkin.authorized_adults | replace('\n', '<br>') }}">👤</span>
                                         {% endif %}
                                     </td>
                                     <td style="vertical-align: middle;">{{ checkin.phone }}</td>
                                     <td style="vertical-align: middle;">{{ checkin.adult_name }}</td>
-                                    <td style="vertical-align: middle; font-size: 0.8rem;">{{ checkin.formatted_time }}</td>
+                                    <td style="vertical-align: middle;">{{ checkin.formatted_time }}</td>
                                     <td style="vertical-align: middle;">
-                                        <button class="btn btn-warning btn-sm checkout-btn" style="font-size: 0.75rem; padding: 0.15rem 0.35rem;"
+                                        <button class="btn btn-warning checkout-btn"
                                                 data-kid-id="{{ checkin.kid_id }}"
                                                 data-kid-name="{{ checkin.kid_name }}"
                                                 data-event-id="{{ current_event_id }}">Check-Out</button>
