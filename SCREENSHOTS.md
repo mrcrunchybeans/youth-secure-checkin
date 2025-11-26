@@ -42,3 +42,36 @@ Or manually run the seed script inside the container:
 ```bash
 docker exec -it youth-checkin-screenshots python screenshot_seed.py
 ```
+
+## Recommended Screenshot List
+
+Here is a checklist of screenshots to capture for your marketing materials, documentation, and GitHub repository.
+
+### 1. The "Hero" Shots (Main Features)
+- **Kiosk - Main Screen**: The clean, welcoming interface on a tablet/desktop. Shows the keypad and "Currently Checked In" list.
+- **Kiosk - Family Selection**: The modal that appears after entering a phone number, showing adults and kids to select.
+- **Mobile Check-in**: The interface on a mobile phone (use browser dev tools to simulate iPhone/Pixel) to show responsiveness.
+
+### 2. Security & Safety
+- **QR Code Checkout**: The modal showing the unique checkout QR code after a successful check-in.
+- **Checkout Verification**: The screen asking for a checkout code (simulating a secure pickup).
+- **Authorized Adults**: Tooltip or view showing who is authorized to pick up a child.
+
+### 3. Admin Dashboard & Management
+- **Admin Dashboard**: The main overview showing active events, attendance stats, and quick actions.
+- **Event Management**: The list of events showing past and upcoming meetings.
+- **Family Management**: The family list view, showing how easy it is to manage roster.
+- **Family Detail View**: Editing a specific family, showing parents, kids, and medical notes.
+
+### 4. Customization & Branding
+- **Branding Settings**: The admin page where you set colors and logos, showing the white-label capabilities.
+- **Dark Mode**: If applicable, or just the contrast of the UI.
+
+### 5. Workflow Action Shots
+- **Check-in Success**: The green success message/alert after checking in.
+- **History/Reporting**: The attendance history view for a specific event or child.
+
+### Tips for Great Screenshots
+- **Hide Browser UI**: Press F11 for fullscreen or use browser developer tools "Capture screenshot" command.
+- **Consistent Window Size**: Use a fixed resolution (e.g., 1280x800 for desktop, 375x812 for mobile) for all shots.
+- **Clean Data**: The `screenshot_seed.py` script already provides clean "Troop 101" data, so you don't need to blur anything out.

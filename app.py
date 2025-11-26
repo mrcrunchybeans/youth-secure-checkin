@@ -35,6 +35,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from backup_manager import BackupManager
+from tlc_client import TrailLifeConnectClient
 
 # Disable SSL warnings for whitelisted calendar domains
 # We disable SSL verification only for pre-approved domains in ALLOWED_ICAL_DOMAINS
@@ -2326,623 +2327,268 @@ def admin_security():
     conn.close()
     
     return render_template('admin/security.html', 
-                         current_password=current_password,
-                         current_override_password=current_override_password,
-                         override_unlocked=override_unlocked,
-                         dev_password_set=bool(DEVELOPER_PASSWORD),
-                         label_settings=label_settings,
-                         yourls_settings=yourls_settings)
+                         branding=get_branding_settings(),
+                         admin_password_set=bool(current_password),
+                         require_login=override_unlocked)
 
-@app.route('/admin/branding', methods=['GET', 'POST'])
+# Trail Life Connect Integration Routes
+@app.route('/admin/tlc', methods=['GET'])
 @require_auth
-def admin_branding():
-    """Branding settings page - organization details, colors, logo, favicon"""
+def admin_tlc():
+    branding = get_branding_settings()
+    
+    # Check if we have credentials in session
+    if 'tlc_email' not in session or 'tlc_password' not in session:
+        return render_template('admin/tlc_sync.html', step='login', branding=branding)
+    
+    # Try to fetch events
+    try:
+        client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
+        if not client.login():
+            flash('Login failed. Please check your credentials.', 'error')
+            session.pop('tlc_email', None)
+            session.pop('tlc_password', None)
+            return render_template('admin/tlc_sync.html', step='login', branding=branding)
+            
+        events = client.get_upcoming_events()
+        return render_template('admin/tlc_sync.html', step='events', events=events, branding=branding)
+        
+    except Exception as e:
+        flash(f'An error occurred: {str(e)}', 'error')
+        return render_template('admin/tlc_sync.html', step='login', branding=branding)
+
+@app.route('/admin/tlc/login', methods=['POST'])
+@require_auth
+def admin_tlc_login():
+    email = request.form.get('email')
+    password = request.form.get('password')
+    
+    if email and password:
+        session['tlc_email'] = email
+        session['tlc_password'] = password
+        return redirect(url_for('admin_tlc'))
+    
+    flash('Please provide both email and password.', 'error')
+    return redirect(url_for('admin_tlc'))
+
+@app.route('/admin/tlc/sync/<event_id>', methods=['GET'])
+@require_auth
+def admin_tlc_sync_confirm(event_id):
+    branding = get_branding_settings()
+    
+    if 'tlc_email' not in session:
+        return redirect(url_for('admin_tlc'))
+        
+    client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
+    if not client.login():
+        return redirect(url_for('admin_tlc'))
+        
+    # 1. Get TLC Roster
+    tlc_roster = client.get_event_roster(event_id) # Dict: Name -> ID
+    
+    # 2. Get Local Check-ins for today (or recent)
+    # For now, we'll just get ALL kids currently checked in, or checked in today.
+    # Let's assume the event is "today".
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    
     conn = get_db()
-    
-    if request.method == 'POST':
-        action = request.form.get('action', '')
-        
-        # Handle branding updates
-        if action == 'update_branding':
-            organization_name = request.form.get('organization_name', '').strip()
-            organization_type = request.form.get('organization_type', 'other')
-            group_term = request.form.get('group_term', 'Group').strip()
-            primary_color = request.form.get('primary_color', '#79060d').strip()
-            secondary_color = request.form.get('secondary_color', '#003b59').strip()
-            accent_color = request.form.get('accent_color', '#4a582d').strip()
-            event_date_range_months = request.form.get('event_date_range_months', '1').strip()
-            
-            if organization_name:
-                set_branding_setting('organization_name', organization_name)
-                set_branding_setting('organization_type', organization_type)
-                set_branding_setting('group_term', group_term)
-                set_branding_setting('group_term_lower', group_term.lower())
-                set_branding_setting('primary_color', primary_color)
-                set_branding_setting('secondary_color', secondary_color)
-                set_branding_setting('accent_color', accent_color)
-                
-                # Save event date range setting
-                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('event_date_range_months', ?)", 
-                           (event_date_range_months,))
-                conn.commit()
-                
-                flash('Organization branding updated successfully!', 'success')
-            else:
-                flash('Organization name is required', 'danger')
-            
-            return redirect(url_for('admin_branding'))
-        
-        # Handle logo upload
-        elif action == 'upload_logo':
-            if 'logo_file' not in request.files:
-                flash('No file selected', 'danger')
-            else:
-                file = request.files['logo_file']
-                if file.filename == '':
-                    flash('No file selected', 'danger')
-                elif not allowed_file(file.filename):
-                    flash('Invalid file type. Please upload PNG, JPG, or SVG.', 'danger')
-                else:
-                    # Delete old logo if exists
-                    old_logo = get_logo_filename()
-                    if old_logo:
-                        old_path = app.config['UPLOAD_FOLDER'] / old_logo
-                        if old_path.exists():
-                            old_path.unlink()
-                    
-                    # Save new logo
-                    filename = secure_filename(file.filename)
-                    name, ext = os.path.splitext(filename)
-                    filename = f"logo_{int(time.time())}{ext}"
-                    filepath = app.config['UPLOAD_FOLDER'] / filename
-                    file.save(str(filepath))
-                    
-                    set_logo_filename(filename)
-                    flash('Logo uploaded successfully!', 'success')
-        
-        # Handle logo removal
-        elif action == 'remove_logo':
-            old_logo = get_logo_filename()
-            if old_logo:
-                old_path = app.config['UPLOAD_FOLDER'] / old_logo
-                if old_path.exists():
-                    old_path.unlink()
-                set_logo_filename(None)
-                flash('Logo removed successfully!', 'success')
-        
-        # Handle favicon upload
-        elif action == 'upload_favicon':
-            if 'favicon_file' not in request.files:
-                flash('No file selected', 'danger')
-            else:
-                file = request.files['favicon_file']
-                if file.filename == '':
-                    flash('No file selected', 'danger')
-                elif not allowed_file(file.filename, allowed_extensions={'png', 'jpg', 'jpeg', 'ico'}):
-                    flash('Invalid file type. Please upload ICO, PNG, or JPG.', 'danger')
-                else:
-                    # Delete old favicon if exists
-                    old_favicon = get_favicon_filename()
-                    if old_favicon:
-                        old_path = app.config['UPLOAD_FOLDER'] / old_favicon
-                        if old_path.exists():
-                            old_path.unlink()
-                    
-                    # Save new favicon
-                    filename = secure_filename(file.filename)
-                    name, ext = os.path.splitext(filename)
-                    filename = f"favicon_{int(time.time())}{ext}"
-                    filepath = app.config['UPLOAD_FOLDER'] / filename
-                    file.save(str(filepath))
-                    
-                    set_favicon_filename(filename)
-                    flash('Favicon uploaded successfully!', 'success')
-        
-        # Handle favicon removal
-        elif action == 'remove_favicon':
-            old_favicon = get_favicon_filename()
-            if old_favicon:
-                old_path = app.config['UPLOAD_FOLDER'] / old_favicon
-                if old_path.exists():
-                    old_path.unlink()
-                set_favicon_filename(None)
-                flash('Favicon removed successfully!', 'success')
-        
-        # Handle timezone update
-        elif action == 'update_timezone':
-            timezone_val = request.form.get('timezone', 'America/Chicago').strip()
-            try:
-                # Validate timezone
-                pytz.timezone(timezone_val)
-                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('timezone', ?)", (timezone_val,))
-                conn.commit()
-                flash('Time zone updated successfully! Restart the app for changes to take effect.', 'success')
-            except pytz.exceptions.UnknownTimeZoneError:
-                flash('Invalid timezone selected.', 'danger')
-        
-        # Handle footer settings update
-        elif action == 'update_footer':
-            footer_enabled = request.form.get('footer_enabled', 'off') == 'on'
-            footer_text = request.form.get('footer_text', '').strip()
-            footer_show_github = request.form.get('footer_show_github', 'off') == 'on'
-            footer_show_version = request.form.get('footer_show_version', 'off') == 'on'
-            footer_show_admin_link = request.form.get('footer_show_admin_link', 'off') == 'on'
-            
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_enabled', ?)", (str(footer_enabled),))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_text', ?)", (footer_text,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_github', ?)", (str(footer_show_github),))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_version', ?)", (str(footer_show_version),))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_admin_link', ?)", (str(footer_show_admin_link),))
-            conn.commit()
-            flash('Footer settings updated successfully!', 'success')
-        
-        conn.close()
-        return redirect(url_for('admin_branding'))
-    
-    # GET request - fetch current settings
-    current_logo = get_logo_filename()
-    current_favicon = get_favicon_filename()
-    event_date_range_months = get_event_date_range_months()
-    
-    # Fetch timezone setting
-    tz_row = conn.execute("SELECT value FROM settings WHERE key = 'timezone'").fetchone()
-    current_timezone = tz_row[0] if tz_row else 'America/Chicago'
-    
-    # Fetch footer settings
-    footer_enabled_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_enabled'").fetchone()
-    footer_enabled = footer_enabled_row[0] == 'True' if footer_enabled_row else True
-    
-    footer_text_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_text'").fetchone()
-    footer_text = footer_text_row[0] if footer_text_row else ''
-    
-    footer_show_github_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_github'").fetchone()
-    footer_show_github = footer_show_github_row[0] == 'True' if footer_show_github_row else True
-    
-    footer_show_version_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_version'").fetchone()
-    footer_show_version = footer_show_version_row[0] == 'True' if footer_show_version_row else True
-    
-    footer_show_admin_link_row = conn.execute("SELECT value FROM settings WHERE key = 'footer_show_admin_link'").fetchone()
-    footer_show_admin_link = footer_show_admin_link_row[0] == 'True' if footer_show_admin_link_row else True
-    
+    # Get all checkins for today
+    checkins = conn.execute('''
+        SELECT k.id, k.name, k.tlc_id, c.checkin_time 
+        FROM checkins c
+        JOIN kids k ON c.kid_id = k.id
+        WHERE date(c.checkin_time) = ?
+    ''', (today_str,)).fetchall()
     conn.close()
     
-    return render_template('admin/branding.html',
-                         current_logo=current_logo,
-                         current_favicon=current_favicon,
-                         event_date_range_months=event_date_range_months,
-                         current_timezone=current_timezone,
-                         footer_enabled=footer_enabled,
-                         footer_text=footer_text,
-                         footer_show_github=footer_show_github,
-                         footer_show_version=footer_show_version,
-                         footer_show_admin_link=footer_show_admin_link)
-
-@app.route('/admin/families')
-@require_auth
-def admin_families():
-    conn = get_db()
-    cur = conn.execute("""
-        SELECT f.id, f.phone, f.troop,
-               (SELECT GROUP_CONCAT(name, ', ') FROM adults WHERE family_id = f.id) as adults,
-               (SELECT GROUP_CONCAT(name, ', ') FROM kids WHERE family_id = f.id) as kids
-        FROM families f
-        ORDER BY f.phone
-    """)
-    families = cur.fetchall()
-    conn.close()
-    return render_template('admin/families.html', families=families)
-
-@app.route('/admin/families/add', methods=['GET', 'POST'])
-@require_auth
-def admin_add_family():
-    if request.method == 'POST':
-        phone = request.form.get('phone', '').strip()
-        troop = request.form.get('troop', '').strip()
-        authorized_adults = request.form.get('authorized_adults', '').strip()
-        adults = request.form.getlist('adults')
-        kids = request.form.getlist('kids')
-        kid_notes = request.form.getlist('kid_notes')
-        default_adult_index = request.form.get('default_adult_index', '').strip()
-        if not phone:
-            flash('Phone required', 'danger')
-            return redirect(request.url)
-        conn = get_db()
-        try:
-            cur = conn.execute("INSERT INTO families (phone, troop, authorized_adults) VALUES (?, ?, ?)", 
-                              (phone, troop, authorized_adults if authorized_adults else None))
-            family_id = cur.lastrowid
-            
-            # Track adult IDs to set default
-            adult_ids = []
-            for adult in adults:
-                if adult.strip():
-                    cur = conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, adult.strip()))
-                    adult_ids.append(cur.lastrowid)
-            
-            # Insert kids with their notes
-            for i, kid in enumerate(kids):
-                if kid.strip():
-                    note = kid_notes[i].strip() if i < len(kid_notes) else ''
-                    conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
-                                (family_id, kid.strip(), note if note else None))
-            
-            # Set default adult if specified
-            if default_adult_index and default_adult_index.isdigit():
-                idx = int(default_adult_index)
-                if 0 <= idx < len(adult_ids):
-                    conn.execute("UPDATE families SET default_adult_id = ? WHERE id = ?", (adult_ids[idx], family_id))
-            
-            conn.commit()
-            flash('Family added', 'success')
-            return redirect(url_for('admin_families'))
-        except sqlite3.IntegrityError:
-            flash('Phone already exists', 'danger')
-        finally:
-            conn.close()
-    return render_template('admin/add_family.html')
-
-@app.route('/admin/families/import/template')
-@require_auth
-def download_import_template():
-    """Download a CSV template for family imports"""
-    csv_content = """Last Name,First Name,Youth,Mobile Phone,Address Line 1,Authorized Adults,Notes
-Smith,John,,555-1234,123 Main St,"John Smith, Jane Smith",
-Smith,Jane,,555-1234,123 Main St,"John Smith, Jane Smith",
-Smith,Tommy,Y,555-1234,123 Main St,"John Smith, Jane Smith",Allergic to peanuts
-Smith,Sally,Y,555-1234,123 Main St,"John Smith, Jane Smith",
-Johnson,Mike,,555-5678,456 Oak Ave,"Mike Johnson, Lisa Johnson",
-Johnson,Lisa,,555-5678,456 Oak Ave,"Mike Johnson, Lisa Johnson",
-Johnson,Emma,Y,555-5678,456 Oak Ave,"Mike Johnson, Lisa Johnson",Special needs - requires aide
-Williams,Sarah,,555-9012,789 Pine Rd,Sarah Williams,
-Williams,Jake,Y,555-9012,789 Pine Rd,Sarah Williams,"""
+    matches = []
     
-    response = app.response_class(
-        response=csv_content,
-        status=200,
-        mimetype='text/csv'
-    )
-    response.headers['Content-Disposition'] = 'attachment; filename=family_import_template.csv'
-    return response
+    # Helper for name normalization
+    def normalize(n):
+        return n.lower().replace(',', '').replace('.', '').strip()
+    
+    # 3. Match
+    for checkin in checkins:
+        local_name = checkin['name']
+        local_tlc_id = checkin['tlc_id']
+        local_norm = normalize(local_name)
+        
+        match_found = None
+        
+        # 1. Try ID match first
+        if local_tlc_id:
+            for tlc_name, tlc_id in tlc_roster.items():
+                if tlc_id == local_tlc_id:
+                    match_found = {'name': tlc_name, 'id': tlc_id}
+                    break
+        
+        # 2. If no ID match, try name match
+        if not match_found:
+            # Try exact match first
+            for tlc_name, tlc_id in tlc_roster.items():
+                tlc_norm = normalize(tlc_name)
+                
+                # Check exact
+                if local_norm == tlc_norm:
+                    match_found = {'name': tlc_name, 'id': tlc_id}
+                    break
+                
+                # Check "Last First" vs "First Last"
+                parts = tlc_norm.split()
+                if len(parts) >= 2:
+                    # Swap first two parts
+                    swapped = f"{parts[1]} {parts[0]}"
+                    if local_norm == swapped:
+                        match_found = {'name': tlc_name, 'id': tlc_id}
+                        break
+                    
+        status = 'matched' if match_found else 'unmatched'
+        
+        matches.append({
+            'local_id': checkin['id'],
+            'local_name': local_name,
+            'tlc_name': match_found['name'] if match_found else None,
+            'tlc_id': match_found['id'] if match_found else None,
+            'status': status
+        })
+        
+    return render_template('admin/tlc_sync.html', 
+                         step='confirm', 
+                         event_id=event_id, 
+                         matches=matches, 
+                         branding=branding)
 
-@app.route('/admin/families/import', methods=['GET', 'POST'])
+@app.route('/admin/tlc/sync/<event_id>/execute', methods=['POST'])
 @require_auth
-def admin_import_families():
-    if request.method == 'POST':
-        troop = request.form.get('troop', '').strip()
-        file = request.files.get('file')
-        if not troop or not file:
-            flash(f'{get_branding_settings()["group_term"]} ID and file are required', 'danger')
-            return redirect(request.url)
-        try:
-            stream = io.StringIO(file.stream.read().decode("utf-8"), newline=None)
-            reader = csv.DictReader(stream)
-            families = {}
+def admin_tlc_sync_execute(event_id):
+    if 'tlc_email' not in session:
+        return redirect(url_for('admin_tlc'))
+        
+    client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
+    if not client.login():
+        return redirect(url_for('admin_tlc'))
+        
+    count = 0
+    errors = 0
+    
+    # Iterate through form data
+    # Look for sync_{local_id} checkboxes
+    for key, value in request.form.items():
+        if key.startswith('sync_') and value == 'on':
+            local_id = key.replace('sync_', '')
+            # Get the mapped TLC ID
+            tlc_id = request.form.get(f'mapping_{local_id}')
             
-            # Support multiple column name variations
-            for row in reader:
-                # Try to find last name column (case insensitive, flexible naming)
-                last_name = (row.get('Last Name') or row.get('LastName') or 
-                           row.get('last_name') or row.get('Surname') or '').strip()
-                
-                # Try to find first name column
-                first_name = (row.get('First Name') or row.get('FirstName') or 
-                            row.get('first_name') or row.get('Given Name') or '').strip()
-                
-                # Try to find youth indicator (Y/N, Yes/No, True/False, 1/0, or "Child"/"Adult")
-                youth_val = (row.get('Youth') or row.get('Is Youth') or row.get('Child') or 
-                           row.get('IsYouth') or row.get('Type') or '').strip().upper()
-                youth = youth_val in ['Y', 'YES', 'TRUE', '1', 'CHILD']
-                
-                # Try to find phone number (support various column names)
-                phone = (row.get('Mobile Phone') or row.get('Phone') or row.get('Mobile') or 
-                        row.get('Cell Phone') or row.get('Home Phone') or row.get('Work Phone') or 
-                        row.get('Contact Phone') or '').strip()
-                
-                # Try to find address
-                address = (row.get('Address Line 1') or row.get('Address') or 
-                         row.get('Street Address') or row.get('Street') or '').strip()
-                
-                # Try to find authorized adults
-                authorized_adults = (row.get('Authorized Adults') or row.get('Authorized') or 
-                                   row.get('Pickup Adults') or row.get('Authorized Pickup') or '').strip()
-                
-                # Try to find notes (for kids only)
-                notes = (row.get('Notes') or row.get('Note') or row.get('Comments') or 
-                        row.get('Special Notes') or '').strip()
-                
-                # Skip rows with missing required data
-                if not last_name or not first_name or not address:
-                    continue
-                
-                # Group by normalized address + last name
-                norm_addr = normalize_address(address)
-                key = (last_name, norm_addr)
-                
-                if key not in families:
-                    families[key] = {
-                        'phones': [], 
-                        'troop': troop, 
-                        'adults': [], 
-                        'kids': [],
-                        'authorized_adults': authorized_adults
-                    }
-                
-                name = f"{first_name} {last_name}"
-                if youth:
-                    families[key]['kids'].append({'name': name, 'notes': notes})
+            if tlc_id:
+                if client.mark_attendance(event_id, tlc_id, present=True):
+                    count += 1
                 else:
-                    families[key]['adults'].append(name)
-                    if phone:
-                        # Clean phone number - remove formatting
-                        clean_phone = re.sub(r'[^\d]', '', phone)
-                        if clean_phone and clean_phone not in families[key]['phones']:
-                            families[key]['phones'].append(clean_phone)
-                
-                # Update authorized adults if provided (use last non-empty value)
-                if authorized_adults and not families[key].get('authorized_adults'):
-                    families[key]['authorized_adults'] = authorized_adults
-            
-            conn = get_db()
-            imported_count = 0
-            skipped_count = 0
-            
-            for fam_data in families.values():
-                # Use last 4 digits of first phone, or None if no phones
-                if not fam_data['phones']:
-                    last4 = None
-                else:
-                    last4 = fam_data['phones'][0][-4:] if len(fam_data['phones'][0]) >= 4 else fam_data['phones'][0]
-                
-                try:
-                    # Insert new family with authorized adults
-                    authorized = fam_data.get('authorized_adults', None)
-                    cur = conn.execute("INSERT INTO families (phone, troop, authorized_adults) VALUES (?, ?, ?)", 
-                                     (last4, fam_data['troop'], authorized))
-                    family_id = cur.lastrowid
+                    errors += 1
                     
-                    # Add adults
-                    for adult in fam_data['adults']:
-                        conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", 
-                                   (family_id, adult))
-                    
-                    # Add kids with notes
-                    for kid_data in fam_data['kids']:
-                        if isinstance(kid_data, dict):
-                            kid_name = kid_data['name']
-                            kid_notes = kid_data.get('notes', None)
-                        else:
-                            # Backwards compatibility if kids is just a list of names
-                            kid_name = kid_data
-                            kid_notes = None
-                        
-                        conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
-                                   (family_id, kid_name, kid_notes))
-                    
-                    imported_count += 1
-                except Exception as e:
-                    skipped_count += 1
-                    family_name = fam_data["adults"][0] if fam_data["adults"] else "unknown"
-                    flash(f'Error importing family {family_name}: {e}', 'warning')
-                    continue
-            
-            conn.commit()
-            conn.close()
-            
-            if imported_count > 0:
-                flash(f'Successfully imported {imported_count} families!', 'success')
-            if skipped_count > 0:
-                flash(f'Skipped {skipped_count} families due to errors.', 'warning')
-            
-        except Exception as e:
-            flash(f'Error parsing CSV file: {e}. Please check the file format.', 'danger')
-            return redirect(request.url)
+    if errors > 0:
+        flash(f'Synced {count} records, but {errors} failed.', 'warning')
+    else:
+        flash(f'Successfully synced {count} records to Trail Life Connect!', 'success')
         
-        return redirect(url_for('admin_families'))
-    
-    return render_template('admin/import_families.html')
+    return redirect(url_for('admin_tlc'))
 
-@app.route('/admin/families/export')
+@app.route('/admin/tlc/roster', methods=['GET'])
 @require_auth
-def export_families():
-    """Export all families to CSV"""
-    conn = get_db()
+def admin_tlc_roster():
+    branding = get_branding_settings()
+    if 'tlc_email' not in session:
+        return redirect(url_for('admin_tlc'))
     
-    # Fetch all families with adults and kids
-    families = conn.execute("""
-        SELECT f.id, f.phone, f.troop, f.authorized_adults
-        FROM families f
-        ORDER BY f.troop, f.id
-    """).fetchall()
+    client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
+    if not client.login():
+        return redirect(url_for('admin_tlc'))
+
+    # We need an event to get the roster. 
+    # If provided in args, use it. Otherwise try to find one.
+    event_id = request.args.get('event_id')
     
-    # Build CSV data
-    csv_data = []
-    csv_data.append(['Last Name', 'First Name', 'Youth', 'Mobile Phone', 'Address Line 1', 'Authorized Adults', 'Notes', 'Group ID'])
-    
-    for family in families:
-        family_id = family['id']
-        phone_last4 = family['phone'] or ''
-        troop = family['troop'] or ''
-        authorized = family['authorized_adults'] or ''
-        
-        # Get adults
-        adults = conn.execute("SELECT name FROM adults WHERE family_id = ?", (family_id,)).fetchall()
-        
-        # Get kids
-        kids = conn.execute("SELECT name, notes FROM kids WHERE family_id = ?", (family_id,)).fetchall()
-        
-        # Determine last name and address (use first adult's name, use placeholder for address)
-        if adults:
-            first_adult_name = adults[0]['name']
-            name_parts = first_adult_name.split()
-            last_name = name_parts[-1] if name_parts else 'Unknown'
+    if not event_id:
+        # Try to get the first upcoming event
+        events = client.get_upcoming_events()
+        if events:
+            event_id = events[0]['id']
         else:
-            last_name = 'Unknown'
-        
-        # We don't store full address, so use placeholder
-        address = f"Family {family_id}"
-        
-        # Add adults
-        for adult in adults:
-            name_parts = adult['name'].split()
-            first_name = ' '.join(name_parts[:-1]) if len(name_parts) > 1 else adult['name']
-            csv_data.append([last_name, first_name, '', phone_last4, address, authorized, '', troop])
-        
-        # Add kids
-        for kid in kids:
-            name_parts = kid['name'].split()
-            first_name = ' '.join(name_parts[:-1]) if len(name_parts) > 1 else kid['name']
-            notes = kid['notes'] or ''
-            csv_data.append([last_name, first_name, 'Y', phone_last4, address, authorized, notes, troop])
+            flash("No upcoming events found to fetch roster from. Please ensure there is at least one event in TLC.", "warning")
+            return redirect(url_for('admin_tlc'))
+            
+    tlc_roster = client.get_event_roster(event_id) # Dict: Name -> ID
     
+    conn = get_db()
+    kids = conn.execute("SELECT id, name, tlc_id FROM kids ORDER BY name").fetchall()
     conn.close()
     
-    # Generate CSV
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerows(csv_data)
+    # Prepare options for dropdown
+    tlc_options = [{'id': uid, 'name': name} for name, uid in tlc_roster.items()]
+    tlc_options.sort(key=lambda x: x['name'])
     
-    response = app.response_class(
-        response=output.getvalue(),
-        status=200,
-        mimetype='text/csv'
-    )
-    response.headers['Content-Disposition'] = f'attachment; filename=families_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    return response
+    # Helper for name normalization
+    def normalize(n):
+        return n.lower().replace(',', '').replace('.', '').strip()
 
-@app.route('/admin/families/edit/<int:family_id>', methods=['GET', 'POST'])
-@require_auth
-def admin_edit_family(family_id):
-    conn = get_db()
-    if request.method == 'POST':
-        phone = request.form.get('phone', '').strip()
-        troop = request.form.get('troop', '').strip()
-        authorized_adults = request.form.get('authorized_adults', '').strip()
-        adults = request.form.getlist('adults')
-        adult_ids = request.form.getlist('adult_ids')
-        kids = request.form.getlist('kids')
-        kid_ids = request.form.getlist('kid_ids')
-        kid_notes = request.form.getlist('kid_notes')
-        default_adult_id = request.form.get('default_adult_id', '').strip()
-        if not phone:
-            phone = None
-        try:
-            # Update family including authorized_adults and default_adult_id
-            final_default_id = int(default_adult_id) if default_adult_id and default_adult_id.isdigit() else None
-            conn.execute("UPDATE families SET phone = ?, troop = ?, authorized_adults = ?, default_adult_id = ? WHERE id = ?", 
-                        (phone, troop, authorized_adults if authorized_adults else None, final_default_id, family_id))
+    roster_rows = []
+    for kid in kids:
+        current_tlc_id = kid['tlc_id']
+        match_status = 'unlinked'
+        suggested_id = current_tlc_id
+        
+        # If not linked, try to auto-match
+        if not current_tlc_id:
+            local_norm = normalize(kid['name'])
+            for tlc_name, tlc_id in tlc_roster.items():
+                tlc_norm = normalize(tlc_name)
+                if local_norm == tlc_norm:
+                    suggested_id = tlc_id
+                    match_status = 'auto-match'
+                    break
+                # Check swapped
+                parts = tlc_norm.split()
+                if len(parts) >= 2:
+                    swapped = f"{parts[1]} {parts[0]}"
+                    if local_norm == swapped:
+                        suggested_id = tlc_id
+                        match_status = 'auto-match'
+                        break
+        else:
+            match_status = 'linked'
             
-            # Update adults: UPDATE existing, INSERT new, DELETE removed
-            existing_adult_ids = set()
-            for i, adult_name in enumerate(adults):
-                if adult_name.strip():
-                    adult_id = adult_ids[i] if i < len(adult_ids) and adult_ids[i] else None
-                    if adult_id:
-                        # Update existing adult
-                        conn.execute("UPDATE adults SET name = ? WHERE id = ? AND family_id = ?", 
-                                    (adult_name.strip(), adult_id, family_id))
-                        existing_adult_ids.add(int(adult_id))
-                    else:
-                        # Insert new adult
-                        conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", 
-                                    (family_id, adult_name.strip()))
-            
-            # Delete adults that were removed
-            all_adults = conn.execute("SELECT id FROM adults WHERE family_id = ?", (family_id,)).fetchall()
-            for adult in all_adults:
-                if adult['id'] not in existing_adult_ids:
-                    conn.execute("DELETE FROM adults WHERE id = ?", (adult['id'],))
-            
-            # Update kids: UPDATE existing, INSERT new, DELETE removed
-            existing_kid_ids = set()
-            for i, kid_name in enumerate(kids):
-                if kid_name.strip():
-                    kid_id = kid_ids[i] if i < len(kid_ids) and kid_ids[i] else None
-                    note = kid_notes[i].strip() if i < len(kid_notes) else ''
-                    if kid_id:
-                        # Update existing kid
-                        conn.execute("UPDATE kids SET name = ?, notes = ? WHERE id = ? AND family_id = ?", 
-                                    (kid_name.strip(), note if note else None, kid_id, family_id))
-                        existing_kid_ids.add(int(kid_id))
-                    else:
-                        # Insert new kid
-                        conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
-                                    (family_id, kid_name.strip(), note if note else None))
-            
-            # Delete kids that were removed
-            all_kids = conn.execute("SELECT id FROM kids WHERE family_id = ?", (family_id,)).fetchall()
-            for kid in all_kids:
-                if kid['id'] not in existing_kid_ids:
-                    conn.execute("DELETE FROM kids WHERE id = ?", (kid['id'],))
-            conn.commit()
-            flash('Family updated', 'success')
-            return redirect(url_for('admin_families'))
-        except sqlite3.IntegrityError:
-            flash('Phone already exists', 'danger')
-        finally:
-            conn.close()
-    else:
-        # GET
-        family = conn.execute("SELECT * FROM families WHERE id = ?", (family_id,)).fetchone()
-        adults = conn.execute("SELECT * FROM adults WHERE family_id = ?", (family_id,)).fetchall()
-        kids = conn.execute("SELECT * FROM kids WHERE family_id = ?", (family_id,)).fetchall()
-        conn.close()
-        if not family:
-            flash('Family not found', 'danger')
-            return redirect(url_for('admin_families'))
-        return render_template('admin/edit_family.html', family=family, adults=adults, kids=kids)
+        roster_rows.append({
+            'id': kid['id'],
+            'name': kid['name'],
+            'current_tlc_id': current_tlc_id,
+            'suggested_id': suggested_id,
+            'status': match_status
+        })
+        
+    return render_template('admin/tlc_sync.html', 
+                         step='roster', 
+                         roster_rows=roster_rows, 
+                         tlc_options=tlc_options, 
+                         branding=branding)
 
-@app.route('/admin/families/clear', methods=['POST'])
+@app.route('/admin/tlc/roster/save', methods=['POST'])
 @require_auth
-def admin_clear_families():
+def admin_tlc_roster_save():
     conn = get_db()
-    conn.execute("DELETE FROM kids")
-    conn.execute("DELETE FROM adults")
-    conn.execute("DELETE FROM families")
+    count = 0
+    
+    for key, value in request.form.items():
+        if key.startswith('tlc_id_'):
+            kid_id = key.replace('tlc_id_', '')
+            tlc_id = value if value else None
+            
+            conn.execute("UPDATE kids SET tlc_id = ? WHERE id = ?", (tlc_id, kid_id))
+            count += 1
+            
     conn.commit()
     conn.close()
-    flash('All families cleared', 'success')
-    return redirect(url_for('admin_families'))
+    
+    flash(f"Updated roster links for {count} records.", "success")
+    return redirect(url_for('admin_tlc'))
 
-@app.route('/admin/events')
-@require_auth
-def admin_events():
-    conn = get_db()
-    cur = conn.execute("SELECT * FROM events ORDER BY start_time DESC")
-    events = cur.fetchall()
-    cur2 = conn.execute("SELECT value FROM settings WHERE key = 'ical_url'")
-    ical_row = cur2.fetchone()
-    ical_url = ical_row['value'] if ical_row else None
-    cur3 = conn.execute("SELECT value FROM settings WHERE key = 'last_ical_sync'")
-    last_sync_row = cur3.fetchone()
-    last_sync = last_sync_row['value'] if last_sync_row else None
-    if last_sync:
-        # Format the last sync time
-        dt = datetime.fromisoformat(last_sync).replace(tzinfo=pytz.UTC).astimezone(local_tz)
-        last_sync_formatted = dt.strftime('%b %d, %Y %I:%M %p')
-    else:
-        last_sync_formatted = 'Never'
-    conn.close()
-    return render_template('admin/events.html', events=events, ical_url=ical_url, last_sync=last_sync_formatted)
-
-@app.route('/admin/events/set_ical', methods=['POST'])
-@require_auth
-def admin_set_ical():
-    ical_url = request.form.get('ical_url', '').strip()
-    conn = get_db()
-    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('ical_url', ?)", (ical_url,))
-    conn.commit()
-    conn.close()
-    flash('iCal URL saved', 'success')
-    return redirect(url_for('admin_events'))
-
-@app.route('/admin/events/sync', methods=['POST'])
-@require_auth
-def admin_sync_ical():
-    success, message = sync_ical_events()
-    if success:
-        flash(message, 'success')
-    else:
-        flash(message, 'danger')
-    return redirect(url_for('admin_events'))
 
 

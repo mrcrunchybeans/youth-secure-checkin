@@ -115,3 +115,6 @@ test_env.py
 
 # Old deployment documentation
 DEPLOYMENT.md
+
+# Debug dumps
+*_dump.html

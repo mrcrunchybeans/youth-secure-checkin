@@ -47,6 +47,7 @@
   <!-- System Configuration -->
   <h5 class="text-muted mb-3"><i class="bi bi-gear-fill"></i> System Configuration</h5>
   <div class="row mb-4">
+
     <div class="col-md-4">
       <div class="card border-warning h-100">
         <div class="card-body">
@@ -82,6 +83,24 @@
           <p class="card-text text-muted">SMTP settings for check-in reports.</p>
           <a href="/admin/email" class="btn btn-success">
             <i class="bi bi-mailbox"></i> Configure Email
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Integrations -->
+  <h5 class="text-muted mb-3"><i class="bi bi-plug-fill"></i> Integrations</h5>
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card border-info h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-cloud-arrow-up-fill" style="color: {{ branding.primary_color }};"></i> TLC Sync
+          </h5>
+          <p class="card-text text-muted">Sync attendance with Trail Life Connect.</p>
+          <a href="/admin/tlc" class="btn btn-info text-white">
+            <i class="bi bi-arrow-repeat"></i> Sync Now
           </a>
         </div>
       </div>
