@@ -864,7 +864,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 phoneInput.readOnly = false;
                 this.classList.add('active');
                 this.setAttribute('aria-pressed', 'true');
-                phoneInput.focus();
+                // Trick to force native keyboard to appear
+                phoneInput.blur();
+                setTimeout(() => {
+                    // Optionally toggle input type to force keyboard
+                    const origType = phoneInput.type;
+                    phoneInput.type = 'text';
+                    phoneInput.focus();
+                    setTimeout(() => {
+                        phoneInput.type = origType;
+                    }, 100);
+                }, 50);
             }
         });
     }
