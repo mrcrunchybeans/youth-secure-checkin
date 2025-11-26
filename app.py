@@ -2284,6 +2284,24 @@ def import_families():
             
     return render_template('admin/import_families.html')
 
+@app.route('/admin/families/delete/<int:family_id>', methods=['POST'])
+@require_auth
+def delete_family(family_id):
+    conn = get_db()
+    try:
+        # Delete related records first
+        conn.execute("DELETE FROM kids WHERE family_id = ?", (family_id,))
+        conn.execute("DELETE FROM adults WHERE family_id = ?", (family_id,))
+        conn.execute("DELETE FROM families WHERE id = ?", (family_id,))
+        conn.commit()
+        flash('Family deleted successfully', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error deleting family: {str(e)}', 'danger')
+    finally:
+        conn.close()
+    return redirect(url_for('admin_families'))
+
 @app.route('/admin/families/import_tlc', methods=['POST'])
 @require_auth
 def import_families_tlc():
@@ -2768,6 +2786,42 @@ def lock_smtp():
     """Lock SMTP settings"""
     session['smtp_unlocked'] = False
     flash('SMTP settings locked', 'info')
+    return redirect(url_for('admin_email'))
+
+@app.route('/admin/email/test', methods=['POST'])
+@require_auth
+def test_email():
+    """Send a test email to verify SMTP settings"""
+    test_recipient = request.form.get('test_email', '').strip()
+    if not test_recipient:
+        flash('Please provide an email address', 'danger')
+        return redirect(url_for('admin_email'))
+    
+    # Get SMTP settings
+    conn = get_db()
+    smtp_config = {}
+    for key in ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from']:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        smtp_config[key] = row[0] if row else ''
+    conn.close()
+    
+    # Validate settings
+    if not all([smtp_config['smtp_host'], smtp_config['smtp_port'], smtp_config['smtp_from']]):
+        flash('SMTP settings are incomplete. Please configure all required fields.', 'danger')
+        return redirect(url_for('admin_email'))
+    
+    # Send test email
+    success, message = send_email(
+        test_recipient,
+        'Test Email from Check-in System',
+        '<h2>Test Email</h2><p>This is a test email to verify your SMTP configuration is working correctly.</p><p>If you received this email, your settings are configured properly!</p>'
+    )
+    
+    if success:
+        flash(f'Test email sent successfully to {test_recipient}', 'success')
+    else:
+        flash(f'Failed to send test email: {message}', 'danger')
+    
     return redirect(url_for('admin_email'))
 
 @app.route('/admin/utilities', methods=['GET'])
