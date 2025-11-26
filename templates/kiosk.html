@@ -362,13 +362,48 @@ h1 {
     }
 }
 
-/* Corrected Keypad Layout for Dial Pad Style */
-.keypad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 20px auto;
-    max-width: 300px;
+/* Keypad grid layout (three columns - phone dial style) */
+/* Use highest specificity to avoid conflicts with Bootstrap or other styles */
+#keypad > .keypad {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-auto-flow: row !important;
+    grid-auto-rows: minmax(48px, 70px) !important;
+    gap: 0.5rem !important;
+    margin: 0.5rem 0 !important;
+    max-width: 420px;
+    width: 100%;
+    justify-items: stretch;
+    align-items: center;
+}
+
+/* Ensure the buttons fully fill the grid cells and are touch friendly */
+/* additional rule to style keypad keys specifically to preserve visual contrast */
+#keypad > .keypad .btn {
+    width: 100% !important;
+    min-height: 56px !important;
+    height: 64px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.4rem 0.6rem !important;
+}
+
+#keypad > .keypad .btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+}
+
+/* Ensure keypad remains accessible and responsive on very small screens */
+@media (max-width: 380px) {
+    #keypad > .keypad {
+        gap: 0.35rem !important;
+    }
+    #keypad > .keypad .btn {
+        min-height: 52px !important;
+        height: 56px !important;
+    }
 }
 
 .keypad button {
@@ -379,10 +414,64 @@ h1 {
     cursor: pointer;
     transition: background-color 0.3s, color 0.3s;
     width: 100%;
-    height: 70px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* More specific keypad-key color adjustments for light/dark modes */
+#keypad > .keypad .keypad-key {
+    background: #ffffff !important;
+    border: 2px solid #e9ecef !important;
+    color: #2c2c2c !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+}
+
+/* Dark theme override */
+[data-theme="dark"] #keypad > .keypad .keypad-key {
+    background: #2b2b2b !important;
+    border: 2px solid rgba(255,255,255,0.06) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+}
+
+#keypad > .keypad .keypad-key:focus {
+    outline: 3px solid rgba(0,0,0,0.08);
+    outline-offset: 2px;
+}
+
+[data-theme="dark"] #keypad > .keypad .keypad-key:focus {
+    outline: 3px solid rgba(255,255,255,0.06);
+}
+
+#keypad > .keypad .keypad-key {
+    font-weight: 800 !important;
+    letter-spacing: 0.06rem;
+}
+
+#keypad > .keypad #keypad-clear {
+    background: #f8f9fa !important;
+    border: 2px solid #6c757d !important;
+    color: #6c757d !important;
+}
+
+[data-theme="dark"] #keypad > .keypad #keypad-clear {
+    background: rgba(255,255,255,0.03) !important;
+    border: 2px solid rgba(255,255,255,0.06) !important;
+    color: #cfcfcf !important;
+}
+
+#keypad > .keypad #keypad-back {
+    background: #fff3cd !important;
+    border: 2px solid #ffc107 !important;
+    color: #856404 !important;
+}
+
+[data-theme="dark"] #keypad > .keypad #keypad-back {
+    background: rgba(255,241,118,0.06) !important;
+    border: 2px solid rgba(255,193,7,0.12) !important;
+    color: #ffd966 !important;
 }
 
 /* Light mode styles */
@@ -475,18 +564,18 @@ body.dark-mode .keypad button:hover {
                         <!-- On-screen numeric keypad for touch screens -->
                         <div id="keypad" style="margin-bottom: 0.5rem;">
                             <div class="keypad">
-                                <button type="button" class="btn keypad-key" data-value="1">1</button>
-                                <button type="button" class="btn keypad-key" data-value="2">2</button>
-                                <button type="button" class="btn keypad-key" data-value="3">3</button>
-                                <button type="button" class="btn keypad-key" data-value="4">4</button>
-                                <button type="button" class="btn keypad-key" data-value="5">5</button>
-                                <button type="button" class="btn keypad-key" data-value="6">6</button>
-                                <button type="button" class="btn keypad-key" data-value="7">7</button>
-                                <button type="button" class="btn keypad-key" data-value="8">8</button>
-                                <button type="button" class="btn keypad-key" data-value="9">9</button>
-                                <button type="button" id="keypad-clear" class="btn">Clear</button>
-                                <button type="button" class="btn keypad-key" data-value="0">0</button>
-                                <button type="button" id="keypad-back" class="btn">⌫</button>
+                                <button type="button" class="btn keypad-key" data-value="1" aria-label="digit 1">1</button>
+                                <button type="button" class="btn keypad-key" data-value="2" aria-label="digit 2">2</button>
+                                <button type="button" class="btn keypad-key" data-value="3" aria-label="digit 3">3</button>
+                                <button type="button" class="btn keypad-key" data-value="4" aria-label="digit 4">4</button>
+                                <button type="button" class="btn keypad-key" data-value="5" aria-label="digit 5">5</button>
+                                <button type="button" class="btn keypad-key" data-value="6" aria-label="digit 6">6</button>
+                                <button type="button" class="btn keypad-key" data-value="7" aria-label="digit 7">7</button>
+                                <button type="button" class="btn keypad-key" data-value="8" aria-label="digit 8">8</button>
+                                <button type="button" class="btn keypad-key" data-value="9" aria-label="digit 9">9</button>
+                                <button type="button" id="keypad-clear" class="btn" aria-label="clear">Clear</button>
+                                <button type="button" class="btn keypad-key" data-value="0" aria-label="digit 0">0</button>
+                                <button type="button" id="keypad-back" class="btn" aria-label="backspace">⌫</button>
                             </div>
                         </div>
 
