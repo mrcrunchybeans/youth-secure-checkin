@@ -1841,20 +1841,16 @@ def admin_index():
 @require_auth
 def admin_families():
     conn = get_db()
-    # Get all families
-    families = conn.execute("SELECT * FROM families ORDER BY id").fetchall()
-    # Get all adults, grouped by family_id
-    adults = conn.execute("SELECT * FROM adults").fetchall()
-    adults_by_family = {}
-    for a in adults:
-        adults_by_family.setdefault(a['family_id'], []).append(a)
-    # Get all kids, grouped by family_id
-    kids = conn.execute("SELECT * FROM kids").fetchall()
-    kids_by_family = {}
-    for k in kids:
-        kids_by_family.setdefault(k['family_id'], []).append(k)
+    # Get all families with aggregated adult and kid names
+    families = conn.execute("""
+        SELECT f.*,
+               (SELECT GROUP_CONCAT(a.name, ', ') FROM adults a WHERE a.family_id = f.id) as adults,
+               (SELECT GROUP_CONCAT(k.name, ', ') FROM kids k WHERE k.family_id = f.id) as kids
+        FROM families f
+        ORDER BY f.id
+    """).fetchall()
     conn.close()
-    return render_template('admin/families.html', families=families, adults_by_family=adults_by_family, kids_by_family=kids_by_family)
+    return render_template('admin/families.html', families=families)
 
 # Admin: Events management page
 @app.route('/admin/events')
