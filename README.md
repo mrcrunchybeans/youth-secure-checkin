@@ -157,23 +157,31 @@ Access comprehensive settings at `/admin`:
 
 ## 📸 Screenshots
 
-<details>
-<summary>Click to view screenshots</summary>
+<details open>
+<summary><b>Click to collapse screenshots</b></summary>
 
-### Check-in Interface
-![Check-in](docs/images/checkin.png)
+### Kiosk & Check-in Experience
+| Main Kiosk | Family Selection |
+|:---:|:---:|
+| ![Kiosk Interface](docs/images/kiosk.png) | ![Family Selection](docs/images/kiosk-results.png) |
 
-### Admin Panel
-![Admin Panel](docs/images/admin-panel.png)
+| QR Code Checkout | Secure Checkout |
+|:---:|:---:|
+| ![QR Code](docs/images/kiosk-qrcode.png) | ![Checkout Code](docs/images/kiosk-checkout.png) |
 
-### Family Management
-![Families](docs/images/families.png)
+### Admin Dashboard & Management
+| Admin Dashboard | Event Management |
+|:---:|:---:|
+| ![Admin Panel](docs/images/admin-panel.png) | ![Events](docs/images/events.png) |
 
-### Security Settings
-![Security](docs/images/security.png)
+| Family Management | Edit Family Details |
+|:---:|:---:|
+| ![Families](docs/images/families.png) | ![Edit Family](docs/images/edit-family.png) |
 
-### Branding Customization
-![Branding](docs/images/branding.png)
+### Customization & Reporting
+| Branding Settings | Attendance History |
+|:---:|:---:|
+| ![Branding](docs/images/branding.png) | ![History](docs/images/history.png) |
 
 </details>
 
