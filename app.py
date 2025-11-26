@@ -1,30 +1,3 @@
-# Admin: Events management page
-@app.route('/admin/events')
-@require_auth
-def admin_events():
-    conn = get_db()
-    events = conn.execute("SELECT * FROM events ORDER BY start_time DESC").fetchall()
-    conn.close()
-    return render_template('admin/events.html', events=events)
-# Admin: Families management page
-@app.route('/admin/families')
-@require_auth
-def admin_families():
-    conn = get_db()
-    # Get all families
-    families = conn.execute("SELECT * FROM families ORDER BY id").fetchall()
-    # Get all adults, grouped by family_id
-    adults = conn.execute("SELECT * FROM adults").fetchall()
-    adults_by_family = {}
-    for a in adults:
-        adults_by_family.setdefault(a['family_id'], []).append(a)
-    # Get all kids, grouped by family_id
-    kids = conn.execute("SELECT * FROM kids").fetchall()
-    kids_by_family = {}
-    for k in kids:
-        kids_by_family.setdefault(k['family_id'], []).append(k)
-    conn.close()
-    return render_template('admin/families.html', families=families, adults_by_family=adults_by_family, kids_by_family=kids_by_family)
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 import sqlite3
 from pathlib import Path
@@ -1862,6 +1835,35 @@ def email_history():
 @require_auth
 def admin_index():
     return render_template('admin/index.html')
+
+# Admin: Families management page
+@app.route('/admin/families')
+@require_auth
+def admin_families():
+    conn = get_db()
+    # Get all families
+    families = conn.execute("SELECT * FROM families ORDER BY id").fetchall()
+    # Get all adults, grouped by family_id
+    adults = conn.execute("SELECT * FROM adults").fetchall()
+    adults_by_family = {}
+    for a in adults:
+        adults_by_family.setdefault(a['family_id'], []).append(a)
+    # Get all kids, grouped by family_id
+    kids = conn.execute("SELECT * FROM kids").fetchall()
+    kids_by_family = {}
+    for k in kids:
+        kids_by_family.setdefault(k['family_id'], []).append(k)
+    conn.close()
+    return render_template('admin/families.html', families=families, adults_by_family=adults_by_family, kids_by_family=kids_by_family)
+
+# Admin: Events management page
+@app.route('/admin/events')
+@require_auth
+def admin_events():
+    conn = get_db()
+    events = conn.execute("SELECT * FROM events ORDER BY start_time DESC").fetchall()
+    conn.close()
+    return render_template('admin/events.html', events=events)
 
 @app.route('/admin/backup/export')
 @require_auth
