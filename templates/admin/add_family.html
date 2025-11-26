@@ -19,13 +19,16 @@
     <div class="mb-3">
       <label class="form-label">Adults</label>
       <div id="adults">
-        <div class="d-flex align-items-center mb-2">
-          <input type="radio" name="default_adult_index" value="0" class="me-2" checked title="Set as default for check-in" />
-          <input name="adults" class="form-control" placeholder="Adult name" />
+        <div class="mb-2">
+          <div class="d-flex align-items-center mb-1">
+            <input type="radio" name="default_adult_index" value="0" class="me-2" checked title="Set as default for check-in" />
+            <input name="adults" class="form-control" placeholder="Adult name" />
+          </div>
+          <input name="adult_phones" class="form-control ms-4" type="tel" placeholder="Phone number (optional)" style="font-size: 0.9rem;" />
         </div>
       </div>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('adults')">Add Adult</button>
-      <small class="form-text text-muted d-block mt-2">Select the radio button next to the adult who should be pre-selected during check-in.</small>
+      <small class="form-text text-muted d-block mt-2">Select the radio button next to the adult who should be pre-selected during check-in. Each adult can have their own phone number for check-in.</small>
     </div>
     <div class="mb-3">
       <label class="form-label">Kids</label>
@@ -46,8 +49,10 @@ function addField(type) {
   const div = document.getElementById(type);
   if (type === 'adults') {
     const currentCount = div.querySelectorAll('input[name="adults"]').length;
+    const container = document.createElement('div');
+    container.className = 'mb-2';
     const wrapper = document.createElement('div');
-    wrapper.className = 'd-flex align-items-center mb-2';
+    wrapper.className = 'd-flex align-items-center mb-1';
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'default_adult_index';
@@ -58,9 +63,17 @@ function addField(type) {
     input.name = type;
     input.className = 'form-control';
     input.placeholder = 'Adult name';
+    const phoneInput = document.createElement('input');
+    phoneInput.name = 'adult_phones';
+    phoneInput.className = 'form-control ms-4';
+    phoneInput.type = 'tel';
+    phoneInput.placeholder = 'Phone number (optional)';
+    phoneInput.style.fontSize = '0.9rem';
     wrapper.appendChild(radio);
     wrapper.appendChild(input);
-    div.appendChild(wrapper);
+    container.appendChild(wrapper);
+    container.appendChild(phoneInput);
+    div.appendChild(container);
   } else {
     const wrapper = document.createElement('div');
     wrapper.className = 'mb-3 border rounded p-2 bg-light';

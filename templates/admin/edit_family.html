@@ -20,20 +20,26 @@
       <label class="form-label">Adults</label>
       <div id="adults">
         {% for adult in adults %}
-          <div class="d-flex align-items-center mb-2">
+          <div class="mb-2">
             <input type="hidden" name="adult_ids" value="{{ adult.id }}" />
-            <input type="radio" name="default_adult_id" value="{{ adult.id }}" class="me-2" {% if family.default_adult_id == adult.id %}checked{% endif %} title="Set as default for check-in" />
-            <input name="adults" data-adult-id="{{ adult.id }}" class="form-control" value="{{ adult.name }}" placeholder="Adult name" />
+            <div class="d-flex align-items-center mb-1">
+              <input type="radio" name="default_adult_id" value="{{ adult.id }}" class="me-2" {% if family.default_adult_id == adult.id %}checked{% endif %} title="Set as default for check-in" />
+              <input name="adults" data-adult-id="{{ adult.id }}" class="form-control" value="{{ adult.name }}" placeholder="Adult name" />
+            </div>
+            <input name="adult_phones" class="form-control ms-4" type="tel" value="{{ adult.phone or '' }}" placeholder="Phone number (optional)" style="font-size: 0.9rem;" />
           </div>
         {% endfor %}
-        <div class="d-flex align-items-center mb-2">
+        <div class="mb-2">
           <input type="hidden" name="adult_ids" value="" />
-          <input type="radio" name="default_adult_id" value="" class="me-2" title="Set as default for check-in" />
-          <input name="adults" class="form-control" placeholder="Adult name" />
+          <div class="d-flex align-items-center mb-1">
+            <input type="radio" name="default_adult_id" value="" class="me-2" title="Set as default for check-in" />
+            <input name="adults" class="form-control" placeholder="Adult name" />
+          </div>
+          <input name="adult_phones" class="form-control ms-4" type="tel" placeholder="Phone number (optional)" style="font-size: 0.9rem;" />
         </div>
       </div>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('adults')">Add Adult</button>
-      <small class="form-text text-muted d-block mt-2">Select the radio button next to the adult who should be pre-selected during check-in.</small>
+      <small class="form-text text-muted d-block mt-2">Select the radio button next to the adult who should be pre-selected during check-in. Each adult can have their own phone number for check-in.</small>
     </div>
     <div class="mb-3">
       <label class="form-label">Kids</label>
@@ -61,12 +67,14 @@
 function addField(type) {
   const div = document.getElementById(type);
   if (type === 'adults') {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'd-flex align-items-center mb-2';
+    const container = document.createElement('div');
+    container.className = 'mb-2';
     const hiddenId = document.createElement('input');
     hiddenId.type = 'hidden';
     hiddenId.name = 'adult_ids';
     hiddenId.value = '';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-flex align-items-center mb-1';
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'default_adult_id';
@@ -77,10 +85,18 @@ function addField(type) {
     input.name = type;
     input.className = 'form-control';
     input.placeholder = 'Adult name';
-    wrapper.appendChild(hiddenId);
+    const phoneInput = document.createElement('input');
+    phoneInput.name = 'adult_phones';
+    phoneInput.className = 'form-control ms-4';
+    phoneInput.type = 'tel';
+    phoneInput.placeholder = 'Phone number (optional)';
+    phoneInput.style.fontSize = '0.9rem';
+    container.appendChild(hiddenId);
     wrapper.appendChild(radio);
     wrapper.appendChild(input);
-    div.appendChild(wrapper);
+    container.appendChild(wrapper);
+    container.appendChild(phoneInput);
+    div.appendChild(container);
   } else {
     const wrapper = document.createElement('div');
     wrapper.className = 'mb-3 border rounded p-2 bg-light';

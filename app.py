@@ -153,6 +153,21 @@ def ensure_tlc_synced_column():
     finally:
         conn.close()
 
+def ensure_adult_phone_column():
+    """Ensure the phone column exists in the adults table."""
+    conn = get_db()
+    try:
+        conn.execute('SELECT phone FROM adults LIMIT 1')
+    except sqlite3.OperationalError:
+        try:
+            conn.execute('ALTER TABLE adults ADD COLUMN phone TEXT')
+            conn.commit()
+            app.logger.info('Added phone column to adults table')
+        except Exception:
+            pass # Might have been added by another thread/process
+    finally:
+        conn.close()
+
 def init_db():
     conn = sqlite3.connect(app.config.get('DATABASE', DB_PATH))
     conn.row_factory = sqlite3.Row
@@ -888,19 +903,25 @@ def checkin_last4():
         return jsonify({'error': 'Invalid phone number'}), 400
     conn = get_db()
     
-    # Search for phone that contains or ends with the provided digits
-    # Phone may be stored with formatting (dashes, spaces, parens), so we need to strip and compare
+    # Search for phone in both families table and adults table
     # Using REPLACE to remove common phone formatting characters
     cur = conn.execute("""
-        SELECT f.id, f.phone, f.troop, f.default_adult_id,
-               (SELECT GROUP_CONCAT(a.id || ':' || a.name)
+        SELECT DISTINCT f.id, f.phone, f.troop, f.default_adult_id,
+               (SELECT GROUP_CONCAT(a.id || ':' || a.name || ':' || COALESCE(a.phone, ''))
                 FROM adults a WHERE a.family_id = f.id) as adults,
                (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
-                FROM kids k WHERE k.family_id = f.id) as kids
+                FROM kids k WHERE k.family_id = f.id) as kids,
+               (SELECT a.id FROM adults a WHERE a.family_id = f.id 
+                AND (REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                     OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?)
+                LIMIT 1) as matched_adult_id
         FROM families f
+        LEFT JOIN adults a ON a.family_id = f.id
         WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?
-    """, ('%' + phone_digits + '%', phone_digits))
+           OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+           OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?
+    """, ('%' + phone_digits + '%', phone_digits, '%' + phone_digits + '%', phone_digits, '%' + phone_digits + '%', phone_digits))
     families = cur.fetchall()
     
     if not families:
@@ -909,12 +930,16 @@ def checkin_last4():
     
     # Helper function to parse family data
     def parse_family_data(family):
-        # Parse concatenated adult and kid data
+        # Parse concatenated adult and kid data (now includes phone)
         adults_list = parse_concat_list(family['adults'], ':') if family['adults'] else []
         adults = []
         for adult_parts in adults_list:
             if len(adult_parts) >= 2:
-                adults.append({'id': int(adult_parts[0]), 'name': adult_parts[1]})
+                adults.append({
+                    'id': int(adult_parts[0]), 
+                    'name': adult_parts[1],
+                    'phone': adult_parts[2] if len(adult_parts) > 2 else ''
+                })
         
         kids_list = parse_concat_list(family['kids'], ':') if family['kids'] else []
         kids = []
@@ -942,11 +967,15 @@ def checkin_last4():
             for kid in kids:
                 kid['already_checked_in'] = kid['id'] in checked_in_kids
         
+        # If an adult's phone was matched, use that adult as default
+        matched_adult_id = family['matched_adult_id'] if 'matched_adult_id' in family.keys() and family['matched_adult_id'] else None
+        default_adult = matched_adult_id if matched_adult_id else family['default_adult_id']
+        
         return {
             'family_id': family['id'],
             'phone': family['phone'],
             'troop': family['troop'],
-            'default_adult_id': family['default_adult_id'],
+            'default_adult_id': default_adult,
             'adults': adults,
             'kids': kids
         }
@@ -2000,6 +2029,7 @@ def add_family():
         authorized_adults = request.form.get('authorized_adults')
         
         adult_names = request.form.getlist('adults')
+        adult_phones = request.form.getlist('adult_phones')
         default_adult_index = int(request.form.get('default_adult_index', 0))
         
         kid_names = request.form.getlist('kids')
@@ -2021,7 +2051,9 @@ def add_family():
             default_adult_id = None
             for i, name in enumerate(adult_names):
                 if name.strip():
-                    cur = conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, name.strip()))
+                    adult_phone = adult_phones[i].strip() if i < len(adult_phones) else ''
+                    cur = conn.execute("INSERT INTO adults (family_id, name, phone) VALUES (?, ?, ?)", 
+                                      (family_id, name.strip(), adult_phone if adult_phone else None))
                     if i == default_adult_index:
                         default_adult_id = cur.lastrowid
             
@@ -2062,6 +2094,7 @@ def edit_family(family_id):
         
         adult_ids = request.form.getlist('adult_ids')
         adult_names = request.form.getlist('adults')
+        adult_phones = request.form.getlist('adult_phones')
         
         kid_ids = request.form.getlist('kid_ids')
         kid_names = request.form.getlist('kids')
@@ -2082,14 +2115,17 @@ def edit_family(family_id):
                     continue
                     
                 adult_id = adult_ids[i] if i < len(adult_ids) and adult_ids[i] else None
+                adult_phone = adult_phones[i].strip() if i < len(adult_phones) else ''
                 
                 if adult_id:
                     # Update existing
-                    conn.execute("UPDATE adults SET name = ? WHERE id = ?", (name.strip(), adult_id))
+                    conn.execute("UPDATE adults SET name = ?, phone = ? WHERE id = ?", 
+                               (name.strip(), adult_phone if adult_phone else None, adult_id))
                     processed_adult_ids.append(int(adult_id))
                 else:
                     # Add new
-                    conn.execute("INSERT INTO adults (family_id, name) VALUES (?, ?)", (family_id, name.strip()))
+                    conn.execute("INSERT INTO adults (family_id, name, phone) VALUES (?, ?, ?)", 
+                               (family_id, name.strip(), adult_phone if adult_phone else None))
             
             # Delete removed adults
             for aid in existing_adults:
@@ -3018,6 +3054,7 @@ def admin_tlc_sync_confirm(event_id):
             
     # Ensure DB schema is up to date
     ensure_tlc_synced_column()
+    ensure_adult_phone_column()
             
     conn = get_db()
     # Get checkins for the specific date of the event
