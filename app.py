@@ -2480,6 +2480,10 @@ def admin_tlc_sync_execute(event_id):
             tlc_id = request.form.get(f'mapping_{local_id}')
             
             if tlc_id:
+                # SAFE SYNC: We only mark attendance as Present (True).
+                # We do NOT mark anyone as Absent (False).
+                # This ensures that if someone is marked Present on TLC but not checked in locally,
+                # their status on TLC is preserved (not overwritten).
                 if client.mark_attendance(event_id, tlc_id, present=True):
                     count += 1
                 else:

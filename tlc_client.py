@@ -106,59 +106,45 @@ class TrailLifeConnectClient:
 
     def get_upcoming_events(self):
         """
-        Scrapes the attendance page to find upcoming events.
+        Scrapes the calendar events page to find upcoming events.
         Returns a list of dicts: {'id': '...', 'name': '...', 'date': '...'}
         """
-        url = f"{self.base_url}/attendance"
+        url = f"{self.base_url}/calendar/view-events"
         logger.info(f"Fetching events from {url}...")
         response = self.session.get(url)
         
         if response.status_code != 200:
-            logger.error("Failed to fetch attendance page")
+            logger.error("Failed to fetch calendar events page")
             return []
-
-        # DEBUG: Save HTML to file for inspection
-        try:
-            with open("attendance_page_dump.html", "w", encoding="utf-8") as f:
-                f.write(response.text)
-            logger.info("Saved attendance page HTML to attendance_page_dump.html for debugging.")
-        except Exception as e:
-            logger.warning(f"Could not save debug HTML: {e}")
 
         soup = BeautifulSoup(response.text, 'html.parser')
         events = []
         
-        # Strategy 1: Look for links with eventId
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            match = re.search(r'eventId=([a-zA-Z0-9]+)', href)
-            if match:
-                event_id = match.group(1)
-                event_name = link.get_text(strip=True)
-                if not any(e['id'] == event_id for e in events):
-                    events.append({'id': event_id, 'name': event_name})
-
-        # Strategy 2: Look for <option> tags specifically in the event-id select
-        event_select = soup.find('select', {'id': 'event-id'})
-        if event_select:
-            for option in event_select.find_all('option'):
-                val = option.get('value')
-                # Skip empty or placeholder values
-                if val and val.strip() and "Search For Event" not in option.get_text():
-                    name = option.get_text(strip=True)
-                    if not any(e['id'] == val for e in events):
-                        events.append({'id': val, 'name': name})
+        # Find the grid view table rows
+        # Rows have data-key attribute which is the event ID
+        rows = soup.find_all('tr', attrs={'data-key': True})
         
-        # Fallback: If strategy 2 failed (maybe ID changed), try the broader search but exclude known bad IDs
-        if not events:
-            logger.info("Strategy 2 (specific select) found no events. Trying broader search...")
-            # ... existing fallback logic if needed, or just rely on Strategy 1 ...
-            pass
-        
-        # Strategy 3: Look for Select2 data or JS variables
-        # Sometimes data is embedded in a script tag
-        # Look for "results": [ ... "id": "..." ... ] patterns if it's preloaded
-        
+        for row in rows:
+            event_id = row['data-key']
+            
+            # Find date (usually data-col-seq="2")
+            date_cell = row.find('td', attrs={'data-col-seq': '2'})
+            event_date = date_cell.get_text(strip=True) if date_cell else "Unknown Date"
+            
+            # Find title (usually data-col-seq="3")
+            title_cell = row.find('td', attrs={'data-col-seq': '3'})
+            event_name = title_cell.get_text(strip=True) if title_cell else "Unknown Event"
+            
+            # Combine date and name for display
+            display_name = f"{event_name} ({event_date})"
+            
+            events.append({
+                'id': event_id,
+                'name': display_name,
+                'date': event_date,
+                'title': event_name
+            })
+            
         logger.info(f"Found {len(events)} events.")
         return events
 
