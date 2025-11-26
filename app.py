@@ -2657,8 +2657,110 @@ def admin_security():
     
     return render_template('admin/security.html', 
                          branding=get_branding_settings(),
-                         admin_password_set=bool(current_password),
-                         require_login=override_unlocked)
+                         current_password=current_password,
+                         current_override_password=current_override_password,
+                         override_unlocked=override_unlocked,
+                         label_settings=label_settings,
+                         yourls_settings=yourls_settings)
+
+@app.route('/admin/security/unlock-override', methods=['POST'])
+@require_auth
+def unlock_override():
+    """Unlock override settings with developer password"""
+    dev_password = request.form.get('dev_password')
+    if dev_password == DEVELOPER_PASSWORD:
+        session['override_unlocked'] = True
+        flash('Override settings unlocked', 'success')
+    else:
+        flash('Incorrect developer password', 'danger')
+    return redirect(url_for('admin_security'))
+
+@app.route('/admin/security/lock-override', methods=['POST'])
+@require_auth
+def lock_override():
+    """Lock override settings"""
+    session['override_unlocked'] = False
+    flash('Override settings locked', 'info')
+    return redirect(url_for('admin_security'))
+
+@app.route('/admin/branding', methods=['GET', 'POST'])
+@require_auth
+def admin_branding():
+    """Branding settings page"""
+    conn = get_db()
+    
+    if request.method == 'POST':
+        # Update branding settings
+        settings_to_update = [
+            'organization_name', 'organization_type', 'group_term', 'group_term_lower',
+            'primary_color', 'secondary_color', 'accent_color'
+        ]
+        
+        for key in settings_to_update:
+            value = request.form.get(key, '')
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        
+        # Handle logo upload if provided
+        if 'logo' in request.files:
+            logo = request.files['logo']
+            if logo.filename:
+                # Save logo logic here (simplified)
+                pass
+        
+        conn.commit()
+        conn.close()
+        flash('Branding settings updated successfully', 'success')
+        return redirect(url_for('admin_branding'))
+    
+    conn.close()
+    return render_template('admin/branding.html', branding=get_branding_settings())
+
+@app.route('/admin/email', methods=['GET', 'POST'])
+@require_auth
+def admin_email():
+    """Email/SMTP settings page"""
+    conn = get_db()
+    
+    if request.method == 'POST':
+        # Update email settings
+        email_settings = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from']
+        for key in email_settings:
+            value = request.form.get(key, '')
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        
+        conn.commit()
+        conn.close()
+        flash('Email settings updated successfully', 'success')
+        return redirect(url_for('admin_email'))
+    
+    # Check if SMTP section is unlocked
+    smtp_unlocked = session.get('smtp_unlocked', False)
+    
+    # Fetch current settings
+    email_config = {}
+    for key in ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from']:
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        email_config[key] = row[0] if row else ''
+    
+    conn.close()
+    return render_template('admin/email_settings.html', branding=get_branding_settings(), smtp_unlocked=smtp_unlocked, **email_config)
+
+@app.route('/admin/utilities', methods=['GET'])
+@require_auth
+def admin_utilities():
+    """Database utilities page"""
+    conn = get_db()
+    
+    # Get statistics
+    stats = {}
+    stats['families'] = conn.execute("SELECT COUNT(*) FROM families").fetchone()[0]
+    stats['kids'] = conn.execute("SELECT COUNT(*) FROM kids").fetchone()[0]
+    stats['adults'] = conn.execute("SELECT COUNT(*) FROM adults").fetchone()[0]
+    stats['events'] = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    stats['checkins'] = conn.execute("SELECT COUNT(*) FROM checkins").fetchone()[0]
+    
+    conn.close()
+    return render_template('admin/utilities.html', branding=get_branding_settings(), stats=stats)
 
 # Trail Life Connect Integration Routes
 @app.route('/admin/tlc', methods=['GET'])
