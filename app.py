@@ -139,6 +139,20 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def ensure_tlc_synced_column():
+    """Ensure the tlc_synced column exists in the checkins table."""
+    conn = get_db()
+    try:
+        conn.execute('SELECT tlc_synced FROM checkins LIMIT 1')
+    except sqlite3.OperationalError:
+        try:
+            conn.execute('ALTER TABLE checkins ADD COLUMN tlc_synced BOOLEAN DEFAULT 0')
+            conn.commit()
+        except Exception:
+            pass # Might have been added by another thread/process
+    finally:
+        conn.close()
+
 def init_db():
     conn = sqlite3.connect(app.config.get('DATABASE', DB_PATH))
     conn.row_factory = sqlite3.Row
@@ -2404,6 +2418,9 @@ def admin_tlc_sync_confirm(event_id):
             target_date_str = dt.strftime('%Y-%m-%d')
         except ValueError:
             pass # Keep default if parsing fails
+            
+    # Ensure DB schema is up to date
+    ensure_tlc_synced_column()
             
     conn = get_db()
     # Get checkins for the specific date of the event

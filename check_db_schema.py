@@ -30,4 +30,21 @@ else:
             print(f"Error adding column: {e}")
     else:
         print("tlc_id column already exists.")
+
+    # Check checkins table for tlc_synced
+    cursor.execute("PRAGMA table_info(checkins)")
+    columns = [info[1] for info in cursor.fetchall()]
+    print(f"Columns in checkins table: {columns}")
+
+    if 'tlc_synced' not in columns:
+        print("Adding tlc_synced column...")
+        try:
+            cursor.execute("ALTER TABLE checkins ADD COLUMN tlc_synced BOOLEAN DEFAULT 0")
+            conn.commit()
+            print("Added tlc_synced column.")
+        except Exception as e:
+            print(f"Error adding column: {e}")
+    else:
+        print("tlc_synced column already exists.")
+
     conn.close()
