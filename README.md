@@ -37,6 +37,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Logo Upload**: PNG, JPG, or SVG logos (auto-sized)
 - **Favicon Support**: Custom browser tab icons
 - **Setup Wizard**: First-run configuration guide
+- **Dark Mode**: Toggle between light and dark themes (persisted in browser)
 
 ### 🎫 Checkout Options
 - **QR Codes**: Display on screen for mobile scanning
