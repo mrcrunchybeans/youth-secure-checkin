@@ -2723,10 +2723,15 @@ def admin_email():
     
     if request.method == 'POST':
         # Update email settings
-        email_settings = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from']
-        for key in email_settings:
+        email_keys = ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_from', 'smtp_use_tls']
+        for key in email_keys:
             value = request.form.get(key, '')
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        
+        # Handle password separately (only if provided)
+        smtp_password = request.form.get('smtp_password', '').strip()
+        if smtp_password:
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('smtp_password', ?)", (smtp_password,))
         
         conn.commit()
         conn.close()
@@ -2736,14 +2741,34 @@ def admin_email():
     # Check if SMTP section is unlocked
     smtp_unlocked = session.get('smtp_unlocked', False)
     
-    # Fetch current settings
-    email_config = {}
-    for key in ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from']:
+    # Fetch current settings as an object
+    smtp_settings = {}
+    for key in ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from', 'smtp_use_tls']:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-        email_config[key] = row[0] if row else ''
+        smtp_settings[key] = row[0] if row else ''
     
     conn.close()
-    return render_template('admin/email_settings.html', branding=get_branding_settings(), smtp_unlocked=smtp_unlocked, **email_config)
+    return render_template('admin/email_settings.html', branding=get_branding_settings(), smtp_unlocked=smtp_unlocked, smtp_settings=smtp_settings)
+
+@app.route('/admin/email/unlock-smtp', methods=['POST'])
+@require_auth
+def unlock_smtp():
+    """Unlock SMTP settings with developer password"""
+    dev_password = request.form.get('dev_password')
+    if dev_password == DEVELOPER_PASSWORD:
+        session['smtp_unlocked'] = True
+        flash('SMTP settings unlocked', 'success')
+    else:
+        flash('Incorrect developer password', 'danger')
+    return redirect(url_for('admin_email'))
+
+@app.route('/admin/email/lock-smtp', methods=['POST'])
+@require_auth
+def lock_smtp():
+    """Lock SMTP settings"""
+    session['smtp_unlocked'] = False
+    flash('SMTP settings locked', 'info')
+    return redirect(url_for('admin_email'))
 
 @app.route('/admin/utilities', methods=['GET'])
 @require_auth
@@ -2753,14 +2778,118 @@ def admin_utilities():
     
     # Get statistics
     stats = {}
-    stats['families'] = conn.execute("SELECT COUNT(*) FROM families").fetchone()[0]
-    stats['kids'] = conn.execute("SELECT COUNT(*) FROM kids").fetchone()[0]
-    stats['adults'] = conn.execute("SELECT COUNT(*) FROM adults").fetchone()[0]
-    stats['events'] = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
-    stats['checkins'] = conn.execute("SELECT COUNT(*) FROM checkins").fetchone()[0]
+    stats['total_families'] = conn.execute("SELECT COUNT(*) FROM families").fetchone()[0]
+    stats['total_kids'] = conn.execute("SELECT COUNT(*) FROM kids").fetchone()[0]
+    stats['total_events'] = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    stats['total_checkins'] = conn.execute("SELECT COUNT(*) FROM checkins").fetchone()[0]
+    stats['active_checkins'] = conn.execute("SELECT COUNT(*) FROM checkins WHERE checkout_time IS NULL").fetchone()[0]
+    
+    # Check for orphaned checkins (where kid_id doesn't exist in kids table)
+    stats['orphaned_checkins'] = conn.execute(
+        "SELECT COUNT(*) FROM checkins WHERE kid_id NOT IN (SELECT id FROM kids)"
+    ).fetchone()[0]
+    
+    # Get database size
+    import os
+    db_path = os.path.join(app.instance_path, 'checkin.db')
+    if os.path.exists(db_path):
+        stats['db_size_mb'] = round(os.path.getsize(db_path) / (1024 * 1024), 2)
+    else:
+        stats['db_size_mb'] = 0
     
     conn.close()
     return render_template('admin/utilities.html', branding=get_branding_settings(), stats=stats)
+
+@app.route('/admin/backup/export')
+@require_auth
+def export_configuration():
+    """Export all configuration settings as JSON backup"""
+    conn = get_db()
+    
+    # Collect all settings
+    settings = {}
+    
+    # Branding settings
+    branding_keys = ['organization_name', 'organization_type', 'group_term', 'group_term_lower',
+                     'primary_color', 'secondary_color', 'accent_color', 
+                     'logo_filename', 'favicon_filename']
+    for key in branding_keys:
+        val = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if val:
+            settings[key] = val['value']
+    
+    # Security/access settings (exclude developer_password as it's env-only)
+    security_keys = ['app_password', 'admin_override_password', 'checkout_code']
+    for key in security_keys:
+        val = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if val:
+            settings[key] = val['value']
+    
+    # Other settings
+    other_keys = ['event_date_range_months', 'label_line_1', 'label_line_2', 'label_line_3']
+    for key in other_keys:
+        val = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if val:
+            settings[key] = val['value']
+    
+    conn.close()
+    
+    # Add metadata
+    backup = {
+        'export_date': datetime.now().isoformat(),
+        'app_version': '1.0',
+        'settings': settings
+    }
+    
+    # Generate JSON
+    output = json.dumps(backup, indent=2)
+    
+    response = app.response_class(
+        response=output,
+        status=200,
+        mimetype='application/json'
+    )
+    response.headers['Content-Disposition'] = f'attachment; filename=configuration_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+    return response
+
+@app.route('/admin/backup/import', methods=['POST'])
+@require_auth
+def import_configuration():
+    """Import/restore configuration settings from JSON backup"""
+    if 'backup_file' not in request.files:
+        flash('No file selected', 'danger')
+        return redirect(url_for('admin_index'))
+    
+    file = request.files['backup_file']
+    if file.filename == '':
+        flash('No file selected', 'danger')
+        return redirect(url_for('admin_index'))
+    
+    if not file.filename.endswith('.json'):
+        flash('Invalid file type. Please upload a JSON backup file.', 'danger')
+        return redirect(url_for('admin_index'))
+    
+    try:
+        # Read and parse JSON
+        content = file.read().decode('utf-8')
+        backup = json.loads(content)
+        
+        if 'settings' not in backup:
+            flash('Invalid backup file format', 'danger')
+            return redirect(url_for('admin_index'))
+        
+        # Restore settings
+        conn = get_db()
+        for key, value in backup['settings'].items():
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        conn.commit()
+        conn.close()
+        
+        flash('Configuration restored successfully', 'success')
+    except Exception as e:
+        flash(f'Error restoring configuration: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin_index'))
 
 # Trail Life Connect Integration Routes
 @app.route('/admin/tlc', methods=['GET'])
