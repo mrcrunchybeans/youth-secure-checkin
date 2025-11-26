@@ -2303,7 +2303,7 @@ def import_families_tlc():
         return redirect(url_for('admin_families'))
 
     event_id = events[0]['id']
-    roster = client.get_event_roster(event_id) # Dict: Name -> ID
+    roster = client.get_event_roster(event_id) # Dict: Name -> {'id': ..., 'profile_url': ...}
     
     if not roster:
         flash('Empty roster found.', 'warning')
@@ -2318,14 +2318,14 @@ def import_families_tlc():
     # Name format in roster is usually "First Last" (normalized in client)
     # We'll assume the last word is the last name
     by_lastname = {}
-    for name, tlc_id in roster.items():
+    for name, data in roster.items():
         parts = name.split()
         if len(parts) > 1:
             lastname = parts[-1]
         else:
             lastname = name # Fallback
         
-        by_lastname.setdefault(lastname, []).append({'name': name, 'tlc_id': tlc_id})
+        by_lastname.setdefault(lastname, []).append({'name': name, 'tlc_id': data['id'], 'profile_url': data['profile_url']})
 
     try:
         for lastname, members in by_lastname.items():
@@ -2349,9 +2349,17 @@ def import_families_tlc():
             
             # If still no family, create one
             if not family_id:
+                # Try to fetch phone number from the first member with a profile URL
+                phone = ''
+                for member in members:
+                    if member['profile_url']:
+                        details = client.get_member_details(member['profile_url'])
+                        if details.get('phone'):
+                            phone = details['phone']
+                            break
+                
                 # Create new family
-                # We don't have phone or troop info, so leave blank or default
-                cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", ('', ''))
+                cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", (phone, ''))
                 family_id = cur.lastrowid
                 added_families += 1
             
@@ -2882,14 +2890,14 @@ def admin_tlc_roster():
             flash("No upcoming events found to fetch roster from. Please ensure there is at least one event in TLC.", "warning")
             return redirect(url_for('admin_tlc'))
             
-    tlc_roster = client.get_event_roster(event_id) # Dict: Name -> ID
+    tlc_roster = client.get_event_roster(event_id) # Dict: Name -> {'id': ..., 'profile_url': ...}
     
     conn = get_db()
     kids = conn.execute("SELECT id, name, tlc_id FROM kids ORDER BY name").fetchall()
     conn.close()
     
     # Prepare options for dropdown
-    tlc_options = [{'id': uid, 'name': name} for name, uid in tlc_roster.items()]
+    tlc_options = [{'id': data['id'], 'name': name} for name, data in tlc_roster.items()]
     tlc_options.sort(key=lambda x: x['name'])
     
     # Helper for name normalization

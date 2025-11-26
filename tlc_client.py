@@ -199,13 +199,14 @@ class TrailLifeConnectClient:
                 link = row.find('a')
                 if link:
                     name = link.get_text(strip=True)
+                    profile_url = link.get('href')
                     # Format name to be "First Last" if it is "Last, First"
                     if ',' in name:
                         parts = name.split(',')
                         if len(parts) == 2:
                             name = f"{parts[1].strip()} {parts[0].strip()}"
                     
-                    roster[name] = user_id
+                    roster[name] = {'id': user_id, 'profile_url': profile_url}
                 else:
                     # Fallback to image alt text
                     img = row.find('img')
@@ -215,10 +216,57 @@ class TrailLifeConnectClient:
                             parts = name.split(',')
                             if len(parts) == 2:
                                 name = f"{parts[1].strip()} {parts[0].strip()}"
-                        roster[name] = user_id
+                        roster[name] = {'id': user_id, 'profile_url': None}
 
         logger.info(f"Found {len(roster)} members in roster.")
         return roster
+
+    def get_member_details(self, profile_url):
+        """
+        Fetches member profile to extract details like phone number.
+        """
+        if not profile_url:
+            return {}
+            
+        if not profile_url.startswith('http'):
+            # Ensure leading slash if missing
+            if not profile_url.startswith('/'):
+                profile_url = '/' + profile_url
+            profile_url = self.base_url + profile_url
+            
+        logger.info(f"Fetching member details from {profile_url}...")
+        try:
+            response = self.session.get(profile_url)
+            if response.status_code != 200:
+                return {}
+                
+            soup = BeautifulSoup(response.text, 'html.parser')
+            details = {}
+            
+            # Try to find phone number
+            # 1. Look for tel links
+            tel = soup.find('a', href=re.compile(r'^tel:'))
+            if tel:
+                details['phone'] = tel.get_text(strip=True)
+            else:
+                # 2. Look for common labels
+                # Often in a table or definition list
+                # Search for "Cell", "Mobile", "Phone"
+                for label in soup.find_all(['th', 'dt', 'label', 'strong']):
+                    if re.search(r'phone|mobile|cell', label.get_text(), re.I):
+                        # Check next sibling or parent's next sibling
+                        value = label.find_next(['td', 'dd', 'span', 'div'])
+                        if value:
+                            text = value.get_text(strip=True)
+                            # Check if it looks like a phone number
+                            if re.search(r'\d{3}', text):
+                                details['phone'] = text
+                                break
+            
+            return details
+        except Exception as e:
+            logger.error(f"Error fetching member details: {e}")
+            return {}
 
     def mark_attendance(self, event_id, tlc_user_id, present=True):
         """
