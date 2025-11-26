@@ -1,2 +1,240 @@
 body { padding-bottom: 60px; }
 .card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+/* Dark mode admin-specific overrides */
+[data-theme="dark"] .bg-light {
+	background-color: var(--card-bg) !important;
+	color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .text-muted {
+	color: rgba(255,255,255,0.75) !important; /* brighter muted text */
+}
+
+[data-theme="dark"] .card.bg-light {
+	background-color: var(--card-bg) !important;
+	border-color: var(--card-border) !important;
+	color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .card.border-primary,
+[data-theme="dark"] .card.border-secondary,
+[data-theme="dark"] .card.border-info,
+[data-theme="dark"] .card.border-success,
+[data-theme="dark"] .card.border-warning {
+	border-color: var(--card-border) !important;
+}
+
+[data-theme="dark"] .card .card-title,
+[data-theme="dark"] .card .card-text,
+[data-theme="dark"] .card .card-body {
+	color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .table thead th {
+	background-color: var(--card-bg) !important;
+	color: var(--text-color) !important;
+	border-bottom-color: var(--card-border) !important;
+}
+
+[data-theme="dark"] .table-striped>tbody>tr:nth-of-type(odd) {
+	background-color: rgba(255,255,255,0.02) !important;
+}
+[data-theme="dark"] .table-striped>tbody>tr:nth-of-type(even) {
+	background-color: rgba(255,255,255,0.03) !important;
+}
+
+[data-theme="dark"] .btn-outline-secondary,
+[data-theme="dark"] .btn-outline-danger,
+[data-theme="dark"] .btn-outline-info,
+[data-theme="dark"] .btn-outline-warning {
+	color: var(--text-color) !important;
+	border-color: rgba(255,255,255,0.12) !important;
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover,
+[data-theme="dark"] .btn-outline-danger:hover,
+[data-theme="dark"] .btn-outline-info:hover,
+[data-theme="dark"] .btn-outline-warning:hover {
+	background-color: rgba(255,255,255,0.04) !important;
+	color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .badge {
+	background-color: rgba(255,255,255,0.08) !important;
+	color: var(--text-color) !important;
+	border: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+[data-theme="dark"] label,
+[data-theme="dark"] .form-label,
+[data-theme="dark"] small,
+[data-theme="dark"] .form-text {
+	color: rgba(255,255,255,0.85) !important;
+}
+
+[data-theme="dark"] .form-control::placeholder {
+	color: rgba(255,255,255,0.6) !important;
+}
+
+[data-theme="dark"] .card-header {
+	color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .card {
+	box-shadow: 0 6px 20px rgba(0,0,0,0.4) !important;
+}
+
+/* Keypad styles: move from kiosk.html to static CSS for consistency and maintainability */
+#keypad {
+	max-width: 100%;
+	width: 100%;
+}
+
+#keypad > .keypad {
+	display: grid !important;
+	grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+	grid-auto-flow: row !important;
+	grid-auto-rows: minmax(48px, 70px) !important;
+	gap: 0.5rem !important;
+	margin: 0.5rem 0 !important;
+	max-width: 420px;
+	width: 100%;
+	justify-items: stretch;
+	align-items: center;
+}
+
+#keypad > .keypad .btn {
+	width: 100% !important;
+	min-height: 56px !important;
+	height: 64px !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	padding: 0.4rem 0.6rem !important;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+	user-select: none;
+}
+
+.keypad-key {
+	font-size: clamp(1.2rem, 3vw, 2rem);
+	padding: 0.6rem;
+	height: clamp(45px, 7vh, 70px);
+	min-height: 45px;
+	font-weight: 700;
+	border: 2px solid var(--card-border);
+	transition: all 0.15s ease;
+	border-radius: 6px;
+	background: #f8f9fa;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
+	color: #495057;
+}
+
+[data-theme="dark"] .keypad-key {
+	background: var(--card-bg);
+	border-color: var(--card-border);
+	color: var(--text-color);
+	box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.keypad-key:hover {
+	background: #e9ecef;
+	border-color: var(--btn-primary);
+	box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.1);
+	transform: translateY(-1px);
+}
+
+.keypad-key:active {
+	transform: scale(0.95);
+	background-color: var(--btn-primary) !important;
+	color: white !important;
+	border-color: var(--btn-primary) !important;
+}
+
+[data-theme="dark"] .keypad-key:hover {
+	background: var(--card-border);
+	border-color: var(--btn-primary);
+}
+
+[data-theme="dark"] .keypad-key:active {
+	background-color: var(--btn-primary) !important;
+	color: white !important;
+	border-color: var(--btn-primary) !important;
+}
+
+#keypad > .keypad #keypad-clear,
+#keypad > .keypad #keypad-back {
+	font-size: clamp(0.9rem, 2vw, 1.3rem);
+	padding: 0.6rem;
+	height: 60px;
+	min-height: 60px;
+	font-weight: 600;
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
+}
+
+#keypad > .keypad #keypad-clear {
+	background: #f8f9fa;
+	border: 2px solid #6c757d;
+	color: #6c757d;
+}
+
+[data-theme="dark"] #keypad > .keypad #keypad-clear {
+	background: rgba(255,255,255,0.03);
+	border: 2px solid rgba(255,255,255,0.06);
+	color: #cfcfcf;
+}
+
+#keypad > .keypad #keypad-back {
+	background: #fff3cd;
+	border: 2px solid #ffc107;
+	color: #856404;
+}
+
+[data-theme="dark"] #keypad > .keypad #keypad-back {
+	background: rgba(255,241,118,0.06);
+	border: 2px solid rgba(255,193,7,0.12);
+	color: #ffd966;
+}
+
+/* Accessibility & small screen tweaks */
+#keypad > .keypad .keypad-key:focus {
+	outline: 3px solid rgba(0,0,0,0.08);
+	outline-offset: 2px;
+}
+
+[data-theme="dark"] #keypad > .keypad .keypad-key:focus {
+	outline: 3px solid rgba(255,255,255,0.06);
+	outline-offset: 2px;
+}
+
+@media (max-width: 380px) {
+	#keypad > .keypad {
+		gap: 0.35rem !important;
+	}
+	#keypad > .keypad .btn {
+		min-height: 52px !important;
+		height: 56px !important;
+	}
+}
+
+/* Small screen keypad adjustments moved from kiosk.html */
+.keypad-key, #keypad-clear, #keypad-back {
+	height: 50px;
+	min-height: 50px;
+	font-size: 1.2rem;
+	padding: 0;
+}
+
+@media (min-width: 1920px) {
+	.keypad-key {
+		max-height: 100px;
+	}
+}

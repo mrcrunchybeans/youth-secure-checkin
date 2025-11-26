@@ -100,98 +100,7 @@
     color: var(--text-color);
 }
 
-/* Keypad - fluid sizing based on viewport */
-#keypad {
-    max-width: 100%;
-    width: 100%;
-}
-
-.keypad-key {
-    font-size: clamp(1.2rem, 3vw, 2rem);
-    padding: 0.6rem;
-    /* Flexible height for consistent layout */
-    height: clamp(45px, 7vh, 70px);
-    min-height: 45px;
-    font-weight: 700;
-    border: 2px solid #adb5bd;
-    transition: all 0.15s ease;
-    border-radius: 6px;
-    background: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
-    color: #495057;
-}
-
-[data-theme="dark"] .keypad-key {
-    background: var(--card-bg);
-    border-color: var(--card-border);
-    color: var(--text-color);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.1);
-}
-
-[data-theme="dark"] .keypad-key:hover {
-    background: var(--card-border);
-    border-color: var(--btn-primary);
-}
-
-[data-theme="dark"] .keypad-key:active {
-    background-color: var(--btn-primary) !important;
-    color: white !important;
-    border-color: var(--btn-primary) !important;
-}
-
-[data-theme="dark"] #keypad-clear {
-    background: var(--card-bg);
-    border-color: var(--btn-secondary);
-    color: var(--text-color);
-}
-
-[data-theme="dark"] #keypad-back {
-    background: var(--card-bg);
-    border-color: #dc3545;
-    color: #dc3545;
-}
-
-.keypad-key:hover {
-    background: #e9ecef;
-    border-color: {{ branding.primary_color }};
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.1);
-    transform: translateY(-1px);
-}
-
-.keypad-key:active {
-    transform: scale(0.95);
-    background-color: {{ branding.primary_color }} !important;
-    color: white !important;
-    border-color: {{ branding.primary_color }} !important;
-}
-
-#keypad-clear, #keypad-back {
-    font-size: clamp(0.9rem, 2vw, 1.3rem);
-    padding: 0.6rem;
-    height: 60px;
-    min-height: 60px;
-    font-weight: 600;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
-}
-
-#keypad-clear {
-    background: #f8f9fa;
-    border: 2px solid #6c757d;
-    color: #6c757d;
-}
-
-#keypad-back {
-    background: #fff3cd;
-    border: 2px solid #ffc107;
-    color: #856404;
-}
+/* Keypad styles moved to static/style.css */
 
 /* Check In button - compact but prominent */
 #search-btn {
@@ -322,12 +231,7 @@ h1 {
         letter-spacing: 0.2rem;
     }
     
-    .keypad-key, #keypad-clear, #keypad-back {
-        height: 50px;
-        min-height: 50px;
-        font-size: 1.2rem;
-        padding: 0;
-    }
+    /* keypad key sizing moved to static/style.css */
     
     #search-btn {
         height: 45px;
@@ -352,9 +256,7 @@ h1 {
         margin: 0 auto;
     }
     
-    .keypad-key {
-        max-height: 100px;
-    }
+    /* keypad max-height moved to static/style.css */
     
     #phone {
         max-width: 500px;
@@ -362,139 +264,11 @@ h1 {
     }
 }
 
-/* Keypad grid layout (three columns - phone dial style) */
-/* Use highest specificity to avoid conflicts with Bootstrap or other styles */
-#keypad > .keypad {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    grid-auto-flow: row !important;
-    grid-auto-rows: minmax(48px, 70px) !important;
-    gap: 0.5rem !important;
-    margin: 0.5rem 0 !important;
-    max-width: 420px;
-    width: 100%;
-    justify-items: stretch;
-    align-items: center;
-}
+/* Keypad styles moved to static/style.css */
 
-/* Ensure the buttons fully fill the grid cells and are touch friendly */
-/* additional rule to style keypad keys specifically to preserve visual contrast */
-#keypad > .keypad .btn {
-    width: 100% !important;
-    min-height: 56px !important;
-    height: 64px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 0.4rem 0.6rem !important;
-}
+/* Keypad styles moved to static/style.css */
 
-#keypad > .keypad .btn {
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    user-select: none;
-}
-
-/* Ensure keypad remains accessible and responsive on very small screens */
-@media (max-width: 380px) {
-    #keypad > .keypad {
-        gap: 0.35rem !important;
-    }
-    #keypad > .keypad .btn {
-        min-height: 52px !important;
-        height: 56px !important;
-    }
-}
-
-.keypad button {
-    font-size: 1.5rem;
-    padding: 15px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s, color 0.3s;
-    width: 100%;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* More specific keypad-key color adjustments for light/dark modes */
-#keypad > .keypad .keypad-key {
-    background: #ffffff !important;
-    border: 2px solid #e9ecef !important;
-    color: #2c2c2c !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
-}
-
-/* Dark theme override */
-[data-theme="dark"] #keypad > .keypad .keypad-key {
-    background: #2b2b2b !important;
-    border: 2px solid rgba(255,255,255,0.06) !important;
-    color: #fff !important;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
-}
-
-#keypad > .keypad .keypad-key:focus {
-    outline: 3px solid rgba(0,0,0,0.08);
-    outline-offset: 2px;
-}
-
-[data-theme="dark"] #keypad > .keypad .keypad-key:focus {
-    outline: 3px solid rgba(255,255,255,0.06);
-}
-
-#keypad > .keypad .keypad-key {
-    font-weight: 800 !important;
-    letter-spacing: 0.06rem;
-}
-
-#keypad > .keypad #keypad-clear {
-    background: #f8f9fa !important;
-    border: 2px solid #6c757d !important;
-    color: #6c757d !important;
-}
-
-[data-theme="dark"] #keypad > .keypad #keypad-clear {
-    background: rgba(255,255,255,0.03) !important;
-    border: 2px solid rgba(255,255,255,0.06) !important;
-    color: #cfcfcf !important;
-}
-
-#keypad > .keypad #keypad-back {
-    background: #fff3cd !important;
-    border: 2px solid #ffc107 !important;
-    color: #856404 !important;
-}
-
-[data-theme="dark"] #keypad > .keypad #keypad-back {
-    background: rgba(255,241,118,0.06) !important;
-    border: 2px solid rgba(255,193,7,0.12) !important;
-    color: #ffd966 !important;
-}
-
-/* Light mode styles */
-body.light-mode .keypad button {
-    background-color: #f0f0f0;
-    color: #333;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-body.light-mode .keypad button:hover {
-    background-color: #e0e0e0;
-}
-
-/* Dark mode styles */
-body.dark-mode .keypad button {
-    background-color: #333;
-    color: #fff;
-    box-shadow: 0 2px 5px rgba(255, 255, 255, 0.1);
-}
-
-body.dark-mode .keypad button:hover {
-    background-color: #444;
-}
+/* Keypad visuals now defined in static/style.css */
 </style>
 {% endblock %}
 
@@ -563,7 +337,7 @@ body.dark-mode .keypad button:hover {
 
                         <!-- On-screen numeric keypad for touch screens -->
                         <div id="keypad" style="margin-bottom: 0.5rem;">
-                            <div class="keypad" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; align-items: center;">
+                            <div class="keypad">
                                 <button type="button" class="btn keypad-key w-100" data-value="1" aria-label="digit 1">1</button>
                                 <button type="button" class="btn keypad-key w-100" data-value="2" aria-label="digit 2">2</button>
                                 <button type="button" class="btn keypad-key w-100" data-value="3" aria-label="digit 3">3</button>
