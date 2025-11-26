@@ -361,6 +361,45 @@ h1 {
         margin: 0 auto;
     }
 }
+
+/* Keypad styles for better visibility in both light and dark modes */
+.keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.keypad button {
+    font-size: 1.5rem;
+    padding: 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* Light mode styles */
+body.light-mode .keypad button {
+    background-color: #f0f0f0;
+    color: #333;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .keypad button:hover {
+    background-color: #e0e0e0;
+}
+
+/* Dark mode styles */
+body.dark-mode .keypad button {
+    background-color: #333;
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .keypad button:hover {
+    background-color: #444;
+}
 </style>
 {% endblock %}
 
@@ -429,7 +468,7 @@ h1 {
 
                         <!-- On-screen numeric keypad for touch screens -->
                         <div id="keypad" style="margin-bottom: 0.5rem;">
-                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+                            <div class="keypad">
                                 <button type="button" class="btn keypad-key" data-value="1">1</button>
                                 <button type="button" class="btn keypad-key" data-value="2">2</button>
                                 <button type="button" class="btn keypad-key" data-value="3">3</button>
