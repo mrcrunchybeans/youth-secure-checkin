@@ -58,7 +58,7 @@
         /* Form section - should fit on screen */
         width: 100%;
         z-index: 10;
-        background: #f9f7f5; /* Match background to cover list when scrolling? No, it's separate */
+        background: var(--bg-color); /* Match background to cover list when scrolling? No, it's separate */
     }
     
     .kiosk-checkin-card {
@@ -94,6 +94,12 @@
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
 }
 
+[data-theme="dark"] #phone {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    color: var(--text-color);
+}
+
 /* Keypad - fluid sizing based on viewport */
 #keypad {
     max-width: 100%;
@@ -107,19 +113,52 @@
     height: clamp(45px, 7vh, 70px);
     min-height: 45px;
     font-weight: 700;
-    border: 2px solid #dee2e6;
+    border: 2px solid #adb5bd;
     transition: all 0.15s ease;
     border-radius: 6px;
-    background: white;
+    background: #f8f9fa;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
+    color: #495057;
+}
+
+[data-theme="dark"] .keypad-key {
+    background: var(--card-bg);
+    border-color: var(--card-border);
+    color: var(--text-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.1);
+}
+
+[data-theme="dark"] .keypad-key:hover {
+    background: var(--card-border);
+    border-color: var(--btn-primary);
+}
+
+[data-theme="dark"] .keypad-key:active {
+    background-color: var(--btn-primary) !important;
+    color: white !important;
+    border-color: var(--btn-primary) !important;
+}
+
+[data-theme="dark"] #keypad-clear {
+    background: var(--card-bg);
+    border-color: var(--btn-secondary);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] #keypad-back {
+    background: var(--card-bg);
+    border-color: #dc3545;
+    color: #dc3545;
 }
 
 .keypad-key:hover {
-    background: #f8f9fa;
+    background: #e9ecef;
     border-color: {{ branding.primary_color }};
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
 }
 
 .keypad-key:active {
@@ -139,6 +178,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
 }
 
 #keypad-clear {
@@ -218,9 +258,9 @@
 }
 
 .table thead th {
-    background-color: #f8f9fa;
+    background-color: var(--card-bg);
     font-weight: 700;
-    border-bottom: 3px solid #dee2e6;
+    border-bottom: 3px solid var(--card-border);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -232,7 +272,7 @@
 }
 
 .table tbody tr:hover {
-    background-color: #f8f9fa;
+    background-color: var(--card-border);
 }
 
 .checkout-btn {
@@ -1140,7 +1180,7 @@ input, select, textarea {
 }
 
 body {
-    background-color: #f9f7f5;
+    background-color: var(--bg-color);
     font-size: 0.9rem;
     touch-action: manipulation;
     margin: 0;
@@ -1243,9 +1283,9 @@ body {
     align-items: center;
     gap: 0.6rem;
     padding: 0.6rem 0.75rem;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--card-border);
     border-radius: 0.5rem;
-    background-color: #fff;
+    background-color: var(--card-bg);
 }
 
 .kid-option .form-check-input {
@@ -1274,12 +1314,12 @@ body {
 }
 
 .form-check {
-    background-color: #f8f9fa;
+    background-color: var(--card-bg);
     transition: background-color 0.2s ease;
 }
 
 .form-check:hover {
-    background-color: #e9ecef;
+    background-color: var(--card-border);
 }
 
 .form-check-input:checked {
