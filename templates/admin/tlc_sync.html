@@ -57,6 +57,16 @@
             </a>
         </div>
         <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i> <strong>How to Sync:</strong>
+                <ol class="mb-0 mt-2">
+                    <li>Run your check-in process as normal during the meeting.</li>
+                    <li>After the meeting, select the corresponding event from the list below.</li>
+                    <li>Review the attendance matches on the next page.</li>
+                    <li>Click "Sync Attendance" to mark attendees as <strong>Present</strong> on Trail Life Connect.</li>
+                </ol>
+                <small class="text-muted mt-2 d-block">Note: This process is additive only. It will not mark anyone as absent or overwrite existing attendance records.</small>
+            </div>
             <p>Select the Trail Life Connect event you want to sync attendance to.</p>
             <div class="list-group">
                 {% for event in events %}

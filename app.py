@@ -860,7 +860,10 @@ def index():
     
     conn.close()
 
-    return render_template('index.html', checked_in=checked_in, events=events, current_event_id=int(event_id), require_codes=require_codes)
+    # Check if TLC is configured (for UI button)
+    tlc_configured = 'tlc_email' in session and 'tlc_password' in session
+
+    return render_template('index.html', checked_in=checked_in, events=events, current_event_id=int(event_id), require_codes=require_codes, tlc_configured=tlc_configured)
 
 @app.route('/checkin_last4', methods=['POST'])
 @require_auth
