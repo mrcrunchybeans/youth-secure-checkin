@@ -153,10 +153,12 @@
             Confirm Attendance Sync
         </div>
         <div class="card-body">
-            <h5>Event: {{ event_id }}</h5>
+            <h5>Syncing to Event: {{ event_id }}</h5>
+            <p class="text-muted">Syncing check-ins from date: <strong>{{ target_date }}</strong></p>
             <p>The following matches were found between your local check-ins and the Trail Life Connect roster.</p>
             
             <form method="POST" action="/admin/tlc/sync/{{ event_id }}/execute">
+                <input type="hidden" name="target_date" value="{{ target_date }}">
                 <div class="table-responsive">
                     <table class="table table-striped">
                         <thead>
@@ -169,7 +171,7 @@
                         </thead>
                         <tbody>
                             {% for match in matches %}
-                            <tr class="{% if match.status == 'matched' %}table-success{% elif match.status == 'unmatched' %}table-warning{% else %}table-secondary{% endif %}">
+                            <tr class="{% if match.status == 'synced' %}table-info{% elif match.status == 'matched' %}table-success{% elif match.status == 'unmatched' %}table-warning{% else %}table-secondary{% endif %}">
                                 <td>{{ match.local_name }}</td>
                                 <td>
                                     {% if match.tlc_name %}
@@ -179,7 +181,9 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if match.status == 'matched' %}
+                                    {% if match.status == 'synced' %}
+                                        <span class="badge bg-info text-dark">Already Synced</span>
+                                    {% elif match.status == 'matched' %}
                                         <span class="badge bg-success">Ready to Sync</span>
                                     {% elif match.status == 'unmatched' %}
                                         <span class="badge bg-warning text-dark">Not in TLC Roster</span>
@@ -189,9 +193,9 @@
                                 </td>
                                 <td>
                                     {% if match.tlc_id %}
-                                    <input type="hidden" name="mapping_{{ match.local_id }}" value="{{ match.tlc_id }}">
+                                    <input type="hidden" name="mapping_{{ match.kid_id }}" value="{{ match.tlc_id }}">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" name="sync_{{ match.local_id }}" checked>
+                                        <input class="form-check-input" type="checkbox" name="sync_{{ match.kid_id }}" {% if match.status != 'synced' %}checked{% endif %}>
                                         <label class="form-check-label">Sync</label>
                                     </div>
                                     {% else %}

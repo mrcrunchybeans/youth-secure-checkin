@@ -2389,19 +2389,31 @@ def admin_tlc_sync_confirm(event_id):
     # 1. Get TLC Roster
     tlc_roster = client.get_event_roster(event_id) # Dict: Name -> ID
     
-    # 2. Get Local Check-ins for today (or recent)
-    # For now, we'll just get ALL kids currently checked in, or checked in today.
-    # Let's assume the event is "today".
-    today_str = datetime.now().strftime('%Y-%m-%d')
+    # 2. Determine Event Date
+    # We need to know the date of the TLC event to find matching local check-ins.
+    # Since we only have the ID, we'll fetch the upcoming events list and find it.
+    # If it's a past event not in "upcoming", we might default to today or need a better way.
+    tlc_events = client.get_upcoming_events()
+    target_date_str = datetime.now().strftime('%Y-%m-%d') # Default to today
     
+    found_event = next((e for e in tlc_events if e['id'] == event_id), None)
+    if found_event:
+        # Parse date from "MM/DD/YYYY" to "YYYY-MM-DD"
+        try:
+            dt = datetime.strptime(found_event['date'], '%m/%d/%Y')
+            target_date_str = dt.strftime('%Y-%m-%d')
+        except ValueError:
+            pass # Keep default if parsing fails
+            
     conn = get_db()
-    # Get all checkins for today
+    # Get checkins for the specific date of the event
+    # Also fetch tlc_synced status
     checkins = conn.execute('''
-        SELECT k.id, k.name, k.tlc_id, c.checkin_time 
+        SELECT k.id, k.name, k.tlc_id, c.checkin_time, c.tlc_synced
         FROM checkins c
         JOIN kids k ON c.kid_id = k.id
         WHERE date(c.checkin_time) = ?
-    ''', (today_str,)).fetchall()
+    ''', (target_date_str,)).fetchall()
     conn.close()
     
     matches = []
@@ -2415,6 +2427,7 @@ def admin_tlc_sync_confirm(event_id):
         local_name = checkin['name']
         local_tlc_id = checkin['tlc_id']
         local_norm = normalize(local_name)
+        is_synced = checkin['tlc_synced'] == 1
         
         match_found = None
         
@@ -2444,22 +2457,33 @@ def admin_tlc_sync_confirm(event_id):
                     if local_norm == swapped:
                         match_found = {'name': tlc_name, 'id': tlc_id}
                         break
-                    
+        
         status = 'matched' if match_found else 'unmatched'
+        if is_synced:
+            status = 'synced'
         
         matches.append({
-            'local_id': checkin['id'],
+            'local_id': checkin['id'], # This is the KID ID, not checkin ID. Wait, query selects k.id.
+            # We need checkin ID to update tlc_synced later? No, we update by kid_id/event_id usually?
+            # Actually, admin_tlc_sync_execute iterates form keys.
+            # Let's check execute function. It uses local_id from form.
+            # The form uses checkin['id'] which is k.id in the query above.
+            # We should probably use checkin.id (c.id) to be precise, but the logic uses kid_id to find mapping.
+            # Let's keep using k.id for mapping, but we might need c.id to update status.
+            'kid_id': checkin['id'], 
             'local_name': local_name,
             'tlc_name': match_found['name'] if match_found else None,
             'tlc_id': match_found['id'] if match_found else None,
-            'status': status
+            'status': status,
+            'checkin_date': checkin['checkin_time']
         })
         
     return render_template('admin/tlc_sync.html', 
                          step='confirm', 
                          event_id=event_id, 
                          matches=matches, 
-                         branding=branding)
+                         branding=branding,
+                         target_date=target_date_str)
 
 @app.route('/admin/tlc/sync/<event_id>/execute', methods=['POST'])
 @require_auth
@@ -2474,13 +2498,18 @@ def admin_tlc_sync_execute(event_id):
     count = 0
     errors = 0
     
+    # Get target date from form or determine it again (safer to pass it)
+    target_date_str = request.form.get('target_date')
+    
+    conn = get_db()
+    
     # Iterate through form data
     # Look for sync_{local_id} checkboxes
     for key, value in request.form.items():
         if key.startswith('sync_') and value == 'on':
-            local_id = key.replace('sync_', '')
+            kid_id = key.replace('sync_', '')
             # Get the mapped TLC ID
-            tlc_id = request.form.get(f'mapping_{local_id}')
+            tlc_id = request.form.get(f'mapping_{kid_id}')
             
             if tlc_id:
                 # SAFE SYNC: We only mark attendance as Present (True).
@@ -2489,8 +2518,19 @@ def admin_tlc_sync_execute(event_id):
                 # their status on TLC is preserved (not overwritten).
                 if client.mark_attendance(event_id, tlc_id, present=True):
                     count += 1
+                    # Update local sync status
+                    # We need to find the checkin record for this kid on this date
+                    if target_date_str:
+                        conn.execute('''
+                            UPDATE checkins 
+                            SET tlc_synced = 1 
+                            WHERE kid_id = ? AND date(checkin_time) = ?
+                        ''', (kid_id, target_date_str))
                 else:
                     errors += 1
+    
+    conn.commit()
+    conn.close()
                     
     if errors > 0:
         flash(f'Synced {count} records, but {errors} failed.', 'warning')
@@ -2596,6 +2636,71 @@ def admin_tlc_roster_save():
     
     flash(f"Updated roster links for {count} records.", "success")
     return redirect(url_for('admin_tlc'))
+
+@app.route('/admin/tlc/autosync/<int:local_event_id>', methods=['GET'])
+@require_auth
+def admin_tlc_autosync(local_event_id):
+    if 'tlc_email' not in session:
+        flash("Please login to Trail Life Connect first.", "warning")
+        return redirect(url_for('admin_tlc'))
+
+    # 1. Get Local Event Date
+    conn = get_db()
+    local_event = conn.execute("SELECT start_time, name FROM events WHERE id = ?", (local_event_id,)).fetchone()
+    conn.close()
+
+    if not local_event:
+        flash("Local event not found.", "danger")
+        return redirect(url_for('admin_tlc'))
+
+    # Parse local date (YYYY-MM-DD HH:MM:SS -> MM/DD/YYYY)
+    try:
+        local_dt = datetime.strptime(local_event['start_time'], '%Y-%m-%d %H:%M:%S')
+        target_date_str = local_dt.strftime('%m/%d/%Y')
+    except ValueError:
+        # Fallback if format is different
+        target_date_str = local_event['start_time'][:10] # Just take YYYY-MM-DD part if parsing fails? 
+        # Actually TLC uses MM/DD/YYYY, so we really need to parse it.
+        # Let's assume standard format.
+        flash("Error parsing local event date.", "danger")
+        return redirect(url_for('admin_tlc'))
+
+    # 2. Login and Fetch TLC Events
+    client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
+    if not client.login():
+        flash("TLC Login failed.", "danger")
+        return redirect(url_for('admin_tlc'))
+
+    tlc_events = client.get_upcoming_events()
+    
+    # 3. Find Match
+    matched_event_id = None
+    
+    # First pass: Exact Date Match
+    date_matches = [e for e in tlc_events if e['date'] == target_date_str]
+    
+    if len(date_matches) == 1:
+        matched_event_id = date_matches[0]['id']
+    elif len(date_matches) > 1:
+        # Tie-breaker: Name similarity?
+        # For now, just pick the first one, or maybe the one with "Troop" in the name?
+        # Let's try to find one that contains "Troop" if the local one does
+        if "troop" in local_event['name'].lower():
+            for e in date_matches:
+                if "troop" in e['name'].lower():
+                    matched_event_id = e['id']
+                    break
+        
+        # If still no match, just take the first one
+        if not matched_event_id:
+            matched_event_id = date_matches[0]['id']
+            
+    if matched_event_id:
+        # Redirect directly to confirmation page
+        return redirect(url_for('admin_tlc_sync_confirm', event_id=matched_event_id))
+    else:
+        flash(f"Could not automatically find a TLC event for date {target_date_str}. Please select manually.", "warning")
+        return redirect(url_for('admin_tlc'))
 
 
 
