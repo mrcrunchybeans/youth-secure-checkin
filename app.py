@@ -2166,8 +2166,18 @@ def edit_family(family_id):
         except Exception as e:
             conn.rollback()
             flash(f'Error updating family: {str(e)}', 'danger')
+            # Re-fetch data for form after error
+            family = conn.execute("SELECT * FROM families WHERE id = ?", (family_id,)).fetchone()
+            adults = conn.execute("SELECT * FROM adults WHERE family_id = ?", (family_id,)).fetchall()
+            kids = conn.execute("SELECT * FROM kids WHERE family_id = ?", (family_id,)).fetchall()
+            branding = get_branding_settings()
+            conn.close()
+            return render_template('admin/edit_family.html', family=family, adults=adults, kids=kids, branding=branding)
         finally:
             conn.close()
+            
+        # If we successfully committed, we return above, so this won't be reached
+        return redirect(url_for('admin_families'))
     
     # GET request
     family = conn.execute("SELECT * FROM families WHERE id = ?", (family_id,)).fetchone()
