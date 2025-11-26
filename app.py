@@ -1862,8 +1862,119 @@ def admin_families():
 def admin_events():
     conn = get_db()
     events = conn.execute("SELECT * FROM events ORDER BY start_time DESC").fetchall()
+    
+    # Get iCal settings
+    ical_url_row = conn.execute("SELECT value FROM settings WHERE key = 'ical_url'").fetchone()
+    ical_url = ical_url_row['value'] if ical_url_row else ''
+    
+    last_sync_row = conn.execute("SELECT value FROM settings WHERE key = 'last_ical_sync'").fetchone()
+    last_sync = ''
+    if last_sync_row and last_sync_row['value']:
+        try:
+            dt = datetime.fromisoformat(last_sync_row['value']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
+            last_sync = dt.strftime('%b %d, %Y %I:%M %p')
+        except:
+            last_sync = last_sync_row['value']
+            
     conn.close()
-    return render_template('admin/events.html', events=events)
+    return render_template('admin/events.html', events=events, ical_url=ical_url, last_sync=last_sync)
+
+@app.route('/admin/events/set_ical', methods=['POST'])
+@require_auth
+def set_ical_url():
+    ical_url = request.form.get('ical_url', '').strip()
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('ical_url', ?)", (ical_url,))
+    conn.commit()
+    conn.close()
+    
+    if ical_url:
+        # Trigger initial sync
+        success, message = sync_ical_events()
+        if success:
+            flash(f'iCal URL saved and initial sync completed: {message}', 'success')
+        else:
+            flash(f'iCal URL saved but sync failed: {message}', 'warning')
+    else:
+        flash('iCal URL cleared', 'info')
+        
+    return redirect(url_for('admin_events'))
+
+@app.route('/admin/events/sync', methods=['POST'])
+@require_auth
+def sync_events():
+    success, message = sync_ical_events()
+    if success:
+        flash(f'Sync completed: {message}', 'success')
+    else:
+        flash(f'Sync failed: {message}', 'danger')
+    return redirect(url_for('admin_events'))
+
+@app.route('/admin/events/clear', methods=['POST'])
+@require_auth
+def clear_events():
+    conn = get_db()
+    # Only delete events that have no checkins
+    conn.execute("DELETE FROM events WHERE id NOT IN (SELECT DISTINCT event_id FROM checkins)")
+    conn.commit()
+    conn.close()
+    flash('All events without check-ins have been deleted.', 'success')
+    return redirect(url_for('admin_events'))
+
+@app.route('/admin/events/add', methods=['GET', 'POST'])
+@require_auth
+def add_event():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        date = request.form.get('date')
+        time = request.form.get('time')
+        description = request.form.get('description')
+        
+        if not name or not date or not time:
+            flash('Name, date, and time are required', 'danger')
+            return render_template('admin/add_event.html')
+            
+        start_time = f"{date}T{time}:00"
+        
+        conn = get_db()
+        conn.execute("INSERT INTO events (name, start_time, description) VALUES (?, ?, ?)",
+                    (name, start_time, description))
+        conn.commit()
+        conn.close()
+        
+        flash('Event added successfully', 'success')
+        return redirect(url_for('admin_events'))
+        
+    return render_template('admin/add_event.html')
+
+@app.route('/admin/events/edit/<int:event_id>', methods=['GET', 'POST'])
+@require_auth
+def edit_event(event_id):
+    conn = get_db()
+    if request.method == 'POST':
+        name = request.form.get('name')
+        date = request.form.get('date')
+        time = request.form.get('time')
+        description = request.form.get('description')
+        
+        start_time = f"{date}T{time}:00"
+        
+        conn.execute("UPDATE events SET name = ?, start_time = ?, description = ? WHERE id = ?",
+                    (name, start_time, description, event_id))
+        conn.commit()
+        conn.close()
+        
+        flash('Event updated successfully', 'success')
+        return redirect(url_for('admin_events'))
+        
+    event = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+    conn.close()
+    
+    if not event:
+        flash('Event not found', 'danger')
+        return redirect(url_for('admin_events'))
+        
+    return render_template('admin/edit_event.html', event=event)
 
 @app.route('/admin/backup/export')
 @require_auth
