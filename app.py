@@ -2670,17 +2670,24 @@ def admin_tlc_autosync(local_event_id):
         flash("Local event not found.", "danger")
         return redirect(url_for('admin_tlc'))
 
-    # Parse local date (YYYY-MM-DD HH:MM:SS -> MM/DD/YYYY)
+    # Parse local date (YYYY-MM-DD HH:MM:SS or ISO -> MM/DD/YYYY)
+    start_time_str = local_event['start_time']
     try:
-        local_dt = datetime.strptime(local_event['start_time'], '%Y-%m-%d %H:%M:%S')
-        target_date_str = local_dt.strftime('%m/%d/%Y')
+        # Try standard format first
+        local_dt = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
     except ValueError:
-        # Fallback if format is different
-        target_date_str = local_event['start_time'][:10] # Just take YYYY-MM-DD part if parsing fails? 
-        # Actually TLC uses MM/DD/YYYY, so we really need to parse it.
-        # Let's assume standard format.
-        flash("Error parsing local event date.", "danger")
-        return redirect(url_for('admin_tlc'))
+        try:
+            # Try ISO format (handles T and timezone)
+            local_dt = datetime.fromisoformat(start_time_str)
+        except ValueError:
+            try:
+                # Try just date part if it's YYYY-MM-DD...
+                local_dt = datetime.strptime(start_time_str[:10], '%Y-%m-%d')
+            except ValueError:
+                flash(f"Error parsing local event date: {start_time_str}", "danger")
+                return redirect(url_for('admin_tlc'))
+    
+    target_date_str = local_dt.strftime('%m/%d/%Y')
 
     # 2. Login and Fetch TLC Events
     client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
