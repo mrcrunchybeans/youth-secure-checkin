@@ -332,7 +332,10 @@ h1 {
                         <input type="hidden" id="event-id" value="{{ current_event_id }}">
                         <div style="margin-bottom: 0.5rem;">
                             <label for="phone" class="form-label">Last 4 digits:</label>
-                            <input type="tel" inputmode="numeric" class="form-control" id="phone" name="phone" maxlength="4" pattern="\d{4}" required aria-label="Last four digits" autocomplete="off">
+                            <div class="input-group">
+                                <input type="tel" inputmode="numeric" class="form-control" id="phone" name="phone" maxlength="4" pattern="\d{4}" required aria-label="Last four digits" autocomplete="off" readonly>
+                                <button type="button" id="toggle-keyboard" class="btn btn-outline-secondary" aria-pressed="false" title="Use keyboard">⌨</button>
+                            </div>
                         </div>
 
                         <!-- On-screen numeric keypad for touch screens -->
@@ -593,6 +596,7 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     const keypad = document.getElementById('keypad');
     if (!keypad) return;
     const phoneInput = document.getElementById('phone');
+    const keyboardToggle = document.getElementById('toggle-keyboard');
     const keys = keypad.querySelectorAll('.keypad-key');
     const back = document.getElementById('keypad-back');
     const clear = document.getElementById('keypad-clear');
@@ -797,7 +801,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const val = this.dataset.value;
             console.log('Key clicked:', val);
             setPhone((phoneInput.value || '') + val);
-            phoneInput.focus(); // Re-focus input after click
+            if (!phoneInput.readOnly) phoneInput.focus(); // only focus when native keyboard allowed
         });
     });
 
@@ -806,7 +810,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             setPhone((phoneInput.value || '').slice(0, -1));
-            phoneInput.focus(); // Re-focus input after click
+            if (!phoneInput.readOnly) phoneInput.focus();
         });
     }
 
@@ -815,7 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             setPhone('');
-            phoneInput.focus(); // Re-focus input after click
+            if (!phoneInput.readOnly) phoneInput.focus();
         });
     }
 
@@ -844,8 +848,26 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn) btn.classList.remove('active');
     });
 
-    // Auto-focus the phone input on page load
-    phoneInput.focus();
+    // Default to readonly to prevent native touch keyboard opening; only enable via toggle
+    if (phoneInput) phoneInput.readOnly = true;
+    if (keyboardToggle) {
+        keyboardToggle.addEventListener('click', function(e) {
+            const isEnabled = !phoneInput.readOnly;
+            if (isEnabled) {
+                // disabling keyboard
+                phoneInput.readOnly = true;
+                this.classList.remove('active');
+                this.setAttribute('aria-pressed', 'false');
+                phoneInput.blur();
+            } else {
+                // enabling keyboard
+                phoneInput.readOnly = false;
+                this.classList.add('active');
+                this.setAttribute('aria-pressed', 'true');
+                phoneInput.focus();
+            }
+        });
+    }
 });
 
 // Handle checkout with code verification
