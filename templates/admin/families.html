@@ -3,7 +3,14 @@
 <div class="container">
   <h2>Families</h2>
   <a href="/admin/families/add" class="btn btn-primary mb-3">Add Family</a>
-  <a href="/admin/families/import" class="btn btn-secondary mb-3">Import Families</a>
+  {% if tlc_configured %}
+  <form method="post" action="/admin/families/import_tlc" class="d-inline">
+    <button type="submit" class="btn btn-info text-white mb-3" onclick="return confirm('This will import/update families from Trail Life Connect based on the next upcoming event roster. Continue?')">
+      <i class="bi bi-cloud-download"></i> Import from TLC
+    </button>
+  </form>
+  {% endif %}
+  <a href="/admin/families/import" class="btn btn-secondary mb-3">Import CSV</a>
   <a href="/admin/families/export" class="btn btn-success mb-3">Export to CSV</a>
   <form method="post" action="/admin/families/clear" class="d-inline" onsubmit="return confirm('Are you sure you want to clear all families?')">
     <button type="submit" class="btn btn-danger mb-3">Clear All Families</button>

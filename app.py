@@ -1808,7 +1808,7 @@ def email_history():
                     
                     {html_table}
                     
-                    <div style="margin-top: 20px; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+                    <div style="margin-top: 20px; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top:  10px;">
                         <p>This is an automated report. Please do not reply to this email.</p>
                     </div>
                 </div>
@@ -1850,7 +1850,9 @@ def admin_families():
         ORDER BY f.id
     """).fetchall()
     conn.close()
-    return render_template('admin/families.html', families=families)
+    
+    tlc_configured = 'tlc_email' in session and 'tlc_password' in session
+    return render_template('admin/families.html', families=families, tlc_configured=tlc_configured)
 
 # Admin: Events management page
 @app.route('/admin/events')
@@ -2282,6 +2284,108 @@ def import_families():
             
     return render_template('admin/import_families.html')
 
+@app.route('/admin/families/import_tlc', methods=['POST'])
+@require_auth
+def import_families_tlc():
+    if 'tlc_email' not in session or 'tlc_password' not in session:
+        flash('TLC not configured. Please login first.', 'danger')
+        return redirect(url_for('admin_tlc'))
+
+    client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
+    if not client.login():
+        flash('Failed to login to TLC.', 'danger')
+        return redirect(url_for('admin_families'))
+
+    # Get roster from first upcoming event
+    events = client.get_upcoming_events()
+    if not events:
+        flash('No upcoming events found in TLC to fetch roster from.', 'warning')
+        return redirect(url_for('admin_families'))
+
+    event_id = events[0]['id']
+    roster = client.get_event_roster(event_id) # Dict: Name -> ID
+    
+    if not roster:
+        flash('Empty roster found.', 'warning')
+        return redirect(url_for('admin_families'))
+
+    conn = get_db()
+    added_families = 0
+    added_kids = 0
+    updated_kids = 0
+    
+    # Group roster by last name
+    # Name format in roster is usually "First Last" (normalized in client)
+    # We'll assume the last word is the last name
+    by_lastname = {}
+    for name, tlc_id in roster.items():
+        parts = name.split()
+        if len(parts) > 1:
+            lastname = parts[-1]
+        else:
+            lastname = name # Fallback
+        
+        by_lastname.setdefault(lastname, []).append({'name': name, 'tlc_id': tlc_id})
+
+    try:
+        for lastname, members in by_lastname.items():
+            # 1. Find existing family by checking if any member is already in DB
+            family_id = None
+            
+            # Check if any member exists as a kid
+            for member in members:
+                kid = conn.execute("SELECT family_id FROM kids WHERE name = ? COLLATE NOCASE", (member['name'],)).fetchone()
+                if kid:
+                    family_id = kid['family_id']
+                    break
+            
+            # Check if any member exists as an adult (if we haven't found family yet)
+            if not family_id:
+                for member in members:
+                    adult = conn.execute("SELECT family_id FROM adults WHERE name = ? COLLATE NOCASE", (member['name'],)).fetchone()
+                    if adult:
+                        family_id = adult['family_id']
+                        break
+            
+            # If still no family, create one
+            if not family_id:
+                # Create new family
+                # We don't have phone or troop info, so leave blank or default
+                cur = conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", ('', ''))
+                family_id = cur.lastrowid
+                added_families += 1
+            
+            # 2. Process members
+            for member in members:
+                name = member['name']
+                tlc_id = member['tlc_id']
+                
+                # Check if exists as kid
+                kid = conn.execute("SELECT id FROM kids WHERE name = ? COLLATE NOCASE", (name,)).fetchone()
+                if kid:
+                    # Update TLC ID
+                    conn.execute("UPDATE kids SET tlc_id = ? WHERE id = ?", (tlc_id, kid['id']))
+                    updated_kids += 1
+                else:
+                    # Check if exists as adult
+                    adult = conn.execute("SELECT id FROM adults WHERE name = ? COLLATE NOCASE", (name,)).fetchone()
+                    if not adult:
+                        # Not found as kid or adult -> Add as Kid (default)
+                        conn.execute("INSERT INTO kids (family_id, name, tlc_id) VALUES (?, ?, ?)", 
+                                    (family_id, name, tlc_id))
+                        added_kids += 1
+
+        conn.commit()
+        flash(f'Import complete: Added {added_families} families, {added_kids} new members, updated {updated_kids} existing members.', 'success')
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error importing from TLC: {str(e)}', 'danger')
+    finally:
+        conn.close()
+
+    return redirect(url_for('admin_families'))
+
 @app.route('/admin/backups')
 @require_auth
 def backup_list():
@@ -2674,7 +2778,6 @@ def admin_tlc_sync_confirm(event_id):
                     if local_norm == swapped:
                         match_found = {'name': tlc_name, 'id': tlc_id}
                         break
-        
         status = 'matched' if match_found else 'unmatched'
         if is_synced:
             status = 'synced'
@@ -2684,7 +2787,7 @@ def admin_tlc_sync_confirm(event_id):
             # We need checkin ID to update tlc_synced later? No, we update by kid_id/event_id usually?
             # Actually, admin_tlc_sync_execute iterates form keys.
             # The form uses checkin['id'] which is k.id in the query above.
-            # We should probably use checkin.id (c.id) to be precise, but the logic uses kid_id to find mapping.
+            # We should probably use c.id to be precise, but the logic uses kid_id to find mapping.
             # Let's keep using k.id for mapping, but we might need c.id to update status.
             'kid_id': checkin['id'], 
             'local_name': local_name,
