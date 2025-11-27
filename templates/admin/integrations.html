@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Integrations</h2>
+    <a href="/admin" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Back to Admin Panel
+    </a>
+  </div>
+
+  <p class="text-muted mb-4">Enable and configure external integrations to enhance your check-in system.</p>
+
+  <!-- Trail Life Connect Integration -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">
+        <i class="bi bi-cloud-arrow-up-fill"></i> Trail Life Connect (TLC) Sync
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-8">
+          <h6>Automatic Attendance Sync</h6>
+          <p class="text-muted">Automatically sync attendance records with Trail Life Connect after each event. Import families and roster data directly from TLC events.</p>
+          
+          <h6 class="mt-3">Features:</h6>
+          <ul class="text-muted">
+            <li>Import families and member information from TLC event rosters</li>
+            <li>Automatically extract phone numbers from member profiles</li>
+            <li>Sync attendance records back to TLC after check-in</li>
+            <li>Schedule automatic syncing or trigger manually</li>
+          </ul>
+
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="tlcEnabled" {% if tlc_enabled %}checked{% endif %} onchange="toggleIntegration('tlc', this.checked)">
+            <label class="form-check-label" for="tlcEnabled">
+              <strong>Enable TLC Integration</strong>
+            </label>
+          </div>
+
+          {% if tlc_enabled %}
+          <div id="tlcSettings">
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle"></i> TLC credentials are configured. You can sync attendance and import families.
+            </div>
+            <a href="/admin/tlc" class="btn btn-primary">
+              <i class="bi bi-arrow-repeat"></i> Go to TLC Sync
+            </a>
+          </div>
+          {% else %}
+          <div id="tlcSettings" class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> TLC integration requires configuration. Set up your TLC credentials in the sync page.
+          </div>
+          {% endif %}
+        </div>
+        <div class="col-md-4">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title">Status</h6>
+              <p class="mb-2">
+                <strong>State:</strong> 
+                <span class="badge {% if tlc_enabled %}bg-success{% else %}bg-secondary{% endif %}">
+                  {% if tlc_enabled %}Active{% else %}Inactive{% endif %}
+                </span>
+              </p>
+              {% if last_tlc_sync %}
+              <p class="mb-0">
+                <strong>Last Sync:</strong><br>
+                <small class="text-muted">{{ last_tlc_sync }}</small>
+              </p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Developer Guidelines -->
+  <div class="card">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">
+        <i class="bi bi-code-slash"></i> Building Custom Integrations
+      </h5>
+    </div>
+    <div class="card-body">
+      <h6>Integration Development Guidelines</h6>
+      <p class="text-muted">Want to build your own integration? Here are the guidelines for creating custom integrations:</p>
+
+      <div class="accordion" id="devAccordion">
+        <!-- Architecture Overview -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseArchitecture">
+              1. Architecture Overview
+            </button>
+          </h2>
+          <div id="collapseArchitecture" class="accordion-collapse collapse" data-bs-parent="#devAccordion">
+            <div class="accordion-body">
+              <p>The system uses a modular Flask architecture with SQLite database. Each integration should:</p>
+              <ul>
+                <li>Be implemented as a separate Python module (e.g., <code>my_integration_client.py</code>)</li>
+                <li>Have its own configuration stored in the <code>settings</code> table</li>
+                <li>Include enable/disable functionality</li>
+                <li>Provide clear error handling and logging</li>
+              </ul>
+              <pre class="bg-light p-3"><code># Example integration structure
+class MyIntegrationClient:
+    def __init__(self, api_key, api_secret):
+        self.api_key = api_key
+        self.api_secret = api_secret
+    
+    def sync_data(self):
+        # Your sync logic here
+        pass</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Integration -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDatabase">
+              2. Database Integration
+            </button>
+          </h2>
+          <div id="collapseDatabase" class="accordion-collapse collapse" data-bs-parent="#devAccordion">
+            <div class="accordion-body">
+              <p>Store integration settings in the <code>settings</code> table:</p>
+              <pre class="bg-light p-3"><code>conn = get_db()
+conn.execute(
+    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+    ('my_integration_enabled', 'true')
+)
+conn.commit()</code></pre>
+              <p class="mt-3">Access the database safely:</p>
+              <pre class="bg-light p-3"><code>def get_db():
+    conn = sqlite3.connect('data/checkin.db')
+    conn.row_factory = sqlite3.Row
+    return conn</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Routes & UI -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRoutes">
+              3. Routes & User Interface
+            </button>
+          </h2>
+          <div id="collapseRoutes" class="accordion-collapse collapse" data-bs-parent="#devAccordion">
+            <div class="accordion-body">
+              <p>Create dedicated routes for your integration:</p>
+              <pre class="bg-light p-3"><code>@app.route('/admin/my_integration')
+@require_auth
+def my_integration():
+    # Your integration page logic
+    return render_template('admin/my_integration.html')</code></pre>
+              <p class="mt-3">Add your integration card to this page by editing <code>templates/admin/integrations.html</code>.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Best Practices -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBestPractices">
+              4. Best Practices
+            </button>
+          </h2>
+          <div id="collapseBestPractices" class="accordion-collapse collapse" data-bs-parent="#devAccordion">
+            <div class="accordion-body">
+              <ul>
+                <li><strong>Error Handling:</strong> Always use try/except blocks and log errors appropriately</li>
+                <li><strong>User Feedback:</strong> Use Flask's <code>flash()</code> for user notifications</li>
+                <li><strong>Security:</strong> Store sensitive credentials securely, never in plain text logs</li>
+                <li><strong>Testing:</strong> Provide a "Test Connection" button for users to verify setup</li>
+                <li><strong>Documentation:</strong> Include clear setup instructions in your integration card</li>
+                <li><strong>Scheduling:</strong> Use APScheduler for automated sync tasks</li>
+                <li><strong>Rate Limiting:</strong> Respect API rate limits of external services</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Example Code -->
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample">
+              5. Complete Example
+            </button>
+          </h2>
+          <div id="collapseExample" class="accordion-collapse collapse" data-bs-parent="#devAccordion">
+            <div class="accordion-body">
+              <p>Here's a minimal working example:</p>
+              <pre class="bg-light p-3"><code># my_integration_client.py
+import requests
+
+class MyIntegrationClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "https://api.example.com"
+    
+    def test_connection(self):
+        try:
+            response = requests.get(
+                f"{self.base_url}/ping",
+                headers={"Authorization": f"Bearer {self.api_key}"}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"Connection error: {e}")
+            return False
+
+# In app.py
+@app.route('/admin/my_integration', methods=['GET', 'POST'])
+@require_auth
+def my_integration():
+    if request.method == 'POST':
+        api_key = request.form.get('api_key')
+        enabled = request.form.get('enabled') == 'on'
+        
+        conn = get_db()
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            ('my_integration_api_key', api_key)
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            ('my_integration_enabled', str(enabled))
+        )
+        conn.commit()
+        conn.close()
+        
+        flash('Integration settings saved!', 'success')
+    
+    return render_template('admin/my_integration.html')</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert alert-info mt-4">
+        <i class="bi bi-github"></i> <strong>Contributing:</strong> If you build a useful integration, consider contributing it back to the project on GitHub!
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleIntegration(integration, enabled) {
+  fetch(`/admin/integrations/toggle`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      integration: integration,
+      enabled: enabled
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Failed to toggle integration');
+    }
+  });
+}
+</script>
+{% endblock %}

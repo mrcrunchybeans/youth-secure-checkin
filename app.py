@@ -2994,6 +2994,47 @@ def import_configuration():
     
     return redirect(url_for('admin_index'))
 
+# Integrations Management
+@app.route('/admin/integrations')
+@require_auth
+def admin_integrations():
+    conn = get_db()
+    
+    # Check TLC status
+    tlc_enabled = False
+    last_tlc_sync = None
+    
+    tlc_enabled_row = conn.execute("SELECT value FROM settings WHERE key = 'tlc_enabled'").fetchone()
+    if tlc_enabled_row and tlc_enabled_row['value'] == 'true':
+        tlc_enabled = True
+    
+    last_sync_row = conn.execute("SELECT value FROM settings WHERE key = 'last_tlc_sync'").fetchone()
+    if last_sync_row:
+        last_tlc_sync = last_sync_row['value']
+    
+    conn.close()
+    
+    return render_template('admin/integrations.html', 
+                         tlc_enabled=tlc_enabled,
+                         last_tlc_sync=last_tlc_sync)
+
+@app.route('/admin/integrations/toggle', methods=['POST'])
+@require_auth
+def toggle_integration():
+    data = request.get_json()
+    integration = data.get('integration')
+    enabled = data.get('enabled')
+    
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        (f'{integration}_enabled', 'true' if enabled else 'false')
+    )
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True})
+
 # Trail Life Connect Integration Routes
 @app.route('/admin/tlc', methods=['GET'])
 @require_auth
