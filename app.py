@@ -2024,7 +2024,6 @@ def delete_event(event_id):
 @require_auth
 def add_family():
     if request.method == 'POST':
-        phone = request.form.get('phone')
         troop = request.form.get('troop')
         authorized_adults = request.form.get('authorized_adults')
         
@@ -2035,16 +2034,14 @@ def add_family():
         kid_names = request.form.getlist('kids')
         kid_notes = request.form.getlist('kid_notes')
         
-        # Basic validation
-        if not phone:
-            flash('Phone number is required', 'danger')
-            return render_template('admin/add_family.html')
+        # Use first adult's phone as family phone for backwards compatibility
+        family_phone = adult_phones[0].strip() if adult_phones and adult_phones[0].strip() else ''
             
         conn = get_db()
         try:
             # Create family
             cur = conn.execute("INSERT INTO families (phone, troop, authorized_adults) VALUES (?, ?, ?)",
-                              (phone, troop, authorized_adults))
+                              (family_phone, troop, authorized_adults))
             family_id = cur.lastrowid
             
             # Add adults
@@ -2087,7 +2084,6 @@ def edit_family(family_id):
     conn = get_db()
     
     if request.method == 'POST':
-        phone = request.form.get('phone')
         troop = request.form.get('troop')
         authorized_adults = request.form.get('authorized_adults')
         default_adult_id = request.form.get('default_adult_id')
@@ -2100,10 +2096,17 @@ def edit_family(family_id):
         kid_names = request.form.getlist('kids')
         kid_notes = request.form.getlist('kid_notes')
         
+        # Use first adult's phone as family phone for backwards compatibility
+        family_phone = ''
+        for phone in adult_phones:
+            if phone and phone.strip():
+                family_phone = phone.strip()
+                break
+        
         try:
             # Update family details
             conn.execute("UPDATE families SET phone = ?, troop = ?, authorized_adults = ?, default_adult_id = ? WHERE id = ?",
-                        (phone, troop, authorized_adults, default_adult_id if default_adult_id else None, family_id))
+                        (family_phone, troop, authorized_adults, default_adult_id if default_adult_id else None, family_id))
             
             # Update/Add adults
             # First, get existing adults to know which ones to delete if not in list
