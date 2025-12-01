@@ -51,7 +51,7 @@ docker compose --profile demo logs -f
 ## Common Commands
 
 ```bash
-# View logs (must specify profile)
+# View logs
 docker compose logs
 
 # Stop
@@ -66,15 +66,6 @@ docker compose up -d
 ```
 
 ## Troubleshooting
-
-**"No service selected" error:**
-```bash
-# Wrong:
-docker compose up -d
-
-# Correct:
-docker compose up -d
-```
 
 **"No such table" error:**
 ```bash

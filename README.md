@@ -77,7 +77,7 @@ curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/ma
 echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
 echo "DEVELOPER_PASSWORD=your-secure-password" >> .env
 
-# Start the application (must specify profile!)
+# Start the application
 docker compose up -d
 
 # Verify it's running

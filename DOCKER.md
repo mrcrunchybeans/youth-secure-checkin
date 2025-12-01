@@ -347,7 +347,7 @@ ports:
 ### Container Won't Start
 
 ```bash
-# View detailed logs (must specify profile!)
+# View detailed logs
 docker compose logs
 
 # Check configuration
