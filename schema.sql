@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS adults (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     family_id INTEGER NOT NULL,
     name TEXT NOT NULL,
+    phone TEXT,
     FOREIGN KEY (family_id) REFERENCES families(id)
 );
 

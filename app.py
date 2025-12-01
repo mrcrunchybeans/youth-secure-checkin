@@ -324,6 +324,8 @@ def ensure_db():
     # kept for manual invocation; do not run at import time so tests can control DB_PATH
     if not DB_PATH.exists():
         init_db()
+    # Run migrations to ensure schema is up to date
+    ensure_adult_phone_column()
 
 def get_app_password():
     """Get the app password from settings, or return default"""
