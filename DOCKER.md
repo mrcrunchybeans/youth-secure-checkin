@@ -12,15 +12,29 @@
 ### Option 1: Pull from Docker Hub (Recommended)
 
 ```bash
-# Pull the latest image
-docker pull mrcrunchybeans/youth-secure-checkin:latest
+# Create a directory for your instance
+mkdir youth-checkin && cd youth-checkin
 
-# Create docker-compose.yml or download it
+# Create required directories
+mkdir -p data uploads
+
+# Download docker-compose.yml
 curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
+
+# Create .env file with your secrets
+cat > .env << EOF
+SECRET_KEY=$(openssl rand -hex 32)
+DEVELOPER_PASSWORD=your-secure-password-here
+EOF
 
 # Start the production service
 docker compose --profile production up -d
+
+# Check logs to verify startup
+docker compose --profile production logs -f
 ```
+
+**Note:** Use `docker compose` (with a space, not hyphen). The older `docker-compose` command may not be installed on newer systems.
 
 ### Option 2: Build from Source
 
@@ -333,18 +347,33 @@ ports:
 ### Container Won't Start
 
 ```bash
-# View detailed logs
-docker compose logs web
+# View detailed logs (must specify profile!)
+docker compose --profile production logs
 
 # Check configuration
 docker compose config
 
-# Verify .env file exists
+# Verify .env file exists and has required variables
 cat .env
+# Should contain:
+# SECRET_KEY=your-secret-key
+# DEVELOPER_PASSWORD=your-password
 
 # Recreate containers
-docker compose down
+docker compose --profile production down
 docker compose --profile production up -d --force-recreate
+```
+
+### "No Service Selected" Error
+
+If you see `no service selected`, you forgot to specify the profile:
+
+```bash
+# Wrong:
+docker compose up -d
+
+# Correct:
+docker compose --profile production up -d
 ```
 
 ### Can't Pull Docker Image
@@ -364,12 +393,12 @@ docker ps
 
 ```bash
 # Stop containers
-docker compose down
+docker compose --profile production down
 
 # Backup current database
 cp data/checkin.db data/checkin.db.backup-$(date +%Y%m%d)
 
-# Option 1: Let app recreate database
+# Option 1: Let app recreate database (auto-initialized on startup)
 rm data/checkin.db
 docker compose --profile production up -d
 
@@ -377,6 +406,27 @@ docker compose --profile production up -d
 docker compose --profile production up -d
 # Then use Admin Panel → Backups → Restore
 ```
+
+### "No Such Table" Errors
+
+If you see `sqlite3.OperationalError: no such table: settings` or similar:
+
+```bash
+# The database wasn't initialized properly
+# Stop the container
+docker compose --profile production down
+
+# Remove the empty/corrupt database
+rm -f data/checkin.db
+
+# Restart - database will be auto-created from schema
+docker compose --profile production up -d
+
+# Verify it's working
+docker compose --profile production logs
+```
+
+**Note:** The database is automatically initialized from `schema.sql` when the container starts if no database exists.
 
 ### Volume/Permission Issues
 
@@ -435,24 +485,87 @@ services:
 
 ### Multiple Instances
 
-Run multiple isolated instances:
+Run multiple isolated instances on the same server (e.g., for different troops):
+
+```bash
+# Create directory for each instance
+mkdir -p ~/tx-1932 && cd ~/tx-1932
+mkdir -p data uploads
+
+# Download docker-compose.yml
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
+
+# Create unique .env file
+cat > .env << EOF
+SECRET_KEY=$(openssl rand -hex 32)
+DEVELOPER_PASSWORD=unique-password-for-this-troop
+EOF
+
+# Edit docker-compose.yml to use unique container name and port
+# Change: container_name: youth-checkin → container_name: youth-checkin-tx1932
+# Change: ports: "5000:5000" → ports: "5001:5000"
+
+# Start this instance
+docker compose --profile production up -d
+```
+
+**Or create a custom compose file:**
 
 ```yaml
-# docker-compose.troop123.yml
+# docker-compose.tx1932.yml
 services:
   web:
-    container_name: youth-checkin-troop123
+    image: mrcrunchybeans/youth-secure-checkin:latest
+    container_name: youth-checkin-tx1932
     ports:
       - "5001:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
     volumes:
-      - ./data-troop123:/app/data
-      - ./uploads-troop123:/app/uploads
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    restart: unless-stopped
 ```
 
 Start with:
 ```bash
-docker compose -f docker-compose.troop123.yml --profile production up -d
+docker compose -f docker-compose.tx1932.yml up -d
 ```
+
+### VPS Deployment with Cloudflare Tunnel
+
+For secure HTTPS access without port forwarding:
+
+1. **Set up instance on VPS:**
+```bash
+ssh root@your-vps-ip
+mkdir -p ~/youth-checkin && cd ~/youth-checkin
+mkdir -p data uploads
+
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
+
+cat > .env << EOF
+SECRET_KEY=$(openssl rand -hex 32)
+DEVELOPER_PASSWORD=your-secure-password
+EOF
+
+docker compose --profile production up -d
+```
+
+2. **Install cloudflared on VPS:**
+```bash
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared
+cloudflared tunnel login
+```
+
+3. **Create tunnel in Cloudflare Dashboard:**
+   - Go to Zero Trust → Networks → Tunnels
+   - Create tunnel, install connector on VPS
+   - Add public hostname pointing to `http://localhost:5000`
+
+4. **Access via your custom domain with automatic HTTPS!**
 
 ### Performance Tuning
 
@@ -677,9 +790,13 @@ Change host port in docker-compose.yml: `"<host-port>:5000"`
 ## 📝 Notes
 
 - Docker Compose V2 uses `docker compose` (no hyphen), V1 uses `docker-compose`
+- **Always specify `--profile production` or `--profile demo`** when running commands
 - Always stop containers before backing up database files
 - Demo mode auto-resets every 24 hours and should not be used for production
 - Production uses local directories; demo uses named Docker volumes
 - The application runs on port 5000 inside the container (not configurable)
 - Health checks run every 30 seconds with 3 retries
 - Default worker count is 3 for production, 2 for demo
+- Database file is `checkin.db` (not `troop_checkin.db`)
+- Database is auto-initialized from `schema.sql` on first startup
+- The `.env` file must contain `SECRET_KEY` and `DEVELOPER_PASSWORD`
