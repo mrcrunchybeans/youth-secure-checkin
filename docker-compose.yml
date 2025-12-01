@@ -12,7 +12,7 @@
 services:
   # Production web service
   web:
-    build: .
+    image: mrcrunchybeans/youth-secure-checkin:latest
     container_name: youth-checkin
     ports:
       - "5000:5000"
@@ -32,7 +32,7 @@ services:
 
   # Demo web service
   demo-app:
-    build: .
+    image: mrcrunchybeans/youth-secure-checkin:latest
     container_name: youth-checkin-demo
     ports:
       - "5000:5000"
@@ -61,7 +61,7 @@ services:
 
   # Demo auto-reset service
   demo-reset:
-    build: .
+    image: mrcrunchybeans/youth-secure-checkin:latest
     container_name: youth-checkin-demo-reset
     environment:
       - DATABASE_PATH=/app/data/demo.db
