@@ -66,22 +66,31 @@ A secure, flexible check-in/check-out system for youth organizations including T
 Deploy in 30 seconds with Docker:
 
 ```bash
-# Download the configuration files
-curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
-curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/.env.docker
-mv .env.docker .env
+# Create a directory and required folders
+mkdir youth-checkin && cd youth-checkin
+mkdir -p data uploads
 
-# Start the application
-docker-compose up -d
+# Download docker-compose.yml
+curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
+
+# Create .env file with your secrets
+echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
+echo "DEVELOPER_PASSWORD=your-secure-password" >> .env
+
+# Start the application (must specify profile!)
+docker compose --profile production up -d
+
+# Verify it's running
+docker compose --profile production logs
 
 # Access at http://localhost:5000
 ```
 
+**Note:** Use `docker compose` (with space), not `docker-compose` (with hyphen).
+
 **Try the Demo:**
 ```bash
-curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.demo.yml
-mv docker-compose.demo.yml docker-compose.yml
-docker-compose up -d
+docker compose --profile demo up -d
 
 # Demo login: demo123 / demo2025
 # Test families: Phone numbers 555-0101 through 555-0108
@@ -212,7 +221,8 @@ See [requirements.txt](requirements.txt) for full dependency list:
 ### Docker (Recommended)
 Pull pre-built images from Docker Hub:
 ```bash
-docker-compose up -d
+# Always specify the profile!
+docker compose --profile production up -d
 ```
 See [DOCKER.md](DOCKER.md) for complete guide.
 
