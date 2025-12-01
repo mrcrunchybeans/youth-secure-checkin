@@ -28,6 +28,7 @@ services:
       - checkin-network
     profiles:
       - production
+    command: sh -c "if [ ! -f /app/data/troop_checkin.db ]; then sqlite3 /app/data/troop_checkin.db < /app/schema.sql && echo 'Database initialized'; fi && gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 wsgi:app"
 
   # Demo web service
   demo-app:
