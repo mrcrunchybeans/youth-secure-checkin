@@ -48,7 +48,6 @@ instance/
 *.swp
 *.swo
 *~
-*.code-workspace
 
 # OS
 .DS_Store
@@ -62,59 +61,7 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Local scripts folder (development and maintenance scripts)
+# Local development files (not for public repo)
 local-scripts/
-
-# Data directory (used by Docker)
-data/
-
-# Uploads directory
-uploads/
-
-stripe.php
-*.zip
-
-# Local development files (personal use only)
 local-dev-files/
-DOCKER_TESTING.md
-DOCKER_PUBLISHING.md
-GITHUB_ACTIONS_SETUP.md
-GITHUB_ACTIONS_QUICKSTART.md
-publish-to-dockerhub.ps1
-quick-publish.ps1
-cleanup-repo.ps1
-cleanup-personal-files.ps1
-
-# Landing page files (WordPress/web designer files)
-landingpage.html
-landing-page-copy.md
-WEBSITE_COPY.md
-WEBSITE_COPY_PLAIN.txt
-
-# Repository guides (personal use)
-REPO_GUIDE.md
-
-# Docker Hub cleanup (personal use)
-cleanup-docker-hub.ps1
-DOCKER_HUB_CLEANUP.md
-
-# Migration scripts (already applied)
-add_override_setting.py
-migrate_*.py
-mark_setup_complete.py
-MIGRATION_*.md
-
-# Development utility scripts
-check_db.py
-check_route.py
-cleanup_orphaned_checkins.py
-clear_checkin_history.py
-replace_*.py
-reset_checkin_ids.py
-test_env.py
-
-# Old deployment documentation
-DEPLOYMENT.md
-
-# Debug dumps
-*_dump.html
+*.code-workspace

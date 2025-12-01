@@ -78,10 +78,10 @@ echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
 echo "DEVELOPER_PASSWORD=your-secure-password" >> .env
 
 # Start the application (must specify profile!)
-docker compose --profile production up -d
+docker compose up -d
 
 # Verify it's running
-docker compose --profile production logs
+docker compose logs
 
 # Access at http://localhost:5000
 ```
@@ -222,7 +222,7 @@ See [requirements.txt](requirements.txt) for full dependency list:
 Pull pre-built images from Docker Hub:
 ```bash
 # Always specify the profile!
-docker compose --profile production up -d
+docker compose up -d
 ```
 See [DOCKER.md](DOCKER.md) for complete guide.
 

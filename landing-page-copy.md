@@ -109,7 +109,7 @@ echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
 echo "DEVELOPER_PASSWORD=your-secure-password" >> .env
 
 # Start the application
-docker compose --profile production up -d
+docker compose up -d
 ```
 Access at http://localhost:5000 and complete the 4-step setup wizard.
 
@@ -198,10 +198,10 @@ echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
 echo "DEVELOPER_PASSWORD=your-secure-password" >> .env
 
 # Start the application (must specify profile!)
-docker compose --profile production up -d
+docker compose up -d
 
 # Verify it's running
-docker compose --profile production logs
+docker compose logs
 ```
 
 Access at http://localhost:5000

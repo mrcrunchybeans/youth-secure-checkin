@@ -1,11 +1,12 @@
 # Youth Secure Check-in - Docker Compose Configuration
 # 
 # Usage:
-#   docker compose --profile production up -d    # Start production
-#   docker compose --profile demo up -d          # Start demo mode
+#   docker compose up -d                    # Start production
+#   docker compose --profile demo up -d     # Start demo mode (for developers)
 #
 # Services:
-#   - web/demo-app: Youth check-in application (port 5000)
+#   - web: Youth check-in application (port 5000)
+#   - demo-app: Demo mode with sample data (requires --profile demo)
 #
 # See DOCKER.md for detailed instructions
 
@@ -26,8 +27,6 @@ services:
     restart: unless-stopped
     networks:
       - checkin-network
-    profiles:
-      - production
     command: sh -c "python -c \"import sqlite3; conn = sqlite3.connect('/app/data/checkin.db'); conn.executescript(open('/app/schema.sql').read()); conn.close(); print('Database initialized')\" && gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 wsgi:app"
 
   # Demo web service

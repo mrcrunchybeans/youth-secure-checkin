@@ -13,7 +13,7 @@ cp .env.example .env
 nano .env  # Edit SECRET_KEY and passwords
 
 # 3. Start application
-docker compose --profile production up -d
+docker compose up -d
 
 # 4. Access application
 # Youth Check-in: http://localhost:5000
@@ -54,11 +54,11 @@ docker compose -f docker-compose.demo.yml up -d
 docker logs youth-checkin
 
 # Stop all services
-docker compose --profile production down
+docker compose down
 
 # Update to latest version
-docker compose --profile production pull
-docker compose --profile production up -d
+docker compose pull
+docker compose up -d
 
 # Backup data
 docker exec youth-checkin-yourls-db \
@@ -133,9 +133,9 @@ YOURLS_PASSWORD=change_this_securely
 
 ```bash
 # Production
-docker compose --profile production down
-docker compose --profile production pull
-docker compose --profile production up -d
+docker compose down
+docker compose pull
+docker compose up -d
 
 # Demo
 docker compose -f docker-compose.demo.yml down
@@ -147,7 +147,7 @@ docker compose -f docker-compose.demo.yml up -d
 
 ```bash
 # Stop and remove containers
-docker compose --profile production down -v
+docker compose down -v
 
 # Remove images
 docker rmi mrcrunchybeans/youth-secure-checkin:latest

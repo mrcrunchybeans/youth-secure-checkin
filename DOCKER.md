@@ -28,10 +28,10 @@ DEVELOPER_PASSWORD=your-secure-password-here
 EOF
 
 # Start the production service
-docker compose --profile production up -d
+docker compose up -d
 
 # Check logs to verify startup
-docker compose --profile production logs -f
+docker compose logs -f
 ```
 
 **Note:** Use `docker compose` (with a space, not hyphen). The older `docker-compose` command may not be installed on newer systems.
@@ -44,7 +44,7 @@ git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
 cd youth-secure-checkin
 
 # Start with docker compose (uses profile)
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 ### Access Application
@@ -154,13 +154,13 @@ These directories persist between container restarts and updates.
 
 ```bash
 # Stop containers first (recommended)
-docker compose --profile production down
+docker compose down
 
 # Backup everything
 tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
 
 # Restart
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 **Or use the built-in backup feature:**
@@ -170,13 +170,13 @@ Admin Panel → Backups → Create Backup
 
 ```bash
 # Stop containers
-docker compose --profile production down
+docker compose down
 
 # Extract backup
 tar -xzf backup-YYYYMMDD.tar.gz
 
 # Restart
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 **Or use Admin Panel → Backups → Restore from Backup**
@@ -203,7 +203,7 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 
 ```bash
 docker compose pull
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 ### SSL/TLS for Production
@@ -248,7 +248,7 @@ docker compose restart
 
 # Full restart
 docker compose down
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 ### Update to Latest Version
@@ -258,7 +258,7 @@ docker compose --profile production up -d
 docker compose pull
 
 # Recreate containers with new image
-docker compose --profile production up -d
+docker compose up -d
 
 # Verify update
 docker compose ps
@@ -348,7 +348,7 @@ ports:
 
 ```bash
 # View detailed logs (must specify profile!)
-docker compose --profile production logs
+docker compose logs
 
 # Check configuration
 docker compose config
@@ -360,8 +360,8 @@ cat .env
 # DEVELOPER_PASSWORD=your-password
 
 # Recreate containers
-docker compose --profile production down
-docker compose --profile production up -d --force-recreate
+docker compose down
+docker compose up -d --force-recreate
 ```
 
 ### "No Service Selected" Error
@@ -373,7 +373,7 @@ If you see `no service selected`, you forgot to specify the profile:
 docker compose up -d
 
 # Correct:
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 ### Can't Pull Docker Image
@@ -393,17 +393,17 @@ docker ps
 
 ```bash
 # Stop containers
-docker compose --profile production down
+docker compose down
 
 # Backup current database
 cp data/checkin.db data/checkin.db.backup-$(date +%Y%m%d)
 
 # Option 1: Let app recreate database (auto-initialized on startup)
 rm data/checkin.db
-docker compose --profile production up -d
+docker compose up -d
 
 # Option 2: Restore from Admin Panel backup
-docker compose --profile production up -d
+docker compose up -d
 # Then use Admin Panel → Backups → Restore
 ```
 
@@ -414,16 +414,16 @@ If you see `sqlite3.OperationalError: no such table: settings` or similar:
 ```bash
 # The database wasn't initialized properly
 # Stop the container
-docker compose --profile production down
+docker compose down
 
 # Remove the empty/corrupt database
 rm -f data/checkin.db
 
 # Restart - database will be auto-created from schema
-docker compose --profile production up -d
+docker compose up -d
 
 # Verify it's working
-docker compose --profile production logs
+docker compose logs
 ```
 
 **Note:** The database is automatically initialized from `schema.sql` when the container starts if no database exists.
@@ -437,7 +437,7 @@ chmod -R 755 data/ uploads/
 
 # Recreate volumes if corrupted
 docker compose down -v
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 ### Clean Up Disk Space
@@ -506,7 +506,7 @@ EOF
 # Change: ports: "5000:5000" → ports: "5001:5000"
 
 # Start this instance
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 **Or create a custom compose file:**
@@ -550,7 +550,7 @@ SECRET_KEY=$(openssl rand -hex 32)
 DEVELOPER_PASSWORD=your-secure-password
 EOF
 
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 2. **Install cloudflared on VPS:**
@@ -635,7 +635,7 @@ See `DEPLOYMENT_CHECKLIST.md` for platform-specific guides.
 crontab -e
 
 # Add daily backup at 2 AM
-0 2 * * * cd /path/to/youth-secure-checkin && docker compose down && tar -czf ~/backups/checkin-$(date +\%Y\%m\%d-\%H\%M).tar.gz data/ uploads/ && docker compose --profile production up -d
+0 2 * * * cd /path/to/youth-secure-checkin && docker compose down && tar -czf ~/backups/checkin-$(date +\%Y\%m\%d-\%H\%M).tar.gz data/ uploads/ && docker compose up -d
 ```
 
 **Windows Task Scheduler:**
@@ -645,7 +645,7 @@ Create PowerShell script `backup.ps1`:
 cd C:\youth-secure-checkin
 docker compose down
 tar -czf "C:\backups\checkin-$(Get-Date -Format 'yyyyMMdd-HHmm').tar.gz" data, uploads
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 Schedule via Task Scheduler to run daily.
@@ -689,7 +689,7 @@ docker build -t youth-checkin .
 
 ```bash
 # Start
-docker compose --profile production up -d
+docker compose up -d
 
 # Stop
 docker compose down
@@ -733,7 +733,7 @@ docker network inspect youth-secure-checkin_checkin-network
 
 ```bash
 # Start production
-docker compose --profile production up -d
+docker compose up -d
 
 # Start demo
 docker compose -f docker-compose.demo.yml up -d
@@ -745,10 +745,10 @@ docker compose logs -f
 docker compose down
 
 # Update
-docker compose pull && docker compose --profile production up -d
+docker compose pull && docker compose up -d
 
 # Backup
-docker compose down && tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/ && docker compose --profile production up -d
+docker compose down && tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/ && docker compose up -d
 
 # Shell access
 docker compose exec web /bin/sh
@@ -790,7 +790,7 @@ Change host port in docker-compose.yml: `"<host-port>:5000"`
 ## 📝 Notes
 
 - Docker Compose V2 uses `docker compose` (no hyphen), V1 uses `docker-compose`
-- **Always specify `--profile production` or `--profile demo`** when running commands
+- Use `--profile demo` only if you want to run the demo instance with sample data
 - Always stop containers before backing up database files
 - Demo mode auto-resets every 24 hours and should not be used for production
 - Production uses local directories; demo uses named Docker volumes

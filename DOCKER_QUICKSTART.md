@@ -17,15 +17,13 @@ echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
 echo "DEVELOPER_PASSWORD=your-secure-password-here" >> .env
 
 # Start production instance
-docker compose --profile production up -d
+docker compose up -d
 
 # View logs (verify database initialized)
-docker compose --profile production logs -f
+docker compose logs -f
 
 # Access at http://localhost:5000
 ```
-
-**Important:** Always use `--profile production` when running commands!
 
 ## Demo Mode
 
@@ -54,17 +52,17 @@ docker compose --profile demo logs -f
 
 ```bash
 # View logs (must specify profile)
-docker compose --profile production logs
+docker compose logs
 
 # Stop
-docker compose --profile production down
+docker compose down
 
 # Restart
-docker compose --profile production restart
+docker compose restart
 
 # Update to latest version
 docker compose pull
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 ## Troubleshooting
@@ -75,15 +73,15 @@ docker compose --profile production up -d
 docker compose up -d
 
 # Correct:
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 **"No such table" error:**
 ```bash
 # Database wasn't initialized - delete and restart
-docker compose --profile production down
+docker compose down
 rm -f data/checkin.db
-docker compose --profile production up -d
+docker compose up -d
 ```
 
 **Command not found (docker-compose):**
