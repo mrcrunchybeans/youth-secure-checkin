@@ -707,6 +707,40 @@ document.addEventListener('DOMContentLoaded', function() {
       checkoutInput.value = '';
     });
   }
+  
+  // Physical keyboard support for checkout code input
+  document.addEventListener('keydown', function(e) {
+    // Only handle when checkout modal is visible
+    const checkoutModal = document.getElementById('checkoutModal');
+    if (!checkoutModal || !checkoutModal.classList.contains('show')) return;
+    
+    // Don't interfere with other focused inputs
+    if (document.activeElement && document.activeElement.tagName === 'INPUT' && 
+        document.activeElement.id !== 'checkout-code-input') return;
+    
+    // Handle number keys (both main keyboard and numpad)
+    if ((e.key >= '0' && e.key <= '9')) {
+      e.preventDefault();
+      if (checkoutInput.value.length < 10) {
+        checkoutInput.value += e.key;
+      }
+    }
+    // Handle backspace/delete
+    else if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      checkoutInput.value = checkoutInput.value.slice(0, -1);
+    }
+    // Handle Escape to clear
+    else if (e.key === 'Escape') {
+      e.preventDefault();
+      checkoutInput.value = '';
+    }
+    // Handle Enter to submit
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('checkout-code-form').dispatchEvent(new Event('submit'));
+    }
+  });
 });
 
 // Handle checkout code form submission
