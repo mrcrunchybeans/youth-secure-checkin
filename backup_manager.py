@@ -155,20 +155,47 @@ class BackupManager:
     def _is_backup_encrypted(self, backup_path):
         """Check if a backup file is encrypted"""
         try:
-            # Try to read with standard zipfile - if it fails, likely encrypted
+            # First try with pyzipper if available (handles AES encrypted files)
+            if HAS_PYZIPPER:
+                try:
+                    with pyzipper.AESZipFile(backup_path, 'r') as zf:
+                        # Check if any file in the archive is encrypted
+                        for info in zf.infolist():
+                            # If file is encrypted, we can't read it without password
+                            if info.flag_bits & 0x1:  # Encrypted flag
+                                return True
+                        # Try to read metadata without password
+                        try:
+                            metadata_bytes = zf.read('backup_metadata.txt')
+                            metadata_str = metadata_bytes.decode('utf-8')
+                            if "'encrypted': True" in metadata_str:
+                                return True
+                        except RuntimeError:
+                            # Can't read without password = encrypted
+                            return True
+                        except:
+                            pass
+                    return False
+                except:
+                    pass
+            
+            # Fall back to standard zipfile
             with zipfile.ZipFile(backup_path, 'r') as zf:
-                # Try to read the metadata file
+                # Check encryption flag on files
+                for info in zf.infolist():
+                    if info.flag_bits & 0x1:  # Encrypted flag
+                        return True
+                # Try to read metadata
                 try:
                     metadata_bytes = zf.read('backup_metadata.txt')
-                    # Check if metadata indicates encryption
                     metadata_str = metadata_bytes.decode('utf-8')
                     if "'encrypted': True" in metadata_str:
                         return True
-                    return False
                 except:
-                    return False
-        except:
-            # If we can't open it, assume it's encrypted
+                    pass
+                return False
+        except Exception as e:
+            # If we can't open it at all, assume it might be encrypted or corrupted
             return True
     
     def list_backups(self):
@@ -182,28 +209,35 @@ class BackupManager:
         local_now = self._get_local_now()
         
         for backup_file in sorted(self.backup_dir.glob('backup_*.zip'), reverse=True):
-            stat = backup_file.stat()
-            # Convert file mtime to timezone-aware datetime if we have a timezone
-            if self.timezone and pytz:
-                created_time = datetime.fromtimestamp(stat.st_mtime, tz=self.timezone)
-                age_days = (local_now - created_time).days
-            else:
-                created_time = datetime.fromtimestamp(stat.st_mtime)
-                age_days = (datetime.now() - created_time).days
-            
-            # Check if encrypted
-            is_encrypted = self._is_backup_encrypted(backup_file)
-            
-            backups.append({
-                'filename': backup_file.name,
-                'path': str(backup_file),
-                'size': stat.st_size,
-                'size_mb': round(stat.st_size / (1024 * 1024), 2),
-                'created': created_time,
-                'created_str': created_time.strftime('%Y-%m-%d %H:%M:%S'),
-                'age_days': age_days,
-                'encrypted': is_encrypted
-            })
+            try:
+                stat = backup_file.stat()
+                # Convert file mtime to timezone-aware datetime if we have a timezone
+                if self.timezone and pytz:
+                    created_time = datetime.fromtimestamp(stat.st_mtime, tz=self.timezone)
+                    age_days = (local_now - created_time).days
+                else:
+                    created_time = datetime.fromtimestamp(stat.st_mtime)
+                    age_days = (datetime.now() - created_time).days
+                
+                # Check if encrypted (with error handling)
+                try:
+                    is_encrypted = self._is_backup_encrypted(backup_file)
+                except:
+                    is_encrypted = False  # Default to unencrypted if detection fails
+                
+                backups.append({
+                    'filename': backup_file.name,
+                    'path': str(backup_file),
+                    'size': stat.st_size,
+                    'size_mb': round(stat.st_size / (1024 * 1024), 2),
+                    'created': created_time,
+                    'created_str': created_time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'age_days': age_days,
+                    'encrypted': is_encrypted
+                })
+            except Exception as e:
+                # If we can't process this backup, skip it but continue with others
+                continue
         
         return backups
     
