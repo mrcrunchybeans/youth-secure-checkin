@@ -53,6 +53,9 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Event History**: Track attendance across events
 
 ### 💾 Backup & Restore
+- **AES-256 Encrypted Backups**: Protect sensitive child data with built-in encryption
+- **Scheduled Backups**: Automatic hourly, daily, weekly, or monthly backups
+- **Email Delivery**: Automatically email backups to configured recipients
 - **Configuration Export**: JSON backup of all settings
 - **Configuration Import**: Restore settings from backup
 - **Family Export**: CSV export of all family data

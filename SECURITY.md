@@ -196,15 +196,38 @@ sudo apt update && sudo apt upgrade -y  # Ubuntu/Debian
 
 ### Backup Security
 
-**Protect your backups:**
-- Encrypt backup files
-- Store in secure location (cloud + local)
-- Test restore procedures
-- Automate backup process
+**Built-in AES-256 Encryption:**
 
-**Backup Commands:**
+Youth Secure Check-in includes built-in backup encryption to protect sensitive child information:
+
+1. **Enable Encryption:**
+   - Go to **Admin → Backups**
+   - Find the **"Backup Encryption"** section
+   - Enter an encryption password (minimum 8 characters)
+   - Click **"Enable"**
+
+2. **All new backups are automatically encrypted** with AES-256 encryption
+3. **Encrypted backups show a green shield icon** in the backup list
+4. **To restore an encrypted backup**, the system uses the configured password automatically
+
+**Important Notes:**
+- Store your encryption password securely (password manager recommended)
+- If you lose the encryption password, encrypted backups cannot be restored
+- Existing unencrypted backups are not retroactively encrypted
+- You can change or disable encryption at any time from the Backups page
+
+**Opening Encrypted Backups Externally:**
+
+Encrypted backup ZIP files can be opened with standard tools that support AES encryption:
+- **Windows**: 7-Zip, WinRAR
+- **macOS**: The Unarchiver, Keka
+- **Linux**: 7z command-line tool
+
+**Legacy Manual Backup (Optional):**
+
+For additional security layers, you can still create manual encrypted backups:
 ```bash
-# Create encrypted backup
+# Create additional encrypted backup
 docker-compose down
 tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
 gpg -c backup-$(date +%Y%m%d).tar.gz

@@ -12,8 +12,72 @@ The cloud backup feature automatically backs up your entire database (including 
 - ✓ Support for Google Drive, Dropbox, and OneDrive
 - ✓ Per-service success/failure tracking
 - ✓ Encrypted data transmission
+- ✓ **AES-256 backup file encryption** (protects child data)
 - ✓ **Credentials secured behind developer password**
 - ✓ **No hardcoded environment variables needed**
+
+---
+
+## Local Backup Encryption (AES-256)
+
+All backups (local and cloud) can be encrypted with AES-256 to protect sensitive child information.
+
+### Why Encrypt Backups?
+
+Backups contain sensitive information about children including:
+- Names and family relationships
+- Authorized pickup adults
+- Check-in/check-out history
+- Medical notes and special instructions
+- Photos (if uploaded)
+
+Encryption ensures this data remains protected even if backup files are accessed by unauthorized parties.
+
+### Enabling Encryption
+
+1. Go to **Admin → Backups**
+2. Find the **"Backup Encryption"** section
+3. Enter an encryption password (minimum 8 characters)
+4. Confirm the password
+5. Click **"Enable"**
+
+All new backups will be encrypted with AES-256.
+
+### Encryption Status Indicators
+
+In the backup list:
+- 🟢 **Green shield icon** = Encrypted (AES-256)
+- 🟡 **Yellow unlock icon** = Unencrypted
+
+### Managing Encryption
+
+**Change Password:**
+1. Go to Admin → Backups
+2. In the Encryption section, enter current password
+3. Enter and confirm new password
+4. Click "Change Password"
+
+**Disable Encryption:**
+1. Go to Admin → Backups
+2. Click "Disable Encryption"
+3. Confirm the action
+
+Note: Existing encrypted backups remain encrypted and still require the password to restore.
+
+### Restoring Encrypted Backups
+
+- **Within the app**: The system automatically uses the configured encryption password
+- **Externally**: Use any ZIP tool that supports AES encryption (7-Zip, WinRAR, Keka, etc.)
+
+### Important Warnings
+
+⚠️ **Store your encryption password securely!** If lost, encrypted backups cannot be restored.
+
+⚠️ **Test your restore process** after enabling encryption to ensure everything works.
+
+⚠️ **Existing backups are not retroactively encrypted** - only new backups are encrypted.
+
+---
 
 ## Prerequisites
 
@@ -23,6 +87,7 @@ All required packages are already in `requirements.txt`:
 - `google-api-python-client==2.115.0` - Google Drive API
 - `dropbox==12.0.2` - Dropbox SDK
 - `APScheduler==3.10.4` - Scheduled job execution
+- `pyzipper==0.3.6` - AES-256 ZIP encryption
 
 Run: `pip install -r requirements.txt`
 

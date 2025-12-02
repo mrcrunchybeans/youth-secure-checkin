@@ -63,7 +63,7 @@ Most check-in systems are:
 **Complete customization** - Upload your logo (PNG, JPG, SVG), set your colors (primary, secondary, accent), customize group terminology (Troop/Den, Class/Grade, Team, etc.). Add your organization name and details.
 
 ### Feature 6: 💾 Backup & Recovery
-**Never lose data** - Export everything to JSON and CSV. One-click restore from backup files. Complete disaster recovery workflow built-in. Export family data, check-in history, and all settings.
+**Never lose data** - AES-256 encrypted backups protect sensitive child information. Automatic scheduled backups (daily, weekly, monthly). Email backup delivery to configured recipients. Export everything to JSON and CSV. One-click restore from backup files. Complete disaster recovery workflow built-in.
 
 ### Feature 7: 📊 Check-in History
 **Track attendance** - View complete check-in history with filtering by date, event, and family. See who's currently checked in, who's been picked up, and who still needs follow-up. Export to CSV for reporting and analysis.
