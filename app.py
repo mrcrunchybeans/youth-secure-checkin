@@ -3357,6 +3357,102 @@ def admin_tlc_roster_save():
     flash(f"Updated roster links for {count} records.", "success")
     return redirect(url_for('admin_tlc'))
 
+@app.route('/admin/tlc/roster/sync', methods=['GET'])
+@require_auth
+def admin_tlc_roster_sync():
+    """Sync roster from TLC - creates local kids for any TLC members not yet in the system."""
+    branding = get_branding_settings()
+    if 'tlc_email' not in session:
+        flash("Please login to Trail Life Connect first.", "warning")
+        return redirect(url_for('admin_tlc'))
+    
+    client = TrailLifeConnectClient(session['tlc_email'], session['tlc_password'])
+    if not client.login():
+        flash("TLC Login failed. Please try again.", "danger")
+        return redirect(url_for('admin_tlc'))
+
+    # Get first upcoming event to fetch roster
+    events = client.get_upcoming_events()
+    if not events:
+        flash("No upcoming events found to fetch roster from.", "warning")
+        return redirect(url_for('admin_tlc_roster'))
+        
+    event_id = events[0]['id']
+    tlc_roster = client.get_event_roster(event_id)  # Dict: Name -> {'id': ..., 'profile_url': ...}
+    
+    conn = get_db()
+    
+    # Get existing kids with TLC IDs
+    existing_tlc_ids = set()
+    rows = conn.execute("SELECT tlc_id FROM kids WHERE tlc_id IS NOT NULL AND tlc_id != ''").fetchall()
+    for row in rows:
+        existing_tlc_ids.add(row['tlc_id'])
+    
+    # Get or create a default "TLC Import" family
+    tlc_family = conn.execute("SELECT id FROM families WHERE name = 'TLC Import'").fetchone()
+    if not tlc_family:
+        conn.execute("INSERT INTO families (name, phone, email) VALUES (?, ?, ?)", 
+                    ('TLC Import', '000-000-0000', ''))
+        conn.commit()
+        tlc_family = conn.execute("SELECT id FROM families WHERE name = 'TLC Import'").fetchone()
+    
+    family_id = tlc_family['id']
+    
+    # Add new kids from TLC roster
+    added_count = 0
+    updated_count = 0
+    
+    for tlc_name, tlc_data in tlc_roster.items():
+        tlc_id = tlc_data['id']
+        
+        if tlc_id in existing_tlc_ids:
+            # Already linked, skip
+            continue
+        
+        # Check if there's a kid with matching name (not yet linked)
+        # Normalize names for comparison
+        def normalize(n):
+            return n.lower().replace(',', '').replace('.', '').strip()
+        
+        tlc_norm = normalize(tlc_name)
+        
+        # Try to find existing unlinked kid with same name
+        kids = conn.execute("SELECT id, name FROM kids WHERE (tlc_id IS NULL OR tlc_id = '')").fetchall()
+        matched_kid = None
+        
+        for kid in kids:
+            local_norm = normalize(kid['name'])
+            if local_norm == tlc_norm:
+                matched_kid = kid
+                break
+            # Check swapped name (Last First vs First Last)
+            parts = tlc_norm.split()
+            if len(parts) >= 2:
+                swapped = f"{parts[1]} {parts[0]}"
+                if local_norm == swapped:
+                    matched_kid = kid
+                    break
+        
+        if matched_kid:
+            # Update existing kid with TLC ID
+            conn.execute("UPDATE kids SET tlc_id = ? WHERE id = ?", (tlc_id, matched_kid['id']))
+            updated_count += 1
+        else:
+            # Create new kid with this TLC member
+            conn.execute("INSERT INTO kids (name, family_id, tlc_id) VALUES (?, ?, ?)",
+                        (tlc_name, family_id, tlc_id))
+            added_count += 1
+    
+    conn.commit()
+    conn.close()
+    
+    if added_count > 0 or updated_count > 0:
+        flash(f"Roster sync complete! Added {added_count} new kids, linked {updated_count} existing kids.", "success")
+    else:
+        flash("Roster sync complete. All TLC members are already in the system.", "info")
+    
+    return redirect(url_for('admin_tlc_roster'))
+
 @app.route('/admin/tlc/autosync/<int:local_event_id>', methods=['GET'])
 @require_auth
 def admin_tlc_autosync(local_event_id):

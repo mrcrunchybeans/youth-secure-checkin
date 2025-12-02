@@ -84,8 +84,11 @@
 
     {% elif step == 'roster' %}
     <div class="card">
-        <div class="card-header">
-            Link Local Kids to Trail Life Connect
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Link Local Kids to Trail Life Connect</span>
+            <a href="/admin/tlc/roster/sync" class="btn btn-sm btn-success">
+                <i class="bi bi-cloud-download"></i> Sync Roster from TLC
+            </a>
         </div>
         <div class="card-body">
             <p>Map your local records to Trail Life Connect members. This ensures accurate syncing even if names don't match exactly.</p>
