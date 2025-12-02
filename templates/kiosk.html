@@ -585,7 +585,16 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
         .then(data => {
             if (data.error) {
                 alert(data.error);
+            } else if (data.families) {
+                // Multiple families matched - show picker or use first one
+                if (data.families.length === 1) {
+                    showFamilyModal(data.families[0]);
+                } else {
+                    // Show family picker modal for multiple matches
+                    showFamilyPickerModal(data.families);
+                }
             } else {
+                // Single family matched directly
                 showFamilyModal(data);
             }
         });
@@ -614,6 +623,38 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
 
 
 })();
+
+function showFamilyPickerModal(families) {
+    const modalBody = document.getElementById('modal-body');
+    let html = '';
+    html += `<p style="font-size: 1.2rem; margin-bottom: 1rem;"><strong>Multiple families found. Please select:</strong></p>`;
+    html += `<div class="family-picker" style="display: flex; flex-direction: column; gap: 0.75rem;">`;
+    families.forEach(function(family) {
+        const kidNames = (family.kids || []).map(k => k.name).join(', ') || 'No kids';
+        const adultNames = (family.adults || []).map(a => a.name).join(', ') || 'No adults';
+        html += `<button type="button" class="btn btn-outline-primary family-pick-btn" data-family='${JSON.stringify(family).replace(/'/g, "&#39;")}' style="text-align: left; padding: 1rem;">`;
+        html += `<div style="font-size: 1.1rem; font-weight: bold;">${family.phone || 'No phone'} - {{ branding.group_term }} ${family.troop || ''}</div>`;
+        html += `<div style="font-size: 0.9rem; color: #666;">Adults: ${adultNames}</div>`;
+        html += `<div style="font-size: 0.9rem; color: #666;">Kids: ${kidNames}</div>`;
+        html += `</button>`;
+    });
+    html += `</div>`;
+    html += `<button type="button" class="btn btn-outline-danger position-absolute" data-bs-dismiss="modal" style="top: 0.5rem; right: 0.5rem; font-size: 1.5rem; width: 2.5rem; height: 2.5rem; padding: 0; line-height: 1; border-color: {{ branding.primary_color }}; color: {{ branding.primary_color }};" title="Cancel">✕</button>`;
+    
+    modalBody.innerHTML = html;
+    
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('familyModal'));
+    modal.show();
+    
+    // Wire up click handlers for family selection
+    modalBody.querySelectorAll('.family-pick-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const familyData = JSON.parse(this.dataset.family);
+            modal.hide();
+            setTimeout(() => showFamilyModal(familyData), 300);
+        });
+    });
+}
 
 function showFamilyModal(data) {
     const modalBody = document.getElementById('modal-body');
