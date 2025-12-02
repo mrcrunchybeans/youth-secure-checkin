@@ -267,13 +267,18 @@ except ImportError:
     scheduler = None
     app.logger.warning("APScheduler not installed. Scheduled backups disabled.")
 
-# Initialize Backup Manager
+# Initialize Backup Manager with timezone
 backup_manager = BackupManager(
     db_path=str(Path(__file__).parent / 'checkin.db'),
     backup_dir=str(Path(__file__).parent / 'data' / 'backups'),
     uploads_dir=str(Path(__file__).parent / 'uploads'),
-    static_uploads_dir=str(Path(__file__).parent / 'static' / 'uploads')
+    static_uploads_dir=str(Path(__file__).parent / 'static' / 'uploads'),
+    timezone=get_timezone()
 )
+
+def update_backup_manager_timezone():
+    """Update backup manager timezone from database settings"""
+    backup_manager.set_timezone(get_timezone())
 
 @app.context_processor
 def inject_branding():
@@ -2647,25 +2652,32 @@ def backup_schedule():
         conn.commit()
         conn.close()
         
+        # Update backup manager timezone
+        update_backup_manager_timezone()
+        
+        # Get the configured timezone for the scheduler
+        tz = get_timezone()
+        
         # Update scheduler if available
         if scheduler:
             # Remove existing backup job if present
             if scheduler.get_job('local_backup_job'):
                 scheduler.remove_job('local_backup_job')
             
-            # Add new scheduled job
+            # Add new scheduled job with timezone
             try:
                 if frequency == 'hourly':
-                    scheduler.add_job(perform_scheduled_local_backup, 'cron', minute=0, id='local_backup_job', replace_existing=True)
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', minute=0, timezone=tz, id='local_backup_job', replace_existing=True)
                 elif frequency == 'daily':
-                    scheduler.add_job(perform_scheduled_local_backup, 'cron', hour=hour, minute=0, id='local_backup_job', replace_existing=True)
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', hour=hour, minute=0, timezone=tz, id='local_backup_job', replace_existing=True)
                 elif frequency == 'weekly':
-                    scheduler.add_job(perform_scheduled_local_backup, 'cron', day_of_week='6', hour=hour, minute=0, id='local_backup_job', replace_existing=True)
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', day_of_week='6', hour=hour, minute=0, timezone=tz, id='local_backup_job', replace_existing=True)
                 elif frequency == 'monthly':
-                    scheduler.add_job(perform_scheduled_local_backup, 'cron', day=1, hour=hour, minute=0, id='local_backup_job', replace_existing=True)
+                    scheduler.add_job(perform_scheduled_local_backup, 'cron', day=1, hour=hour, minute=0, timezone=tz, id='local_backup_job', replace_existing=True)
                 
-                app.logger.info(f"Scheduled backup job updated: {frequency} at {hour:02d}:00")
-                flash(f'✓ Backup schedule updated: {frequency} at {hour:02d}:00', 'success')
+                tz_name = str(tz)
+                app.logger.info(f"Scheduled backup job updated: {frequency} at {hour:02d}:00 ({tz_name})")
+                flash(f'✓ Backup schedule updated: {frequency} at {hour:02d}:00 ({tz_name})', 'success')
             except Exception as e:
                 app.logger.warning(f"Failed to update scheduled backup: {e}")
                 flash(f'Settings saved but scheduler update failed: {str(e)}', 'warning')
@@ -2805,30 +2817,48 @@ def admin_branding():
     conn = get_db()
     
     if request.method == 'POST':
-        # Update branding settings
-        settings_to_update = [
-            'organization_name', 'organization_type', 'group_term', 'group_term_lower',
-            'primary_color', 'secondary_color', 'accent_color'
-        ]
+        action = request.form.get('action', '')
         
-        for key in settings_to_update:
-            value = request.form.get(key, '')
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
-        
-        # Handle logo upload if provided
-        if 'logo' in request.files:
-            logo = request.files['logo']
-            if logo.filename:
-                # Save logo logic here (simplified)
-                pass
-        
-        conn.commit()
-        conn.close()
-        flash('Branding settings updated successfully', 'success')
-        return redirect(url_for('admin_branding'))
+        if action == 'update_timezone':
+            # Handle timezone update
+            timezone = request.form.get('timezone', 'America/New_York')
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('timezone', ?)", (timezone,))
+            conn.commit()
+            conn.close()
+            
+            # Update backup manager with new timezone
+            update_backup_manager_timezone()
+            
+            flash(f'Timezone updated to {timezone}', 'success')
+            return redirect(url_for('admin_branding'))
+        else:
+            # Update branding settings
+            settings_to_update = [
+                'organization_name', 'organization_type', 'group_term', 'group_term_lower',
+                'primary_color', 'secondary_color', 'accent_color'
+            ]
+            
+            for key in settings_to_update:
+                value = request.form.get(key, '')
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+            
+            # Handle logo upload if provided
+            if 'logo' in request.files:
+                logo = request.files['logo']
+                if logo.filename:
+                    # Save logo logic here (simplified)
+                    pass
+            
+            conn.commit()
+            conn.close()
+            flash('Branding settings updated successfully', 'success')
+            return redirect(url_for('admin_branding'))
+    
+    # Get current timezone for the dropdown
+    current_timezone = str(get_timezone())
     
     conn.close()
-    return render_template('admin/branding.html', branding=get_branding_settings())
+    return render_template('admin/branding.html', branding=get_branding_settings(), current_timezone=current_timezone)
 
 @app.route('/admin/email', methods=['GET', 'POST'])
 @require_auth

@@ -15,9 +15,14 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import tempfile
 
+try:
+    import pytz
+except ImportError:
+    pytz = None
+
 
 class BackupManager:
-    def __init__(self, db_path, backup_dir='data/backups', uploads_dir='uploads', static_uploads_dir='static/uploads'):
+    def __init__(self, db_path, backup_dir='data/backups', uploads_dir='uploads', static_uploads_dir='static/uploads', timezone=None):
         """
         Initialize backup manager
         
@@ -26,14 +31,26 @@ class BackupManager:
             backup_dir: Directory to store backups
             uploads_dir: Path to uploads directory (if exists)
             static_uploads_dir: Path to static/uploads directory (if exists)
+            timezone: pytz timezone object or None for system local time
         """
         self.db_path = Path(db_path)
         self.backup_dir = Path(backup_dir)
         self.uploads_dir = Path(uploads_dir)
         self.static_uploads_dir = Path(static_uploads_dir)
+        self.timezone = timezone
         
         # Create backup directory if it doesn't exist
         self.backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    def _get_local_now(self):
+        """Get current time in configured timezone"""
+        if self.timezone and pytz:
+            return datetime.now(self.timezone)
+        return datetime.now()
+    
+    def set_timezone(self, timezone):
+        """Update the timezone used for backup timestamps"""
+        self.timezone = timezone
     
     def create_backup(self, description='Automatic backup'):
         """
@@ -45,7 +62,8 @@ class BackupManager:
         Returns:
             Path to created backup file
         """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        local_now = self._get_local_now()
+        timestamp = local_now.strftime('%Y%m%d_%H%M%S')
         backup_filename = f'backup_{timestamp}.zip'
         backup_path = self.backup_dir / backup_filename
         
@@ -85,9 +103,10 @@ class BackupManager:
             
             # Add metadata
             metadata = {
-                'created_at': datetime.now().isoformat(),
+                'created_at': local_now.isoformat(),
                 'description': description,
-                'version': '1.0'
+                'version': '1.0',
+                'timezone': str(self.timezone) if self.timezone else 'system'
             }
             zf.writestr('backup_metadata.txt', str(metadata))
         
@@ -101,11 +120,17 @@ class BackupManager:
             List of dicts with backup info (filename, size, date, age_days)
         """
         backups = []
+        local_now = self._get_local_now()
         
         for backup_file in sorted(self.backup_dir.glob('backup_*.zip'), reverse=True):
             stat = backup_file.stat()
-            created_time = datetime.fromtimestamp(stat.st_mtime)
-            age_days = (datetime.now() - created_time).days
+            # Convert file mtime to timezone-aware datetime if we have a timezone
+            if self.timezone and pytz:
+                created_time = datetime.fromtimestamp(stat.st_mtime, tz=self.timezone)
+                age_days = (local_now - created_time).days
+            else:
+                created_time = datetime.fromtimestamp(stat.st_mtime)
+                age_days = (datetime.now() - created_time).days
             
             backups.append({
                 'filename': backup_file.name,
