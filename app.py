@@ -34,6 +34,8 @@ from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from backup_manager import BackupManager
 from tlc_client import TrailLifeConnectClient
 
@@ -462,7 +464,7 @@ def set_smtp_settings(smtp_dict):
     conn.commit()
     conn.close()
 
-def send_email(to_address, subject, html_body, plain_text_body=None):
+def send_email(to_address, subject, html_body, plain_text_body=None, attachment_path=None, attachment_name=None):
     """Send an email using configured SMTP settings.
     
     Args:
@@ -470,6 +472,8 @@ def send_email(to_address, subject, html_body, plain_text_body=None):
         subject: Email subject line
         html_body: HTML content of email
         plain_text_body: Plain text fallback (optional)
+        attachment_path: Path to file to attach (optional)
+        attachment_name: Name for attachment (optional, defaults to filename)
     
     Returns:
         Tuple of (success, message)
@@ -485,16 +489,35 @@ def send_email(to_address, subject, html_body, plain_text_body=None):
                     smtp_settings.get('smtp_password')]):
             return False, "SMTP settings not configured. Please configure SMTP in admin settings."
         
-        # Create message
-        msg = MIMEMultipart('alternative')
+        # Create message - use mixed if we have an attachment, alternative otherwise
+        if attachment_path:
+            msg = MIMEMultipart('mixed')
+            msg_alt = MIMEMultipart('alternative')
+            msg.attach(msg_alt)
+        else:
+            msg = MIMEMultipart('alternative')
+            msg_alt = msg
+        
         msg['Subject'] = subject
         msg['From'] = smtp_settings['smtp_from']
         msg['To'] = to_address
         
         # Attach plain text and HTML versions
         if plain_text_body:
-            msg.attach(MIMEText(plain_text_body, 'plain'))
-        msg.attach(MIMEText(html_body, 'html'))
+            msg_alt.attach(MIMEText(plain_text_body, 'plain'))
+        msg_alt.attach(MIMEText(html_body, 'html'))
+        
+        # Add attachment if provided
+        if attachment_path:
+            attachment_file = Path(attachment_path)
+            if attachment_file.exists():
+                with open(attachment_file, 'rb') as f:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(f.read())
+                    encoders.encode_base64(part)
+                    fname = attachment_name or attachment_file.name
+                    part.add_header('Content-Disposition', f'attachment; filename="{fname}"')
+                    msg.attach(part)
         
         # Connect to SMTP server
         use_tls = smtp_settings.get('smtp_use_tls', 'false') == 'true'
@@ -2550,6 +2573,127 @@ def backup_list():
         flash(f'Error loading backups: {str(e)}', 'danger')
         return redirect(url_for('admin_index'))
 
+def send_backup_email(backup_path, description=''):
+    """Send backup file via email to configured recipients.
+    
+    Args:
+        backup_path: Path to the backup file
+        description: Description of the backup (for email subject/body)
+    
+    Returns:
+        Tuple of (success, message) or (None, None) if email not enabled
+    """
+    try:
+        conn = get_db()
+        
+        # Check if email backup is enabled
+        row = conn.execute("SELECT value FROM settings WHERE key = 'backup_email_enabled'").fetchone()
+        email_enabled = row[0] if row else 'false'
+        
+        if email_enabled != 'true':
+            conn.close()
+            return None, None  # Email not enabled, not an error
+        
+        # Get recipients
+        row = conn.execute("SELECT value FROM settings WHERE key = 'backup_email_recipients'").fetchone()
+        recipients = row[0] if row else ''
+        conn.close()
+        
+        if not recipients.strip():
+            return False, "Email backup enabled but no recipients configured"
+        
+        # Get branding for email
+        branding = get_branding_settings()
+        org_name = branding.get('organization_name', 'Youth Secure Check-in')
+        
+        # Get backup file info
+        backup_file = Path(backup_path)
+        if not backup_file.exists():
+            return False, f"Backup file not found: {backup_path}"
+        
+        backup_size_mb = round(backup_file.stat().st_size / (1024 * 1024), 2)
+        backup_name = backup_file.name
+        
+        # Build email content
+        tz = get_timezone()
+        now = datetime.now(tz) if tz else datetime.now()
+        timestamp = now.strftime('%Y-%m-%d %H:%M %Z')
+        
+        subject = f"[{org_name}] Backup - {backup_name}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">{org_name} - Backup</h2>
+            <p>A backup has been created and is attached to this email.</p>
+            <table style="border-collapse: collapse; margin: 20px 0;">
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;"><strong>File:</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{backup_name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Size:</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{backup_size_mb} MB</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Created:</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{timestamp}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Description:</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">{description or 'N/A'}</td>
+                </tr>
+            </table>
+            <p style="color: #666; font-size: 12px;">
+                This is an automated backup from {org_name}.<br>
+                Store this file securely for disaster recovery.
+            </p>
+        </body>
+        </html>
+        """
+        
+        plain_body = f"""
+{org_name} - Backup
+
+A backup has been created and is attached to this email.
+
+File: {backup_name}
+Size: {backup_size_mb} MB
+Created: {timestamp}
+Description: {description or 'N/A'}
+
+This is an automated backup. Store this file securely for disaster recovery.
+        """
+        
+        # Send to each recipient
+        recipient_list = [r.strip() for r in recipients.split(',') if r.strip()]
+        success_count = 0
+        errors = []
+        
+        for recipient in recipient_list:
+            success, msg = send_email(
+                to_address=recipient,
+                subject=subject,
+                html_body=html_body,
+                plain_text_body=plain_body,
+                attachment_path=str(backup_file),
+                attachment_name=backup_name
+            )
+            if success:
+                success_count += 1
+            else:
+                errors.append(f"{recipient}: {msg}")
+        
+        if success_count == len(recipient_list):
+            return True, f"Backup emailed to {success_count} recipient(s)"
+        elif success_count > 0:
+            return True, f"Backup emailed to {success_count}/{len(recipient_list)} recipients. Errors: {'; '.join(errors)}"
+        else:
+            return False, f"Failed to email backup: {'; '.join(errors)}"
+            
+    except Exception as e:
+        return False, f"Error sending backup email: {str(e)}"
+
 @app.route('/admin/backups/create', methods=['POST'])
 @require_auth
 def backup_create():
@@ -2559,14 +2703,22 @@ def backup_create():
         if not description:
             description = f'Manual backup at {datetime.now().strftime("%Y-%m-%d %H:%M")}'
         
-        backup_filename = backup_manager.create_backup(description)
+        backup_path = backup_manager.create_backup(description)
         
         # Rotate old backups according to retention policy
         removed = backup_manager.rotate_backups()
         
-        flash(f'✓ Backup created successfully: {backup_filename}', 'success')
+        flash(f'✓ Backup created successfully: {Path(backup_path).name}', 'success')
         if removed:
             flash(f'Rotated {removed} old backup(s) according to retention policy', 'info')
+        
+        # Send backup via email if enabled
+        email_success, email_msg = send_backup_email(backup_path, description)
+        if email_success is True:
+            flash(f'✓ {email_msg}', 'success')
+        elif email_success is False:
+            flash(f'Email failed: {email_msg}', 'warning')
+        # If email_success is None, email is not enabled - no message needed
     
     except Exception as e:
         flash(f'Error creating backup: {str(e)}', 'danger')
@@ -2714,12 +2866,22 @@ def perform_scheduled_local_backup():
     """Perform a scheduled local backup (called by APScheduler)"""
     try:
         description = f'Scheduled backup at {datetime.now().strftime("%Y-%m-%d %H:%M")}'
-        backup_filename = backup_manager.create_backup(description)
+        backup_path = backup_manager.create_backup(description)
         
         # Rotate old backups
         removed = backup_manager.rotate_backups()
         
-        app.logger.info(f"Scheduled backup completed: {backup_filename} (rotated {removed} old backups)")
+        app.logger.info(f"Scheduled backup completed: {backup_path} (rotated {removed} old backups)")
+        
+        # Send backup via email if enabled
+        with app.app_context():
+            email_success, email_msg = send_backup_email(backup_path, description)
+            if email_success is True:
+                app.logger.info(f"Backup email sent: {email_msg}")
+            elif email_success is False:
+                app.logger.warning(f"Backup email failed: {email_msg}")
+            # If email_success is None, email not enabled - no log needed
+            
     except Exception as e:
         app.logger.error(f"Error performing scheduled backup: {str(e)}")
 
