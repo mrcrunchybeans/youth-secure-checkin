@@ -3116,12 +3116,18 @@ def admin_tlc_sync_confirm(event_id):
     conn = get_db()
     # Get checkins for the specific date of the event
     # Also fetch tlc_synced status
+    # Convert UTC checkin_time to local timezone before comparing dates
+    # Get timezone offset for the target date
+    local_tz = get_timezone()
+    tz_offset_hours = local_tz.utcoffset(datetime.strptime(target_date_str, '%Y-%m-%d')).total_seconds() / 3600
+    tz_offset_str = f"{tz_offset_hours:+.0f} hours"
+    
     checkins = conn.execute('''
         SELECT k.id, k.name, k.tlc_id, c.checkin_time, c.tlc_synced
         FROM checkins c
         JOIN kids k ON c.kid_id = k.id
-        WHERE date(c.checkin_time) = ?
-    ''', (target_date_str,)).fetchall()
+        WHERE date(datetime(c.checkin_time, ?)) = ?
+    ''', (tz_offset_str, target_date_str)).fetchall()
     conn.close()
     
     matches = []
@@ -3227,11 +3233,15 @@ def admin_tlc_sync_execute(event_id):
                     # Update local sync status
                     # We need to find the checkin record for this kid on this date
                     if target_date_str:
+                        # Convert UTC checkin_time to local timezone before comparing dates
+                        local_tz = get_timezone()
+                        tz_offset_hours = local_tz.utcoffset(datetime.strptime(target_date_str, '%Y-%m-%d')).total_seconds() / 3600
+                        tz_offset_str = f"{tz_offset_hours:+.0f} hours"
                         conn.execute('''
                             UPDATE checkins 
                             SET tlc_synced = 1 
-                            WHERE kid_id = ? AND date(checkin_time) = ?
-                        ''', (kid_id, target_date_str))
+                            WHERE kid_id = ? AND date(datetime(checkin_time, ?)) = ?
+                        ''', (kid_id, tz_offset_str, target_date_str))
                 else:
                     errors += 1
     
