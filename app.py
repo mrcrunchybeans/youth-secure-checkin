@@ -269,18 +269,34 @@ except ImportError:
     scheduler = None
     app.logger.warning("APScheduler not installed. Scheduled backups disabled.")
 
-# Initialize Backup Manager with timezone
+def get_backup_encryption_password():
+    """Get backup encryption password from settings"""
+    try:
+        conn = get_db()
+        cur = conn.execute("SELECT value FROM settings WHERE key = 'backup_encryption_password'")
+        row = cur.fetchone()
+        conn.close()
+        return row['value'] if row and row['value'] else None
+    except:
+        return None
+
+# Initialize Backup Manager with timezone and encryption
 backup_manager = BackupManager(
     db_path=str(Path(__file__).parent / 'checkin.db'),
     backup_dir=str(Path(__file__).parent / 'data' / 'backups'),
     uploads_dir=str(Path(__file__).parent / 'uploads'),
     static_uploads_dir=str(Path(__file__).parent / 'static' / 'uploads'),
-    timezone=get_timezone()
+    timezone=get_timezone(),
+    encryption_password=get_backup_encryption_password()
 )
 
 def update_backup_manager_timezone():
     """Update backup manager timezone from database settings"""
     backup_manager.set_timezone(get_timezone())
+
+def update_backup_manager_encryption():
+    """Update backup manager encryption password from database settings"""
+    backup_manager.set_encryption_password(get_backup_encryption_password())
 
 @app.context_processor
 def inject_branding():
@@ -2560,6 +2576,10 @@ def backup_list():
         backup_email_recipients = conn.execute("SELECT value FROM settings WHERE key = 'backup_email_recipients'").fetchone()
         backup_email_recipients = backup_email_recipients[0] if backup_email_recipients else ''
         
+        # Get encryption settings
+        backup_encryption_enabled = conn.execute("SELECT value FROM settings WHERE key = 'backup_encryption_password'").fetchone()
+        backup_encryption_enabled = bool(backup_encryption_enabled and backup_encryption_enabled[0])
+        
         conn.close()
         
         return render_template('admin/backups.html',
@@ -2568,7 +2588,9 @@ def backup_list():
                              backup_frequency=backup_frequency,
                              backup_hour=backup_hour,
                              backup_email_enabled=backup_email_enabled,
-                             backup_email_recipients=backup_email_recipients)
+                             backup_email_recipients=backup_email_recipients,
+                             backup_encryption_enabled=backup_encryption_enabled,
+                             encryption_available=backup_manager.is_encryption_available())
     except Exception as e:
         flash(f'Error loading backups: {str(e)}', 'danger')
         return redirect(url_for('admin_index'))
@@ -2859,6 +2881,94 @@ def backup_email_config():
     
     except Exception as e:
         flash(f'Error updating email backup settings: {str(e)}', 'danger')
+    
+    return redirect(url_for('backup_list'))
+
+@app.route('/admin/backups/encryption-config', methods=['POST'])
+@require_auth
+def backup_encryption_config():
+    """Update backup encryption configuration"""
+    try:
+        action = request.form.get('action', '')
+        
+        if action == 'enable':
+            password = request.form.get('backup_encryption_password', '').strip()
+            confirm_password = request.form.get('backup_encryption_password_confirm', '').strip()
+            
+            if not password:
+                flash('Encryption password is required', 'danger')
+                return redirect(url_for('backup_list'))
+            
+            if len(password) < 8:
+                flash('Encryption password must be at least 8 characters', 'danger')
+                return redirect(url_for('backup_list'))
+            
+            if password != confirm_password:
+                flash('Passwords do not match', 'danger')
+                return redirect(url_for('backup_list'))
+            
+            conn = get_db()
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_encryption_password', ?)", (password,))
+            conn.commit()
+            conn.close()
+            
+            # Update backup manager
+            update_backup_manager_encryption()
+            
+            flash('✓ Backup encryption enabled! All new backups will be encrypted with AES-256.', 'success')
+            
+        elif action == 'disable':
+            conn = get_db()
+            conn.execute("DELETE FROM settings WHERE key = 'backup_encryption_password'")
+            conn.commit()
+            conn.close()
+            
+            # Update backup manager
+            update_backup_manager_encryption()
+            
+            flash('✓ Backup encryption disabled. New backups will not be encrypted.', 'info')
+        
+        elif action == 'change':
+            current_password = request.form.get('current_encryption_password', '').strip()
+            new_password = request.form.get('new_encryption_password', '').strip()
+            confirm_password = request.form.get('new_encryption_password_confirm', '').strip()
+            
+            # Verify current password
+            conn = get_db()
+            row = conn.execute("SELECT value FROM settings WHERE key = 'backup_encryption_password'").fetchone()
+            stored_password = row[0] if row else None
+            
+            if stored_password != current_password:
+                conn.close()
+                flash('Current encryption password is incorrect', 'danger')
+                return redirect(url_for('backup_list'))
+            
+            if not new_password:
+                conn.close()
+                flash('New encryption password is required', 'danger')
+                return redirect(url_for('backup_list'))
+            
+            if len(new_password) < 8:
+                conn.close()
+                flash('New encryption password must be at least 8 characters', 'danger')
+                return redirect(url_for('backup_list'))
+            
+            if new_password != confirm_password:
+                conn.close()
+                flash('New passwords do not match', 'danger')
+                return redirect(url_for('backup_list'))
+            
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_encryption_password', ?)", (new_password,))
+            conn.commit()
+            conn.close()
+            
+            # Update backup manager
+            update_backup_manager_encryption()
+            
+            flash('✓ Encryption password changed successfully!', 'success')
+    
+    except Exception as e:
+        flash(f'Error updating encryption settings: {str(e)}', 'danger')
     
     return redirect(url_for('backup_list'))
 

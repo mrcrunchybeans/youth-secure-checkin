@@ -5,6 +5,8 @@ Handles automatic backup rotation with retention policy:
 - Keep last 3 backups (recent/daily)
 - Keep 1 weekly backup (7+ days old)
 - Keep 1 monthly backup (30+ days old)
+
+Supports AES-256 encryption for secure backups containing child information.
 """
 
 import os
@@ -16,13 +18,20 @@ from datetime import datetime, timedelta
 import tempfile
 
 try:
+    import pyzipper
+    HAS_PYZIPPER = True
+except ImportError:
+    pyzipper = None
+    HAS_PYZIPPER = False
+
+try:
     import pytz
 except ImportError:
     pytz = None
 
 
 class BackupManager:
-    def __init__(self, db_path, backup_dir='data/backups', uploads_dir='uploads', static_uploads_dir='static/uploads', timezone=None):
+    def __init__(self, db_path, backup_dir='data/backups', uploads_dir='uploads', static_uploads_dir='static/uploads', timezone=None, encryption_password=None):
         """
         Initialize backup manager
         
@@ -32,12 +41,14 @@ class BackupManager:
             uploads_dir: Path to uploads directory (if exists)
             static_uploads_dir: Path to static/uploads directory (if exists)
             timezone: pytz timezone object or None for system local time
+            encryption_password: Password for AES-256 encryption (None = no encryption)
         """
         self.db_path = Path(db_path)
         self.backup_dir = Path(backup_dir)
         self.uploads_dir = Path(uploads_dir)
         self.static_uploads_dir = Path(static_uploads_dir)
         self.timezone = timezone
+        self.encryption_password = encryption_password
         
         # Create backup directory if it doesn't exist
         self.backup_dir.mkdir(parents=True, exist_ok=True)
@@ -51,6 +62,18 @@ class BackupManager:
     def set_timezone(self, timezone):
         """Update the timezone used for backup timestamps"""
         self.timezone = timezone
+    
+    def set_encryption_password(self, password):
+        """Update the encryption password for backups"""
+        self.encryption_password = password
+    
+    def is_encryption_available(self):
+        """Check if encryption is available (pyzipper installed)"""
+        return HAS_PYZIPPER
+    
+    def is_encryption_enabled(self):
+        """Check if encryption is currently enabled"""
+        return bool(self.encryption_password and HAS_PYZIPPER)
     
     def create_backup(self, description='Automatic backup'):
         """
@@ -67,57 +90,93 @@ class BackupManager:
         backup_filename = f'backup_{timestamp}.zip'
         backup_path = self.backup_dir / backup_filename
         
-        # Create zip file
-        with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            # Add database
-            if self.db_path.exists():
-                zf.write(self.db_path, arcname='checkin.db')
-            
-            # Add data directory contents (if any)
-            data_dir = self.db_path.parent
-            if data_dir.exists() and data_dir.name == 'data':
-                for root, dirs, files in os.walk(data_dir):
-                    # Skip the backups directory itself
-                    if 'backups' in Path(root).parts:
-                        continue
-                    for file in files:
-                        file_path = Path(root) / file
-                        arcname = file_path.relative_to(data_dir.parent)
-                        zf.write(file_path, arcname=arcname)
-            
-            # Add uploads directory
-            if self.uploads_dir.exists():
-                for root, dirs, files in os.walk(self.uploads_dir):
-                    for file in files:
-                        file_path = Path(root) / file
-                        arcname = file_path.relative_to(self.uploads_dir.parent)
-                        zf.write(file_path, arcname=arcname)
-            
-            # Add static/uploads directory
-            if self.static_uploads_dir.exists():
-                for root, dirs, files in os.walk(self.static_uploads_dir):
-                    for file in files:
-                        file_path = Path(root) / file
-                        arcname = file_path.relative_to(self.static_uploads_dir.parent.parent)
-                        zf.write(file_path, arcname=arcname)
-            
-            # Add metadata
-            metadata = {
-                'created_at': local_now.isoformat(),
-                'description': description,
-                'version': '1.0',
-                'timezone': str(self.timezone) if self.timezone else 'system'
-            }
-            zf.writestr('backup_metadata.txt', str(metadata))
+        # Determine if we should encrypt
+        use_encryption = self.encryption_password and HAS_PYZIPPER
+        
+        # Create zip file - encrypted or standard
+        if use_encryption:
+            # Use pyzipper for AES-256 encryption
+            with pyzipper.AESZipFile(backup_path, 'w', 
+                                     compression=pyzipper.ZIP_DEFLATED,
+                                     encryption=pyzipper.WZ_AES) as zf:
+                zf.setpassword(self.encryption_password.encode('utf-8'))
+                self._add_backup_contents(zf, local_now, description, encrypted=True)
+        else:
+            # Use standard zipfile (no encryption)
+            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                self._add_backup_contents(zf, local_now, description, encrypted=False)
         
         return backup_path
+    
+    def _add_backup_contents(self, zf, local_now, description, encrypted=False):
+        """Add all backup contents to a zip file object"""
+        # Add database
+        if self.db_path.exists():
+            zf.write(self.db_path, arcname='checkin.db')
+        
+        # Add data directory contents (if any)
+        data_dir = self.db_path.parent
+        if data_dir.exists() and data_dir.name == 'data':
+            for root, dirs, files in os.walk(data_dir):
+                # Skip the backups directory itself
+                if 'backups' in Path(root).parts:
+                    continue
+                for file in files:
+                    file_path = Path(root) / file
+                    arcname = file_path.relative_to(data_dir.parent)
+                    zf.write(file_path, arcname=str(arcname))
+        
+        # Add uploads directory
+        if self.uploads_dir.exists():
+            for root, dirs, files in os.walk(self.uploads_dir):
+                for file in files:
+                    file_path = Path(root) / file
+                    arcname = file_path.relative_to(self.uploads_dir.parent)
+                    zf.write(file_path, arcname=str(arcname))
+        
+        # Add static/uploads directory
+        if self.static_uploads_dir.exists():
+            for root, dirs, files in os.walk(self.static_uploads_dir):
+                for file in files:
+                    file_path = Path(root) / file
+                    arcname = file_path.relative_to(self.static_uploads_dir.parent.parent)
+                    zf.write(file_path, arcname=str(arcname))
+        
+        # Add metadata
+        metadata = {
+            'created_at': local_now.isoformat(),
+            'description': description,
+            'version': '1.0',
+            'timezone': str(self.timezone) if self.timezone else 'system',
+            'encrypted': encrypted
+        }
+        zf.writestr('backup_metadata.txt', str(metadata))
+    
+    def _is_backup_encrypted(self, backup_path):
+        """Check if a backup file is encrypted"""
+        try:
+            # Try to read with standard zipfile - if it fails, likely encrypted
+            with zipfile.ZipFile(backup_path, 'r') as zf:
+                # Try to read the metadata file
+                try:
+                    metadata_bytes = zf.read('backup_metadata.txt')
+                    # Check if metadata indicates encryption
+                    metadata_str = metadata_bytes.decode('utf-8')
+                    if "'encrypted': True" in metadata_str:
+                        return True
+                    return False
+                except:
+                    return False
+        except:
+            # If we can't open it, assume it's encrypted
+            return True
     
     def list_backups(self):
         """
         List all available backups with metadata
         
         Returns:
-            List of dicts with backup info (filename, size, date, age_days)
+            List of dicts with backup info (filename, size, date, age_days, encrypted)
         """
         backups = []
         local_now = self._get_local_now()
@@ -132,6 +191,9 @@ class BackupManager:
                 created_time = datetime.fromtimestamp(stat.st_mtime)
                 age_days = (datetime.now() - created_time).days
             
+            # Check if encrypted
+            is_encrypted = self._is_backup_encrypted(backup_file)
+            
             backups.append({
                 'filename': backup_file.name,
                 'path': str(backup_file),
@@ -139,7 +201,8 @@ class BackupManager:
                 'size_mb': round(stat.st_size / (1024 * 1024), 2),
                 'created': created_time,
                 'created_str': created_time.strftime('%Y-%m-%d %H:%M:%S'),
-                'age_days': age_days
+                'age_days': age_days,
+                'encrypted': is_encrypted
             })
         
         return backups
@@ -198,12 +261,13 @@ class BackupManager:
         kept_count = len(to_keep)
         return kept_count, deleted_count
     
-    def restore_backup(self, backup_filename):
+    def restore_backup(self, backup_filename, password=None):
         """
         Restore from a backup file
         
         Args:
             backup_filename: Name of backup file to restore
+            password: Password for encrypted backups (uses instance password if not provided)
             
         Returns:
             Tuple of (success, message)
@@ -213,12 +277,39 @@ class BackupManager:
         if not backup_path.exists():
             return False, f"Backup file not found: {backup_filename}"
         
+        # Use provided password or fall back to instance encryption password
+        restore_password = password or self.encryption_password
+        
         try:
             # Create temporary directory for extraction
             with tempfile.TemporaryDirectory() as tmpdir:
-                # Extract backup
-                with zipfile.ZipFile(backup_path, 'r') as zf:
-                    zf.extractall(tmpdir)
+                # Try to extract - first check if encrypted
+                extracted = False
+                
+                # Try with pyzipper (handles both encrypted and unencrypted)
+                if HAS_PYZIPPER:
+                    try:
+                        with pyzipper.AESZipFile(backup_path, 'r') as zf:
+                            if restore_password:
+                                zf.setpassword(restore_password.encode('utf-8'))
+                            zf.extractall(tmpdir)
+                            extracted = True
+                    except (RuntimeError, pyzipper.BadZipFile) as e:
+                        if 'password' in str(e).lower() or 'encrypted' in str(e).lower():
+                            return False, "Backup is encrypted. Please provide the correct password."
+                        # Not an encryption error, try standard zipfile
+                        pass
+                
+                # Fall back to standard zipfile for unencrypted backups
+                if not extracted:
+                    try:
+                        with zipfile.ZipFile(backup_path, 'r') as zf:
+                            zf.extractall(tmpdir)
+                            extracted = True
+                    except RuntimeError as e:
+                        if 'password' in str(e).lower() or 'encrypted' in str(e).lower():
+                            return False, "Backup is encrypted but pyzipper is not installed. Cannot restore."
+                        raise
                 
                 tmpdir_path = Path(tmpdir)
                 

@@ -132,6 +132,92 @@
     </div>
   </div>
 
+  <!-- Backup Encryption -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title"><i class="bi bi-shield-lock"></i> Backup Encryption</h5>
+      
+      {% if not encryption_available %}
+      <div class="alert alert-warning mb-3">
+        <i class="bi bi-exclamation-triangle"></i> <strong>Encryption unavailable.</strong> The <code>pyzipper</code> package is not installed. Contact your administrator to enable encryption.
+      </div>
+      {% else %}
+      
+      <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle"></i> Encrypt backups with AES-256 to protect sensitive child information. Encrypted backups require the password to restore or open.
+      </div>
+      
+      {% if backup_encryption_enabled %}
+      <!-- Encryption is enabled -->
+      <div class="alert alert-success mb-3">
+        <i class="bi bi-shield-check"></i> <strong>Encryption enabled.</strong> All new backups are encrypted with AES-256.
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6">
+          <!-- Change password form -->
+          <form method="post" action="/admin/backups/encryption-config">
+            <input type="hidden" name="action" value="change">
+            <h6 class="mb-3">Change Encryption Password</h6>
+            <div class="mb-2">
+              <input type="password" class="form-control form-control-sm" name="current_encryption_password" 
+                     placeholder="Current password" required>
+            </div>
+            <div class="mb-2">
+              <input type="password" class="form-control form-control-sm" name="new_encryption_password" 
+                     placeholder="New password (min 8 chars)" minlength="8" required>
+            </div>
+            <div class="mb-2">
+              <input type="password" class="form-control form-control-sm" name="new_encryption_password_confirm" 
+                     placeholder="Confirm new password" required>
+            </div>
+            <button type="submit" class="btn btn-warning btn-sm w-100">
+              <i class="bi bi-key"></i> Change Password
+            </button>
+          </form>
+        </div>
+        <div class="col-md-6">
+          <!-- Disable encryption -->
+          <form method="post" action="/admin/backups/encryption-config" onsubmit="return confirm('Are you sure you want to disable encryption? New backups will no longer be protected.');">
+            <input type="hidden" name="action" value="disable">
+            <h6 class="mb-3">Disable Encryption</h6>
+            <p class="text-muted small">New backups will no longer be encrypted. Existing encrypted backups will still require the password to restore.</p>
+            <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+              <i class="bi bi-shield-x"></i> Disable Encryption
+            </button>
+          </form>
+        </div>
+      </div>
+      
+      {% else %}
+      <!-- Encryption is disabled -->
+      <form method="post" action="/admin/backups/encryption-config">
+        <input type="hidden" name="action" value="enable">
+        <div class="row">
+          <div class="col-md-5">
+            <label for="backup_encryption_password" class="form-label">Encryption Password</label>
+            <input type="password" class="form-control" id="backup_encryption_password" name="backup_encryption_password" 
+                   placeholder="Minimum 8 characters" minlength="8" required>
+          </div>
+          <div class="col-md-5">
+            <label for="backup_encryption_password_confirm" class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="backup_encryption_password_confirm" name="backup_encryption_password_confirm" 
+                   placeholder="Re-enter password" required>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-success w-100">
+              <i class="bi bi-shield-lock"></i> Enable
+            </button>
+          </div>
+        </div>
+        <small class="text-muted mt-2 d-block"><strong>Important:</strong> Store this password securely! You'll need it to restore backups.</small>
+      </form>
+      {% endif %}
+      
+      {% endif %}
+    </div>
+  </div>
+
   <!-- Backup List -->
   <div class="card">
     <div class="card-body">
@@ -142,10 +228,10 @@
           <thead>
             <tr>
               <th>Filename</th>
-              <th>Description</th>
               <th>Date</th>
               <th>Age</th>
               <th>Size</th>
+              <th>Security</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -153,7 +239,6 @@
             {% for backup in backups %}
             <tr>
               <td><code>{{ backup.filename }}</code></td>
-              <td>{{ backup.description }}</td>
               <td>{{ backup.created_str }}</td>
               <td>
                 {% if backup.age_days == 0 %}
@@ -167,6 +252,13 @@
                 {% endif %}
               </td>
               <td>{{ backup.size_mb }} MB</td>
+              <td>
+                {% if backup.encrypted %}
+                  <span class="badge bg-success" title="AES-256 Encrypted"><i class="bi bi-shield-lock-fill"></i> Encrypted</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark" title="Not encrypted"><i class="bi bi-unlock"></i> Unencrypted</span>
+                {% endif %}
+              </td>
               <td>
                 <div class="btn-group" role="group">
                   <a href="/admin/backups/download/{{ backup.filename }}" class="btn btn-sm btn-success" title="Download">
@@ -192,6 +284,11 @@
                         <div class="alert alert-warning">
                           <i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> This will replace your current database with the backup from <strong>{{ backup.created_str }}</strong>. A pre-restore backup will be created automatically.
                         </div>
+                        {% if backup.encrypted %}
+                        <div class="alert alert-info">
+                          <i class="bi bi-shield-lock"></i> This backup is encrypted. The system will use the configured encryption password to restore it.
+                        </div>
+                        {% endif %}
                         <p>Type <strong>RESTORE</strong> to confirm:</p>
                         <form method="post" action="/admin/backups/restore/{{ backup.filename }}" id="restoreForm{{ loop.index }}">
                           <input type="text" class="form-control" name="confirm" placeholder="Type RESTORE to confirm" required pattern="[Rr][Ee][Ss][Tt][Oo][Rr][Ee]">
