@@ -3178,13 +3178,81 @@ def admin_tlc_sync_confirm(event_id):
     conn.close()
     
     matches = []
+    seen_kid_ids = set()  # Track kids we've already processed to avoid duplicates
     
     # Helper for name normalization
     def normalize(n):
         return n.lower().replace(',', '').replace('.', '').strip()
     
+    # Common nickname mappings (formal -> [nicknames])
+    nickname_map = {
+        'ezekiel': ['zeke', 'zek'],
+        'matthew': ['matt', 'matty'],
+        'matteo': ['matt', 'matty'],
+        'mackenzie': ['mac', 'mack'],
+        'macklin': ['mac', 'mack'],
+        'maclyn': ['mac', 'mack'],
+        'michael': ['mike', 'mikey'],
+        'william': ['will', 'bill', 'billy', 'willy'],
+        'james': ['jim', 'jimmy', 'jamie'],
+        'robert': ['rob', 'bob', 'bobby', 'robby'],
+        'richard': ['rick', 'dick', 'ricky'],
+        'joseph': ['joe', 'joey'],
+        'benjamin': ['ben', 'benny'],
+        'samuel': ['sam', 'sammy'],
+        'daniel': ['dan', 'danny'],
+        'nicholas': ['nick', 'nicky'],
+        'alexander': ['alex'],
+        'christopher': ['chris'],
+        'jonathan': ['jon', 'jonny'],
+        'timothy': ['tim', 'timmy'],
+        'anthony': ['tony'],
+        'joshua': ['josh'],
+        'nathaniel': ['nate', 'nathan'],
+        'zachary': ['zach', 'zack'],
+        'theodore': ['ted', 'teddy', 'theo'],
+        'edward': ['ed', 'eddie', 'ted'],
+        'elizabeth': ['liz', 'lizzy', 'beth'],
+        'katherine': ['kate', 'kathy', 'katie'],
+        'margaret': ['maggie', 'meg', 'peggy'],
+        'jennifer': ['jen', 'jenny'],
+        'jessica': ['jess', 'jessie'],
+        'patricia': ['pat', 'patty'],
+        'abigail': ['abby'],
+        'isabella': ['bella', 'izzy'],
+        'madeline': ['maddie'],
+        'victoria': ['vicky', 'tori'],
+    }
+    
+    # Build reverse map (nickname -> formal names)
+    reverse_nickname_map = {}
+    for formal, nicks in nickname_map.items():
+        for nick in nicks:
+            if nick not in reverse_nickname_map:
+                reverse_nickname_map[nick] = []
+            reverse_nickname_map[nick].append(formal)
+    
+    def get_name_variants(name):
+        """Get all variants of a first name (formal + nicknames)."""
+        parts = name.lower().split()
+        if not parts:
+            return [name.lower()]
+        first = parts[0]
+        variants = [first]
+        # Add nicknames if this is a formal name
+        if first in nickname_map:
+            variants.extend(nickname_map[first])
+        # Add formal names if this is a nickname
+        if first in reverse_nickname_map:
+            variants.extend(reverse_nickname_map[first])
+        return variants
+    
     # 3. Match
     for checkin in checkins:
+        # Skip duplicate kids (same kid checked in multiple times)
+        if checkin['id'] in seen_kid_ids:
+            continue
+        seen_kid_ids.add(checkin['id'])
         local_name = checkin['name']
         local_tlc_id = checkin['tlc_id']
         local_norm = normalize(local_name)
@@ -3201,23 +3269,44 @@ def admin_tlc_sync_confirm(event_id):
         
         # 2. If no ID match, try name match
         if not match_found:
-            # Try exact match first
+            # Parse local name into first/last
+            local_parts = local_norm.split()
+            local_first = local_parts[0] if local_parts else ''
+            local_last = local_parts[-1] if len(local_parts) > 1 else ''
+            local_first_variants = get_name_variants(local_first) if local_first else []
+            
             for tlc_name, tlc_id in tlc_roster.items():
                 tlc_norm = normalize(tlc_name)
                 
-                # Check exact
+                # Check exact match
                 if local_norm == tlc_norm:
                     match_found = {'name': tlc_name, 'id': tlc_id}
                     break
                 
                 # Check "Last First" vs "First Last"
-                parts = tlc_norm.split()
-                if len(parts) >= 2:
+                tlc_parts = tlc_norm.split()
+                if len(tlc_parts) >= 2:
                     # Swap first two parts
-                    swapped = f"{parts[1]} {parts[0]}"
+                    swapped = f"{tlc_parts[1]} {tlc_parts[0]}"
                     if local_norm == swapped:
                         match_found = {'name': tlc_name, 'id': tlc_id}
                         break
+                
+                # Check nickname variants (e.g., "Ezekiel Gray" matches "Zeke Gray")
+                if local_last and len(tlc_parts) >= 2:
+                    tlc_first = tlc_parts[0]
+                    tlc_last = tlc_parts[-1]
+                    
+                    # Same last name?
+                    if local_last == tlc_last:
+                        # Check if first names are variants of each other
+                        tlc_first_variants = get_name_variants(tlc_first)
+                        # Check if any local variant matches any TLC variant
+                        if any(lv in tlc_first_variants for lv in local_first_variants) or \
+                           any(tv in local_first_variants for tv in tlc_first_variants):
+                            match_found = {'name': tlc_name, 'id': tlc_id}
+                            break
+                            
         status = 'matched' if match_found else 'unmatched'
         if is_synced:
             status = 'synced'
