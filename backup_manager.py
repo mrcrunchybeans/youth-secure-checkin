@@ -208,7 +208,11 @@ class BackupManager:
         backups = []
         local_now = self._get_local_now()
         
-        for backup_file in sorted(self.backup_dir.glob('backup_*.zip'), reverse=True):
+        # Get all backup files and sort by modification time (newest first)
+        backup_files = list(self.backup_dir.glob('backup_*.zip'))
+        backup_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        
+        for backup_file in backup_files:
             try:
                 stat = backup_file.stat()
                 # Convert file mtime to timezone-aware datetime if we have a timezone

@@ -222,6 +222,15 @@
   <div class="card">
     <div class="card-body">
       <h5 class="card-title">Available Backups</h5>
+      
+      <!-- Action Button Legend -->
+      <div class="mb-3 small text-muted">
+        <strong>Actions:</strong>
+        <span class="ms-2"><span class="badge bg-success"><i class="bi bi-download"></i></span> Download</span>
+        <span class="ms-2"><span class="badge bg-warning"><i class="bi bi-arrow-counterclockwise"></i></span> Restore</span>
+        <span class="ms-2"><span class="badge bg-danger"><i class="bi bi-trash"></i></span> Delete</span>
+      </div>
+      
       {% if backups %}
       <div class="table-responsive">
         <table class="table table-hover">
