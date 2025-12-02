@@ -65,3 +65,6 @@ htmlcov/
 local-scripts/
 local-dev-files/
 *.code-workspace
+provision-instance.sh
+remove-instance.sh
+list-instances.sh
