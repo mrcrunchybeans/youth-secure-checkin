@@ -294,13 +294,22 @@
                           <i class="bi bi-exclamation-triangle"></i> <strong>Warning:</strong> This will replace your current database with the backup from <strong>{{ backup.created_str }}</strong>. A pre-restore backup will be created automatically.
                         </div>
                         {% if backup.encrypted %}
-                        <div class="alert alert-info">
-                          <i class="bi bi-shield-lock"></i> This backup is encrypted. The system will use the configured encryption password to restore it.
+                        <div class="alert alert-info mb-3">
+                          <i class="bi bi-shield-lock"></i> This backup is encrypted.
                         </div>
                         {% endif %}
-                        <p>Type <strong>RESTORE</strong> to confirm:</p>
                         <form method="post" action="/admin/backups/restore/{{ backup.filename }}" id="restoreForm{{ loop.index }}">
-                          <input type="text" class="form-control" name="confirm" placeholder="Type RESTORE to confirm" required pattern="[Rr][Ee][Ss][Tt][Oo][Rr][Ee]">
+                          {% if backup.encrypted %}
+                          <div class="mb-3">
+                            <label class="form-label">Encryption Password</label>
+                            <input type="password" class="form-control" name="restore_password" placeholder="Leave blank to use configured password">
+                            <small class="text-muted">Only needed if different from current encryption password</small>
+                          </div>
+                          {% endif %}
+                          <div class="mb-3">
+                            <label class="form-label">Type <strong>RESTORE</strong> to confirm:</label>
+                            <input type="text" class="form-control" name="confirm" placeholder="Type RESTORE to confirm" required pattern="[Rr][Ee][Ss][Tt][Oo][Rr][Ee]">
+                          </div>
                         </form>
                       </div>
                       <div class="modal-footer">

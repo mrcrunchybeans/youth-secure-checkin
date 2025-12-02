@@ -68,3 +68,10 @@ local-dev-files/
 provision-instance.sh
 remove-instance.sh
 list-instances.sh
+landingpage.html
+landing-page-copy.md
+test_*.*
+migrate*.py
+migrate_add_tlc_synced.py
+test_tlc_connection.py
+test_demo.py

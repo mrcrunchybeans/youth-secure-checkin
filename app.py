@@ -2774,9 +2774,15 @@ def backup_restore(filename):
             flash('Restoration cancelled: confirmation not provided', 'warning')
             return redirect(url_for('backup_list'))
         
-        backup_manager.restore_backup(filename)
-        flash(f'✓ Database restored successfully from {filename}', 'success')
-        flash('NOTE: You may need to restart the application for all changes to take effect', 'info')
+        # Get optional restore password (for encrypted backups with different password)
+        restore_password = request.form.get('restore_password', '').strip() or None
+        
+        success, message = backup_manager.restore_backup(filename, password=restore_password)
+        if success:
+            flash(f'✓ Database restored successfully from {filename}', 'success')
+            flash('NOTE: You may need to restart the application for all changes to take effect', 'info')
+        else:
+            flash(f'Restore failed: {message}', 'danger')
     
     except Exception as e:
         flash(f'Error restoring backup: {str(e)}', 'danger')
