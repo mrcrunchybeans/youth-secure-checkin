@@ -3117,9 +3117,11 @@ def admin_tlc_sync_confirm(event_id):
     # Get checkins for the specific date of the event
     # Also fetch tlc_synced status
     # Convert UTC checkin_time to local timezone before comparing dates
-    # Get timezone offset for the target date
-    local_tz = get_timezone()
-    tz_offset_hours = local_tz.utcoffset(datetime.strptime(target_date_str, '%Y-%m-%d')).total_seconds() / 3600
+    # Get timezone offset for the target date (need to localize the datetime for pytz)
+    tz = get_timezone()
+    naive_dt = datetime.strptime(target_date_str, '%Y-%m-%d')
+    localized_dt = tz.localize(naive_dt)
+    tz_offset_hours = localized_dt.utcoffset().total_seconds() / 3600
     tz_offset_str = f"{tz_offset_hours:+.0f} hours"
     
     checkins = conn.execute('''
@@ -3234,8 +3236,10 @@ def admin_tlc_sync_execute(event_id):
                     # We need to find the checkin record for this kid on this date
                     if target_date_str:
                         # Convert UTC checkin_time to local timezone before comparing dates
-                        local_tz = get_timezone()
-                        tz_offset_hours = local_tz.utcoffset(datetime.strptime(target_date_str, '%Y-%m-%d')).total_seconds() / 3600
+                        tz = get_timezone()
+                        naive_dt = datetime.strptime(target_date_str, '%Y-%m-%d')
+                        localized_dt = tz.localize(naive_dt)
+                        tz_offset_hours = localized_dt.utcoffset().total_seconds() / 3600
                         tz_offset_str = f"{tz_offset_hours:+.0f} hours"
                         conn.execute('''
                             UPDATE checkins 
