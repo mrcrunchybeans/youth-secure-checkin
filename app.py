@@ -901,9 +901,54 @@ def index():
 def checkin_last4():
     phone_digits = request.form.get('last4', '').strip()
     event_id = request.form.get('event_id')
-    if not phone_digits or not phone_digits.isdigit():
-        return jsonify({'error': 'Invalid phone number'}), 400
+    if not phone_digits:
+        return jsonify({'error': 'Invalid input'}), 400
+    
     conn = get_db()
+    
+    # First, check if this is a checkout code (before checking phone numbers)
+    # Checkout codes are alphanumeric and stored in checkins table
+    if len(phone_digits) >= 4:
+        checkout_match = conn.execute("""
+            SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_code, c.checkout_time,
+                   k.name as kid_name, k.family_id, f.phone as family_phone
+            FROM checkins c
+            JOIN kids k ON k.id = c.kid_id
+            JOIN families f ON f.id = k.family_id
+            WHERE c.checkout_code = ? AND c.checkout_time IS NULL
+        """, (phone_digits,)).fetchall()
+        
+        if checkout_match:
+            # This is a checkout code! Return checkout info instead of family search
+            kids_to_checkout = []
+            family_id = None
+            family_phone = None
+            event_id_from_checkin = None
+            
+            for row in checkout_match:
+                kids_to_checkout.append({
+                    'checkin_id': row['checkin_id'],
+                    'kid_id': row['kid_id'],
+                    'kid_name': row['kid_name']
+                })
+                family_id = row['family_id']
+                family_phone = row['family_phone']
+                event_id_from_checkin = row['event_id']
+            
+            conn.close()
+            return jsonify({
+                'is_checkout_code': True,
+                'checkout_code': phone_digits,
+                'family_id': family_id,
+                'family_phone': family_phone,
+                'event_id': event_id_from_checkin,
+                'kids': kids_to_checkout
+            })
+    
+    # Not a checkout code, proceed with phone number search
+    if not phone_digits.isdigit():
+        conn.close()
+        return jsonify({'error': 'Invalid phone number'}), 400
     
     # Search for phone in both families table and adults table
     # Using REPLACE to remove common phone formatting characters

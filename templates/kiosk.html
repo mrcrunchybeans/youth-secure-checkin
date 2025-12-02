@@ -585,6 +585,9 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
         .then(data => {
             if (data.error) {
                 alert(data.error);
+            } else if (data.is_checkout_code) {
+                // Handle checkout code entry
+                handleCheckoutCodeEntry(data);
             } else if (data.families) {
                 // Multiple families matched - show picker or use first one
                 if (data.families.length === 1) {
@@ -599,6 +602,53 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
             }
         });
 });
+
+// Handle checkout code entry - automatically check out the kids
+function handleCheckoutCodeEntry(data) {
+    const kidNames = data.kids.map(k => k.kid_name).join(', ');
+    
+    // Confirm checkout
+    if (!confirm(`Check out ${kidNames}?`)) {
+        document.getElementById('phone').value = '';
+        return;
+    }
+    
+    // Perform checkout for the first kid (siblings will be auto-checked out)
+    const primaryKid = data.kids[0];
+    const additionalKids = data.kids.slice(1).map(k => k.kid_id);
+    
+    const formData = new FormData();
+    formData.append('event_id', data.event_id);
+    formData.append('checkout_code', data.checkout_code);
+    additionalKids.forEach(kidId => {
+        formData.append('additional_kid_ids', kidId);
+    });
+    
+    fetch(`/checkout/${primaryKid.kid_id}`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(`Successfully checked out: ${kidNames}`);
+            // Clear the phone input and reload
+            document.getElementById('phone').value = '';
+            location.reload();
+        } else {
+            alert(result.message || 'Checkout failed');
+            document.getElementById('phone').value = '';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Checkout failed. Please try again.');
+        document.getElementById('phone').value = '';
+    });
+}
 
 // Keypad handling for touch screens
 ;(function() {

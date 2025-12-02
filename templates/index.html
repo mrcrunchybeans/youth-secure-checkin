@@ -412,8 +412,11 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
   // Check if input is all digits (phone search) or text (name search)
   const isPhoneSearch = /^\d+$/.test(searchInput);
   
-  if (isPhoneSearch) {
-    // Phone search - accept any length, will search by digits
+  // For alphanumeric input that might be a checkout code
+  const couldBeCheckoutCode = /^[a-zA-Z0-9]+$/.test(searchInput) && searchInput.length >= 4;
+  
+  if (isPhoneSearch || couldBeCheckoutCode) {
+    // Phone search or checkout code - try both
     fetch('/checkin_last4', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -423,6 +426,12 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     .then(data => {
       if (data.error) {
         alert(data.error);
+        return;
+      }
+      
+      // Handle checkout code match
+      if (data.is_checkout_code) {
+        handleCheckoutCodeEntry(data);
         return;
       }
       
@@ -473,6 +482,51 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     });
   }
 });
+
+// Handle checkout code entry - automatically check out the kids
+function handleCheckoutCodeEntry(data) {
+  const kidNames = data.kids.map(k => k.kid_name).join(', ');
+  
+  // Confirm checkout
+  if (!confirm(`Check out ${kidNames}?`)) {
+    return;
+  }
+  
+  // Perform checkout for the first kid (siblings will be auto-checked out)
+  const primaryKid = data.kids[0];
+  const additionalKids = data.kids.slice(1).map(k => k.kid_id);
+  
+  const formData = new FormData();
+  formData.append('event_id', data.event_id);
+  formData.append('checkout_code', data.checkout_code);
+  additionalKids.forEach(kidId => {
+    formData.append('additional_kid_ids', kidId);
+  });
+  
+  fetch(`/checkout/${primaryKid.kid_id}`, {
+    method: 'POST',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: formData
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.success) {
+      alert(`Successfully checked out: ${kidNames}`);
+      // Clear the search input
+      document.getElementById('search-input').value = '';
+      // Reload the page to refresh the checked-in list
+      location.reload();
+    } else {
+      alert(result.message || 'Checkout failed');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Checkout failed. Please try again.');
+  });
+}
 
 document.getElementById('select-kids-form').addEventListener('submit', function(e) {
   e.preventDefault();
