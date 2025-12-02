@@ -84,9 +84,10 @@
                   <input type="color" class="form-control form-control-color flex-shrink-0" 
                          id="primary_color" name="primary_color" value="{{ branding.primary_color }}" 
                          style="width: 60px; height: 38px;">
-                  <input type="text" class="form-control form-control-sm" 
-                         value="{{ branding.primary_color }}" readonly 
-                         style="font-family: monospace; font-size: 0.85rem;">
+                  <input type="text" class="form-control form-control-sm color-hex-input" 
+                         id="primary_color_hex" value="{{ branding.primary_color }}" 
+                         style="font-family: monospace; font-size: 0.85rem;" 
+                         placeholder="#000000" maxlength="7">
                 </div>
               </div>
               <div class="col-md-4">
@@ -95,9 +96,10 @@
                   <input type="color" class="form-control form-control-color flex-shrink-0" 
                          id="secondary_color" name="secondary_color" value="{{ branding.secondary_color }}" 
                          style="width: 60px; height: 38px;">
-                  <input type="text" class="form-control form-control-sm" 
-                         value="{{ branding.secondary_color }}" readonly 
-                         style="font-family: monospace; font-size: 0.85rem;">
+                  <input type="text" class="form-control form-control-sm color-hex-input" 
+                         id="secondary_color_hex" value="{{ branding.secondary_color }}" 
+                         style="font-family: monospace; font-size: 0.85rem;" 
+                         placeholder="#000000" maxlength="7">
                 </div>
               </div>
               <div class="col-md-4">
@@ -106,15 +108,16 @@
                   <input type="color" class="form-control form-control-color flex-shrink-0" 
                          id="accent_color" name="accent_color" value="{{ branding.accent_color }}" 
                          style="width: 60px; height: 38px;">
-                  <input type="text" class="form-control form-control-sm" 
-                         value="{{ branding.accent_color }}" readonly 
-                         style="font-family: monospace; font-size: 0.85rem;">
+                  <input type="text" class="form-control form-control-sm color-hex-input" 
+                         id="accent_color_hex" value="{{ branding.accent_color }}" 
+                         style="font-family: monospace; font-size: 0.85rem;" 
+                         placeholder="#000000" maxlength="7">
                 </div>
               </div>
             </div>
             <div class="mt-3">
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="preview-btn"
-                      style="background: {{ branding.primary_color }}; color: white;">
+              <button type="button" class="btn btn-sm" id="preview-btn"
+                      style="background: {{ branding.primary_color }}; color: white; border: none; font-family: inherit;">
                 <i class="bi bi-eye"></i> Color Preview
               </button>
             </div>
@@ -318,13 +321,48 @@
 </div>
 
 <script>
-  // Sync color pickers with hex inputs
+  // Sync color pickers with hex inputs (bidirectional)
   ['primary', 'secondary', 'accent'].forEach(colorType => {
     const picker = document.getElementById(colorType + '_color');
-    const textInput = picker.nextElementSibling.nextElementSibling;
+    const textInput = document.getElementById(colorType + '_color_hex');
     
+    // Picker → Text input
     picker.addEventListener('input', function() {
       textInput.value = this.value.toUpperCase();
+    });
+    
+    // Text input → Picker (on input for live update)
+    textInput.addEventListener('input', function() {
+      let val = this.value.trim();
+      // Add # if missing
+      if (val && !val.startsWith('#')) {
+        val = '#' + val;
+        this.value = val;
+      }
+      // Validate hex format and update picker
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        picker.value = val.toLowerCase();
+        this.classList.remove('is-invalid');
+      } else if (val.length > 0) {
+        this.classList.add('is-invalid');
+      }
+    });
+    
+    // On blur, normalize the value
+    textInput.addEventListener('blur', function() {
+      let val = this.value.trim().toUpperCase();
+      if (val && !val.startsWith('#')) {
+        val = '#' + val;
+      }
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        this.value = val;
+        picker.value = val.toLowerCase();
+        this.classList.remove('is-invalid');
+      } else if (val) {
+        // Reset to picker value if invalid
+        this.value = picker.value.toUpperCase();
+        this.classList.remove('is-invalid');
+      }
     });
   });
 </script>
