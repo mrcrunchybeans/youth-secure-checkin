@@ -679,6 +679,9 @@ function showFamilyModal(data) {
                 if (resp.success) {
                     modal.hide();
                     
+                    // Clear the phone input for next check-in
+                    document.getElementById('phone').value = '';
+                    
                     // Show QR code if available
                     if (resp.qr_code) {
                         showQRCodeModal(resp.qr_code, resp.checkout_code, resp.short_url);
@@ -846,6 +849,36 @@ document.addEventListener('DOMContentLoaded', function() {
     keypad.addEventListener('touchend', function(e) {
         const btn = e.target.closest('button');
         if (btn) btn.classList.remove('active');
+    });
+
+    // Keyboard numpad support - listen for number keys anywhere on the page
+    document.addEventListener('keydown', function(e) {
+        // Skip if user is typing in a text input (other than the phone input) or textarea
+        if (e.target.tagName === 'TEXTAREA') return;
+        if (e.target.tagName === 'INPUT' && e.target.id !== 'phone' && e.target.type !== 'checkbox') return;
+        // Skip if a modal is open (except for Escape to close)
+        if (document.querySelector('.modal.show') && e.key !== 'Escape') return;
+        
+        // Handle number keys (both main keyboard and numpad)
+        if ((e.key >= '0' && e.key <= '9')) {
+            e.preventDefault();
+            setPhone((phoneInput.value || '') + e.key);
+        }
+        // Handle Backspace
+        else if (e.key === 'Backspace') {
+            e.preventDefault();
+            setPhone((phoneInput.value || '').slice(0, -1));
+        }
+        // Handle Delete or Escape to clear
+        else if (e.key === 'Delete' || e.key === 'Escape') {
+            e.preventDefault();
+            setPhone('');
+        }
+        // Handle Enter to submit
+        else if (e.key === 'Enter' && phoneInput.value.length > 0) {
+            e.preventDefault();
+            document.getElementById('search-btn').click();
+        }
     });
 
     // Default to readonly to prevent native touch keyboard opening; only enable via toggle
