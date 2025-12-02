@@ -639,7 +639,6 @@ function showFamilyPickerModal(families) {
         html += `</button>`;
     });
     html += `</div>`;
-    html += `<button type="button" class="btn btn-outline-danger position-absolute" data-bs-dismiss="modal" style="top: 0.5rem; right: 0.5rem; font-size: 1.5rem; width: 2.5rem; height: 2.5rem; padding: 0; line-height: 1; border-color: {{ branding.primary_color }}; color: {{ branding.primary_color }};" title="Cancel">✕</button>`;
     
     modalBody.innerHTML = html;
     
@@ -698,7 +697,6 @@ function showFamilyModal(data) {
 
     html += `<button type="submit" class="btn btn-lg w-100 modal-submit" style="background-color: {{ branding.accent_color }}; color: white; border: none;">Check In Selected</button>`;
     html += `</form>`;
-    html += `<button type="button" class="btn btn-outline-danger position-absolute" data-bs-dismiss="modal" style="top: 0.5rem; right: 0.5rem; font-size: 1.5rem; width: 2.5rem; height: 2.5rem; padding: 0; line-height: 1; border-color: {{ branding.primary_color }}; color: {{ branding.primary_color }};" title="Wrong family">✕</button>`;
 
     modalBody.innerHTML = html;
 
