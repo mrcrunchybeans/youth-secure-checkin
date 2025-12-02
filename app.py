@@ -907,6 +907,7 @@ def checkin_last4():
     
     # Search for phone in both families table and adults table
     # Using REPLACE to remove common phone formatting characters
+    # Match only if the phone ENDS with the entered digits (last 4)
     cur = conn.execute("""
         SELECT DISTINCT f.id, f.phone, f.troop, f.default_adult_id,
                (SELECT GROUP_CONCAT(a.id || ':' || a.name || ':' || COALESCE(a.phone, ''))
@@ -923,7 +924,7 @@ def checkin_last4():
            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?
            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?
-    """, ('%' + phone_digits + '%', phone_digits, '%' + phone_digits + '%', phone_digits, '%' + phone_digits + '%', phone_digits))
+    """, ('%' + phone_digits, phone_digits, '%' + phone_digits, phone_digits, '%' + phone_digits, phone_digits))
     families = cur.fetchall()
     
     if not families:
