@@ -3433,13 +3433,15 @@ def admin_tlc_roster_sync():
     for row in rows:
         existing_tlc_ids.add(row['tlc_id'])
     
-    # Get or create a default "TLC Import" family
-    tlc_family = conn.execute("SELECT id FROM families WHERE name = 'TLC Import'").fetchone()
+    # Get or create a default "TLC Import" family using placeholder phone
+    # Use a recognizable placeholder phone number
+    tlc_family_phone = '000-000-0000'
+    tlc_family = conn.execute("SELECT id FROM families WHERE phone = ?", (tlc_family_phone,)).fetchone()
     if not tlc_family:
-        conn.execute("INSERT INTO families (name, phone, email) VALUES (?, ?, ?)", 
-                    ('TLC Import', '000-000-0000', ''))
+        conn.execute("INSERT INTO families (phone, troop) VALUES (?, ?)", 
+                    (tlc_family_phone, 'TLC Import'))
         conn.commit()
-        tlc_family = conn.execute("SELECT id FROM families WHERE name = 'TLC Import'").fetchone()
+        tlc_family = conn.execute("SELECT id FROM families WHERE phone = ?", (tlc_family_phone,)).fetchone()
     
     family_id = tlc_family['id']
     
