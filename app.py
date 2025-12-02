@@ -2837,8 +2837,8 @@ def admin_email():
     conn = get_db()
     
     if request.method == 'POST':
-        # Update email settings
-        email_keys = ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_from', 'smtp_use_tls']
+        # Update email settings - use smtp_server to match get_smtp_settings() and send_email()
+        email_keys = ['smtp_server', 'smtp_port', 'smtp_username', 'smtp_from', 'smtp_use_tls']
         for key in email_keys:
             value = request.form.get(key, '')
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
@@ -2856,9 +2856,9 @@ def admin_email():
     # Check if SMTP section is unlocked
     smtp_unlocked = session.get('smtp_unlocked', False)
     
-    # Fetch current settings as an object
+    # Fetch current settings as an object - use smtp_server to match template and send_email()
     smtp_settings = {}
-    for key in ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from', 'smtp_use_tls']:
+    for key in ['smtp_server', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from', 'smtp_use_tls']:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         smtp_settings[key] = row[0] if row else ''
     
@@ -2894,16 +2894,16 @@ def test_email():
         flash('Please provide an email address', 'danger')
         return redirect(url_for('admin_email'))
     
-    # Get SMTP settings
+    # Get SMTP settings - use smtp_server to match the rest of the codebase
     conn = get_db()
     smtp_config = {}
-    for key in ['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from']:
+    for key in ['smtp_server', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_from']:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         smtp_config[key] = row[0] if row else ''
     conn.close()
     
     # Validate settings
-    if not all([smtp_config['smtp_host'], smtp_config['smtp_port'], smtp_config['smtp_from']]):
+    if not all([smtp_config['smtp_server'], smtp_config['smtp_port'], smtp_config['smtp_from']]):
         flash('SMTP settings are incomplete. Please configure all required fields.', 'danger')
         return redirect(url_for('admin_email'))
     
