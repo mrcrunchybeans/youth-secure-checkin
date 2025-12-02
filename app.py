@@ -3262,9 +3262,11 @@ def admin_tlc_sync_confirm(event_id):
         
         # 1. Try ID match first
         if local_tlc_id:
-            for tlc_name, tlc_id in tlc_roster.items():
-                if tlc_id == local_tlc_id:
-                    match_found = {'name': tlc_name, 'id': tlc_id}
+            for tlc_name, tlc_data in tlc_roster.items():
+                # tlc_data is {'id': '...', 'profile_url': '...'}
+                tlc_user_id = tlc_data['id'] if isinstance(tlc_data, dict) else tlc_data
+                if tlc_user_id == local_tlc_id:
+                    match_found = {'name': tlc_name, 'id': tlc_user_id}
                     break
         
         # 2. If no ID match, try name match
@@ -3275,12 +3277,14 @@ def admin_tlc_sync_confirm(event_id):
             local_last = local_parts[-1] if len(local_parts) > 1 else ''
             local_first_variants = get_name_variants(local_first) if local_first else []
             
-            for tlc_name, tlc_id in tlc_roster.items():
+            for tlc_name, tlc_data in tlc_roster.items():
+                # tlc_data is {'id': '...', 'profile_url': '...'}
+                tlc_user_id = tlc_data['id'] if isinstance(tlc_data, dict) else tlc_data
                 tlc_norm = normalize(tlc_name)
                 
                 # Check exact match
                 if local_norm == tlc_norm:
-                    match_found = {'name': tlc_name, 'id': tlc_id}
+                    match_found = {'name': tlc_name, 'id': tlc_user_id}
                     break
                 
                 # Check "Last First" vs "First Last"
@@ -3289,7 +3293,7 @@ def admin_tlc_sync_confirm(event_id):
                     # Swap first two parts
                     swapped = f"{tlc_parts[1]} {tlc_parts[0]}"
                     if local_norm == swapped:
-                        match_found = {'name': tlc_name, 'id': tlc_id}
+                        match_found = {'name': tlc_name, 'id': tlc_user_id}
                         break
                 
                 # Check nickname variants (e.g., "Ezekiel Gray" matches "Zeke Gray")
@@ -3304,7 +3308,7 @@ def admin_tlc_sync_confirm(event_id):
                         # Check if any local variant matches any TLC variant
                         if any(lv in tlc_first_variants for lv in local_first_variants) or \
                            any(tv in local_first_variants for tv in tlc_first_variants):
-                            match_found = {'name': tlc_name, 'id': tlc_id}
+                            match_found = {'name': tlc_name, 'id': tlc_user_id}
                             break
                             
         status = 'matched' if match_found else 'unmatched'
