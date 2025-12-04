@@ -68,6 +68,25 @@ local-dev-files/
 provision-instance.sh
 remove-instance.sh
 list-instances.sh
+
+# Personal/marketing files (not part of app)
+landingpage.html
+landing-page-copy.md
+WEBSITE_COPY.md
+DOCKER_HUB_CLEANUP.md
+cleanup-docker-hub.ps1
+
+# Test and debug files
+dark_mode_test.html
+debug_tlc_events.py
+test_tlc_connection.py
+test_demo.py
+
+# Backup files
+*.backup
+
+# Migration scripts (already applied)
+migrate_add_tlc_synced.py
 landingpage.html
 landing-page-copy.md
 test_*.*
