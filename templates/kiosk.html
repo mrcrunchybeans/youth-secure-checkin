@@ -474,6 +474,34 @@ h1 {
   </div>
 </div>
 
+<!-- Checkout Confirmation Modal (when checkout code entered in phone field) -->
+<div class="modal fade" id="checkoutConfirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+    <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid {{ branding.primary_color }};">
+      <div class="modal-header" style="background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%); color: white; border: none; padding: 1rem 1.2rem;">
+        <h5 class="modal-title" style="font-size: 1.4rem; font-weight: 700;">👋 Check Out</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 1.2rem;">
+        <p class="text-center mb-3" style="font-size: 1rem; color: #666;">
+          Select children to check out:
+        </p>
+        <div id="checkout-confirm-kids" style="max-height: 300px; overflow-y: auto;">
+          <!-- Kids checkboxes will be populated here -->
+        </div>
+      </div>
+      <div class="modal-footer" style="border: none; justify-content: center; gap: 0.5rem; padding: 1rem 1.2rem;">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 10px; padding: 0.6rem 1.5rem; font-size: 1rem;">
+          Cancel
+        </button>
+        <button type="button" class="btn" id="confirm-checkout-btn" style="background: linear-gradient(135deg, {{ branding.accent_color }} 0%, {{ branding.primary_color }} 100%); color: white; border: none; border-radius: 10px; padding: 0.6rem 1.5rem; font-size: 1rem; font-weight: 600;">
+          ✓ Check Out
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Checkout Code Entry Modal -->
 <div class="modal fade" id="checkoutCodeModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
@@ -603,28 +631,75 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
         });
 });
 
-// Handle checkout code entry - automatically check out the kids
+// Handle checkout code entry - show branded modal with checkboxes
 function handleCheckoutCodeEntry(data) {
-    const kidNames = data.kids.map(k => k.kid_name).join(', ');
+    // Build the kids list with checkboxes
+    const kidsContainer = document.getElementById('checkout-confirm-kids');
+    let html = '';
     
-    // Confirm checkout
-    if (!confirm(`Check out ${kidNames}?`)) {
-        document.getElementById('phone').value = '';
+    data.kids.forEach((kid, index) => {
+        html += `
+        <div class="form-check" style="padding: 0.8rem 1rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 10px; border: 2px solid #dee2e6;">
+            <input class="form-check-input" type="checkbox" id="checkout-kid-${kid.kid_id}" 
+                   data-kid-id="${kid.kid_id}" data-checkin-id="${kid.checkin_id}" 
+                   style="width: 1.5rem; height: 1.5rem; margin-top: 0.15rem;" checked>
+            <label class="form-check-label" for="checkout-kid-${kid.kid_id}" 
+                   style="font-size: 1.3rem; font-weight: 600; margin-left: 0.5rem; cursor: pointer;">
+                ${kid.kid_name}
+            </label>
+        </div>`;
+    });
+    
+    kidsContainer.innerHTML = html;
+    
+    // Store data for the confirm button
+    const confirmBtn = document.getElementById('confirm-checkout-btn');
+    confirmBtn.dataset.eventId = data.event_id;
+    confirmBtn.dataset.checkoutCode = data.checkout_code;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('checkoutConfirmModal'));
+    modal.show();
+    
+    // Clear phone input
+    document.getElementById('phone').value = '';
+}
+
+// Handle confirm checkout button click
+document.getElementById('confirm-checkout-btn').addEventListener('click', function() {
+    const eventId = this.dataset.eventId;
+    const checkoutCode = this.dataset.checkoutCode;
+    
+    // Get selected kids
+    const selectedKids = [];
+    document.querySelectorAll('#checkout-confirm-kids input[type="checkbox"]:checked').forEach(cb => {
+        selectedKids.push({
+            kidId: cb.dataset.kidId,
+            checkinId: cb.dataset.checkinId
+        });
+    });
+    
+    if (selectedKids.length === 0) {
+        alert('Please select at least one child to check out.');
         return;
     }
     
-    // Perform checkout for the first kid (siblings will be auto-checked out)
-    const primaryKid = data.kids[0];
-    const additionalKids = data.kids.slice(1).map(k => k.kid_id);
+    // Disable button during request
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Processing...';
+    
+    // Perform checkout for the first kid (with additional kids)
+    const primaryKid = selectedKids[0];
+    const additionalKids = selectedKids.slice(1).map(k => k.kidId);
     
     const formData = new FormData();
-    formData.append('event_id', data.event_id);
-    formData.append('checkout_code', data.checkout_code);
+    formData.append('event_id', eventId);
+    formData.append('checkout_code', checkoutCode);
     additionalKids.forEach(kidId => {
         formData.append('additional_kid_ids', kidId);
     });
     
-    fetch(`/checkout/${primaryKid.kid_id}`, {
+    fetch(`/checkout/${primaryKid.kidId}`, {
         method: 'POST',
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
@@ -633,21 +708,68 @@ function handleCheckoutCodeEntry(data) {
     })
     .then(response => response.json())
     .then(result => {
+        // Hide the confirm modal
+        bootstrap.Modal.getInstance(document.getElementById('checkoutConfirmModal')).hide();
+        
         if (result.success) {
-            alert(`Successfully checked out: ${kidNames}`);
-            // Clear the phone input and reload
-            document.getElementById('phone').value = '';
-            location.reload();
+            // Show success message with the kid names
+            const checkedOutNames = [];
+            document.querySelectorAll('#checkout-confirm-kids input[type="checkbox"]:checked').forEach(cb => {
+                checkedOutNames.push(cb.nextElementSibling.textContent.trim());
+            });
+            
+            // Show a nice success toast/alert
+            showCheckoutSuccessModal(checkedOutNames);
         } else {
             alert(result.message || 'Checkout failed');
-            document.getElementById('phone').value = '';
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('Checkout failed. Please try again.');
-        document.getElementById('phone').value = '';
+        bootstrap.Modal.getInstance(document.getElementById('checkoutConfirmModal')).hide();
+    })
+    .finally(() => {
+        // Re-enable button
+        this.disabled = false;
+        this.innerHTML = '✓ Check Out';
     });
+});
+
+// Show checkout success modal
+function showCheckoutSuccessModal(kidNames) {
+    // Create a temporary success modal
+    const successHtml = `
+    <div class="modal fade" id="checkoutSuccessModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+        <div class="modal-content" style="border-radius: 15px; overflow: hidden; border: 3px solid {{ branding.accent_color }};">
+          <div class="modal-body text-center" style="padding: 2rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+            <h4 style="color: {{ branding.primary_color }}; font-weight: 700; margin-bottom: 1rem;">Checked Out!</h4>
+            <p style="font-size: 1.2rem; color: #333; margin-bottom: 0;">
+              ${kidNames.join('<br>')}
+            </p>
+          </div>
+          <div class="modal-footer" style="border: none; justify-content: center; padding: 0 2rem 1.5rem;">
+            <button type="button" class="btn w-100" onclick="location.reload()" style="background: linear-gradient(135deg, {{ branding.primary_color }} 0%, {{ branding.secondary_color }} 100%); color: white; border: none; border-radius: 10px; padding: 0.8rem; font-size: 1.1rem; font-weight: 600;">
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    
+    // Remove any existing success modal
+    const existing = document.getElementById('checkoutSuccessModal');
+    if (existing) existing.remove();
+    
+    // Add to DOM and show
+    document.body.insertAdjacentHTML('beforeend', successHtml);
+    const successModal = new bootstrap.Modal(document.getElementById('checkoutSuccessModal'));
+    successModal.show();
+    
+    // Auto-reload after 3 seconds
+    setTimeout(() => location.reload(), 3000);
 }
 
 // Keypad handling for touch screens
