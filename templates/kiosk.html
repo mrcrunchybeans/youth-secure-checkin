@@ -331,9 +331,9 @@ h1 {
                     <form id="checkin-form">
                         <input type="hidden" id="event-id" value="{{ current_event_id }}">
                         <div style="margin-bottom: 0.5rem;">
-                            <label for="phone" class="form-label">Last 4 digits:</label>
+                            <label for="phone" class="form-label">Phone (last 4) or Checkout Code:</label>
                             <div class="input-group">
-                                <input type="tel" inputmode="numeric" class="form-control" id="phone" name="phone" maxlength="4" pattern="\d{4}" required aria-label="Last four digits" autocomplete="off" readonly>
+                                <input type="text" inputmode="numeric" class="form-control" id="phone" name="phone" maxlength="5" pattern="[a-zA-Z0-9]{4,5}" required aria-label="Last four digits or checkout code" autocomplete="off" readonly placeholder="1234">
                                 <button type="button" id="toggle-keyboard" class="btn btn-outline-secondary" aria-pressed="false" title="Use keyboard">⌨</button>
                             </div>
                         </div>
@@ -872,17 +872,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log('Keypad initialized with', keys.length, 'keys');
 
+    let searchTimeout = null;
+    const SEARCH_DELAY_MS = 500; // Wait 500ms after typing stops before searching
+
     function setPhone(v) {
-        // enforce digits and max length 4
-        v = String(v).replace(/\D/g, '').slice(0, 4);
+        // enforce digits/alphanumeric and max length 5 (checkout codes can be 5 chars)
+        v = String(v).replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase();
         phoneInput.value = v;
         console.log('Phone value set to:', v);
-        // Instant search when 4 digits
-        if (v.length === 4) {
-            setTimeout(() => {
-                console.log('Auto-submitting form');
+        
+        // Clear any pending search
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+            searchTimeout = null;
+        }
+        
+        // Search logic:
+        // - At 4 digits: wait for delay (user might be typing a 5-char checkout code)
+        // - At 5 chars: search immediately (max length reached)
+        // - On Enter: search immediately (handled separately)
+        if (v.length === 5) {
+            // Max length reached, search immediately
+            console.log('Max length (5) reached, searching immediately');
+            document.getElementById('checkin-form').dispatchEvent(new Event('submit'));
+        } else if (v.length === 4) {
+            // Could be phone (4 digits) or checkout code (5 chars) - wait for more input
+            console.log('4 chars entered, waiting', SEARCH_DELAY_MS, 'ms for more input...');
+            searchTimeout = setTimeout(() => {
+                console.log('Delay elapsed, auto-submitting form');
                 document.getElementById('checkin-form').dispatchEvent(new Event('submit'));
-            }, 100);
+            }, SEARCH_DELAY_MS);
         }
     }
 
@@ -915,17 +934,38 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // instant search on input change (for keyboard typing)
+    // instant search on input change (for keyboard typing) - use same delay logic
     phoneInput.addEventListener('input', function() {
-        if (this.value.length === 4) {
-            setTimeout(() => document.getElementById('checkin-form').dispatchEvent(new Event('submit')), 100);
+        // Clear any pending search
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+            searchTimeout = null;
+        }
+        
+        const v = this.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toUpperCase();
+        if (v !== this.value) {
+            this.value = v; // normalize input
+        }
+        
+        if (v.length === 5) {
+            // Max length, search immediately
+            document.getElementById('checkin-form').dispatchEvent(new Event('submit'));
+        } else if (v.length === 4) {
+            // Wait for possible 5th character
+            searchTimeout = setTimeout(() => {
+                document.getElementById('checkin-form').dispatchEvent(new Event('submit'));
+            }, SEARCH_DELAY_MS);
         }
     });
 
-    // allow Enter on keyboard
+    // allow Enter on keyboard - search immediately, cancel any pending delay
     phoneInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+                searchTimeout = null;
+            }
             document.getElementById('search-btn').click();
         }
     });
@@ -940,7 +980,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn) btn.classList.remove('active');
     });
 
-    // Keyboard numpad support - listen for number keys anywhere on the page
+    // Keyboard numpad support - listen for number/letter keys anywhere on the page
     document.addEventListener('keydown', function(e) {
         // Skip if user is typing in a text input (other than the phone input) or textarea
         if (e.target.tagName === 'TEXTAREA') return;
@@ -948,8 +988,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Skip if a modal is open (except for Escape to close)
         if (document.querySelector('.modal.show') && e.key !== 'Escape') return;
         
-        // Handle number keys (both main keyboard and numpad)
-        if ((e.key >= '0' && e.key <= '9')) {
+        // Handle alphanumeric keys (for checkout codes which may have letters)
+        if (/^[a-zA-Z0-9]$/.test(e.key)) {
             e.preventDefault();
             setPhone((phoneInput.value || '') + e.key);
         }
@@ -963,9 +1003,13 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             setPhone('');
         }
-        // Handle Enter to submit
+        // Handle Enter to submit immediately (cancel any pending delay)
         else if (e.key === 'Enter' && phoneInput.value.length > 0) {
             e.preventDefault();
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+                searchTimeout = null;
+            }
             document.getElementById('search-btn').click();
         }
     });
