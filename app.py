@@ -1088,6 +1088,17 @@ def auto_sync_ical():
 sync_thread = threading.Thread(target=auto_sync_ical, daemon=True)
 sync_thread.start()
 
+# Security Headers
+@app.after_request
+def set_security_headers(response):
+    """Set security headers on all responses"""
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Content-Security-Policy'] = "default-src 'self'"
+    return response
+
 @app.route('/health')
 def health():
     """Health check endpoint for Docker and monitoring"""
