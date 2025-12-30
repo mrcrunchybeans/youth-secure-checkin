@@ -23,6 +23,12 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Authorized Adults**: Track who can pick up each child
 - **Developer Password**: Backup access via environment variable
 - **Session Security**: Encrypted session management
+- **Password Hashing**: PBKDF2-SHA256 hashing with strong password requirements
+- **Rate Limiting**: Max 5 login attempts per minute per IP address
+- **Account Lockout**: 15-minute lockout after 5 failed attempts
+- **Encrypted Database**: SQLCipher AES-256 encryption at rest
+- **Field-Level Encryption**: Sensitive data encrypted with Fernet
+- **Searchable Name Hashes**: Partial name search without decryption (tokenized SHA-256)
 
 ### 👨‍👩‍👧‍👦 Family Management
 - **Family Records**: Store families with adults and children
