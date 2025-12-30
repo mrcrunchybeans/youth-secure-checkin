@@ -64,7 +64,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ## 🚀 Quick Start
 
-### ⚠️ Encryption Required (v1.0.1+)
+### ⚠️ Encryption Required (v1.0.2+)
 
 All instances now require encryption keys. **New deployments** include them automatically. **Existing users upgrading from v1.0.0**: Migration is **automatic on startup** - just add encryption keys to `.env`! See [DOCKER_ENCRYPTION_MIGRATION.md](DOCKER_ENCRYPTION_MIGRATION.md) for details.
 
