@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Flask 3.0](https://img.shields.io/badge/flask-3.0-green.svg)](https://flask.palletsprojects.com/)
+[![Flask 3.1](https://img.shields.io/badge/flask-3.1-green.svg)](https://flask.palletsprojects.com/)
 
 A secure, flexible check-in/check-out system for youth organizations including Trail Life, scouting groups, churches, schools, and community programs. Features family management, event tracking, QR code checkout, label printing, and comprehensive security controls.
 
@@ -26,6 +26,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ### 👨‍👩‍👧‍👦 Family Management
 - **Family Records**: Store families with adults and children
+- **Improved Data Entry**: Clear, intuitive Add/Edit Family pages with helpful examples and context
 - **Group Assignment**: Organize by troop/den/class/group
 - **CSV Import/Export**: Bulk import families, export for backup
 - **Flexible Import**: Supports multiple CSV column name variations
@@ -64,9 +65,9 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ## 🚀 Quick Start
 
-### ⚠️ Encryption Required (v1.0.1+)
+### ⚠️ Encryption Required (v1.0.2+)
 
-All instances now require encryption keys. **New deployments** include them automatically. **Existing users upgrading from v1.0.0**: Migration is **automatic on startup** - just add encryption keys to `.env`! See [DOCKER_ENCRYPTION_MIGRATION.md](DOCKER_ENCRYPTION_MIGRATION.md) for details.
+All instances now require encryption keys. **New deployments** include them automatically. **Existing users upgrading from v1.0.0 or v1.0.1**: Migration is **automatic on startup** - just add encryption keys to `.env`! See [DOCKER_ENCRYPTION_MIGRATION.md](DOCKER_ENCRYPTION_MIGRATION.md) for details.
 
 ### Docker Deployment (Recommended)
 
@@ -145,8 +146,10 @@ Complete first-time setup wizard, then start checking in families!
 ## 📖 Documentation
 
 - **[Docker Guide](DOCKER.md)** - Docker deployment (recommended)
+- **[Encryption Migration Guide](DOCKER_ENCRYPTION_MIGRATION.md)** - Automatic encryption setup (v1.0.2+)
+- **[Encryption Quick Reference](DOCKER_ENCRYPTION_QUICK_REF.md)** - Common encryption commands
+- **[Security Guide](SECURITY.md)** - Security best practices and encryption architecture
 - **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Production hosting guide
-- **[Security Guide](SECURITY.md)** - Security best practices
 - **[FAQ](docs/FAQ.md)** - Frequently asked questions
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
 
@@ -221,13 +224,15 @@ Access comprehensive settings at `/admin`:
 ## 📋 Requirements
 
 See [requirements.txt](requirements.txt) for full dependency list:
-- Flask==3.0.0
-- icalendar==5.0.11
-- requests==2.31.0
-- qrcode==7.4.2
-- Pillow==10.1.0
-- python-dotenv==1.0.0
-- gunicorn==21.2.0 (for production)
+- Flask==3.1.1
+- icalendar==6.1.0
+- requests==2.32.4
+- qrcode==8.0
+- Pillow==11.0.0
+- python-dotenv==1.0.1
+- gunicorn==23.0.0 (for production)
+- cryptography==41.0.7 (encryption)
+- sqlcipher3-binary==3.10.6.0 (database encryption)
 
 ## 🐳 Deployment Options
 
