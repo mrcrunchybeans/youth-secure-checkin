@@ -9,6 +9,7 @@ Provides:
 
 import os
 import logging
+import hashlib
 from cryptography.fernet import Fernet, InvalidToken
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,26 @@ class FieldEncryption:
             return isinstance(value, str) and value.startswith('gAAAAAB')
         except:
             return False
+    
+    @staticmethod
+    def hash_for_search(plaintext):
+        """Create a searchable hash of plaintext for name lookups.
+        
+        Uses SHA-256 for consistent hashing. This allows searching encrypted
+        names without storing plaintext or using expensive decryption.
+        """
+        if plaintext is None or plaintext == '':
+            return None
+        
+        try:
+            # Normalize: lowercase and strip whitespace for consistent matching
+            normalized = str(plaintext).strip().lower()
+            # Create SHA-256 hash
+            hash_digest = hashlib.sha256(normalized.encode()).hexdigest()
+            return hash_digest
+        except Exception as e:
+            logger.error(f'Name hashing failed: {e}')
+            raise
 
 
 class DatabaseEncryption:

@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 
 # Application version
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 from requests.adapters import HTTPAdapter
 from urllib3.util.connection import create_connection
 import urllib3
@@ -258,6 +258,61 @@ try:
         auto_migrate_encryption()
 except Exception as e:
     print(f"Warning: Auto-migration check failed: {str(e)}")
+
+def populate_name_hashes():
+    """
+    Populate name_hash column for existing adults and kids records.
+    This enables name search on encrypted databases.
+    Runs on app startup if any records are missing hashes.
+    """
+    from encryption import FieldEncryption
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        conn = get_db()
+        
+        # Populate missing name_hashes in adults table
+        adults_missing = conn.execute(
+            "SELECT id, name FROM adults WHERE name_hash IS NULL OR name_hash = ''"
+        ).fetchall()
+        
+        if adults_missing:
+            logger.info(f"Populating name_hash for {len(adults_missing)} adults records...")
+            for row in adults_missing:
+                name_hash = FieldEncryption.hash_for_search(row['name'])
+                conn.execute("UPDATE adults SET name_hash = ? WHERE id = ?", 
+                           (name_hash, row['id']))
+            conn.commit()
+            logger.info("Adult name hashes populated")
+        
+        # Populate missing name_hashes in kids table
+        kids_missing = conn.execute(
+            "SELECT id, name FROM kids WHERE name_hash IS NULL OR name_hash = ''"
+        ).fetchall()
+        
+        if kids_missing:
+            logger.info(f"Populating name_hash for {len(kids_missing)} kids records...")
+            for row in kids_missing:
+                name_hash = FieldEncryption.hash_for_search(row['name'])
+                conn.execute("UPDATE kids SET name_hash = ? WHERE id = ?", 
+                           (name_hash, row['id']))
+            conn.commit()
+            logger.info("Kid name hashes populated")
+        
+        conn.close()
+        
+    except Exception as e:
+        logger.warning(f"Could not populate name hashes (may not exist yet): {str(e)}")
+        # This is not fatal - happens on fresh installs before schema is created
+
+# Populate name hashes on app startup (for existing databases)
+try:
+    with app.app_context():
+        populate_name_hashes()
+except Exception as e:
+    print(f"Warning: Name hash population failed: {str(e)}")
 
 # Trust proxy headers for HTTPS detection behind reverse proxy
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
@@ -1164,13 +1219,16 @@ def checkin_last4():
 @app.route('/search_name', methods=['POST'])
 @require_auth
 def search_name():
-    """Search families by kid or adult name (partial match). Returns similar structure to checkin_last4 for the first match or an array of families."""
+    """Search families by kid or adult name using name hashes (works with encryption)."""
     name = request.form.get('name', '').strip()
     event_id = request.form.get('event_id')
     if not name:
         return jsonify({'error': 'Name required'}), 400
 
-    likeparam = f"%{name}%"
+    # Compute hash of search term for comparison
+    from encryption import FieldEncryption
+    search_hash = FieldEncryption.hash_for_search(name)
+    
     conn = get_db()
     cur = conn.execute("""
         SELECT f.id, f.phone, f.troop, f.default_adult_id,
@@ -1179,10 +1237,10 @@ def search_name():
                (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
                 FROM kids k WHERE k.family_id = f.id) as kids
         FROM families f
-        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id AND k.name LIKE ? COLLATE NOCASE)
-           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id AND a.name LIKE ? COLLATE NOCASE)
+        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id AND k.name_hash = ?)
+           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id AND a.name_hash = ?)
         LIMIT 20
-    """, (likeparam, likeparam))
+    """, (search_hash, search_hash))
     families = cur.fetchall()
 
     if not families:
@@ -2192,6 +2250,7 @@ def delete_event(event_id):
 @require_auth
 def add_family():
     if request.method == 'POST':
+        from encryption import FieldEncryption
         troop = request.form.get('troop')
         authorized_adults = request.form.get('authorized_adults')
         
@@ -2217,8 +2276,9 @@ def add_family():
             for i, name in enumerate(adult_names):
                 if name.strip():
                     adult_phone = adult_phones[i].strip() if i < len(adult_phones) else ''
-                    cur = conn.execute("INSERT INTO adults (family_id, name, phone) VALUES (?, ?, ?)", 
-                                      (family_id, name.strip(), adult_phone if adult_phone else None))
+                    name_hash = FieldEncryption.hash_for_search(name.strip())
+                    cur = conn.execute("INSERT INTO adults (family_id, name, name_hash, phone) VALUES (?, ?, ?, ?)", 
+                                      (family_id, name.strip(), name_hash, adult_phone if adult_phone else None))
                     if i == default_adult_index:
                         default_adult_id = cur.lastrowid
             
@@ -2230,8 +2290,9 @@ def add_family():
             for i, name in enumerate(kid_names):
                 if name.strip():
                     note = kid_notes[i] if i < len(kid_notes) else ''
-                    conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", 
-                                (family_id, name.strip(), note))
+                    name_hash = FieldEncryption.hash_for_search(name.strip())
+                    conn.execute("INSERT INTO kids (family_id, name, name_hash, notes) VALUES (?, ?, ?, ?)", 
+                                (family_id, name.strip(), name_hash, note))
             
             conn.commit()
             flash('Family added successfully', 'success')
@@ -2252,6 +2313,7 @@ def edit_family(family_id):
     conn = get_db()
     
     if request.method == 'POST':
+        from encryption import FieldEncryption
         troop = request.form.get('troop')
         authorized_adults = request.form.get('authorized_adults')
         default_adult_id = request.form.get('default_adult_id')
@@ -2287,16 +2349,17 @@ def edit_family(family_id):
                     
                 adult_id = adult_ids[i] if i < len(adult_ids) and adult_ids[i] else None
                 adult_phone = adult_phones[i].strip() if i < len(adult_phones) else ''
+                name_hash = FieldEncryption.hash_for_search(name.strip())
                 
                 if adult_id:
                     # Update existing
-                    conn.execute("UPDATE adults SET name = ?, phone = ? WHERE id = ?", 
-                               (name.strip(), adult_phone if adult_phone else None, adult_id))
+                    conn.execute("UPDATE adults SET name = ?, name_hash = ?, phone = ? WHERE id = ?", 
+                               (name.strip(), name_hash, adult_phone if adult_phone else None, adult_id))
                     processed_adult_ids.append(int(adult_id))
                 else:
                     # Add new
-                    conn.execute("INSERT INTO adults (family_id, name, phone) VALUES (?, ?, ?)", 
-                               (family_id, name.strip(), adult_phone if adult_phone else None))
+                    conn.execute("INSERT INTO adults (family_id, name, name_hash, phone) VALUES (?, ?, ?, ?)", 
+                               (family_id, name.strip(), name_hash, adult_phone if adult_phone else None))
             
             # Delete removed adults
             for aid in existing_adults:
@@ -2316,14 +2379,15 @@ def edit_family(family_id):
                     
                 kid_id = kid_ids[i] if i < len(kid_ids) and kid_ids[i] else None
                 note = kid_notes[i] if i < len(kid_notes) else ''
+                name_hash = FieldEncryption.hash_for_search(name.strip())
                 
                 if kid_id:
                     # Update existing
-                    conn.execute("UPDATE kids SET name = ?, notes = ? WHERE id = ?", (name.strip(), note, kid_id))
+                    conn.execute("UPDATE kids SET name = ?, name_hash = ?, notes = ? WHERE id = ?", (name.strip(), name_hash, note, kid_id))
                     processed_kid_ids.append(int(kid_id))
                 else:
                     # Add new
-                    conn.execute("INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)", (family_id, name.strip(), note))
+                    conn.execute("INSERT INTO kids (family_id, name, name_hash, notes) VALUES (?, ?, ?, ?)", (family_id, name.strip(), name_hash, note))
             
             # Delete removed kids
             for kid in existing_kids:
