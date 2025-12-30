@@ -127,8 +127,37 @@ The import is very flexible and supports multiple column name variations:
 2. **Admin Override Password**: Allows overriding checkout requirements (set in Security Settings)
 3. **Developer Password**: Backup access and unlocks override settings (set in `.env` file)
 
+### What changed in v1.0.3 for security?
+**Major security enhancements:**
+- **Password Hashing**: All passwords now stored as PBKDF2-SHA256 hashes (not plaintext)
+- **Rate Limiting**: Maximum 5 login attempts per minute per IP address
+- **Account Lockout**: 15-minute automatic lockout after 5 failed attempts
+- **Strong Password Requirements**: 12+ chars with uppercase, lowercase, number, special char
+- **HTTP Security Headers**: HSTS, CSP, X-Frame-Options, and more
+- **Automatic Migration**: Old plaintext passwords automatically hashed on upgrade
+
+### Why was my password rejected?
+Starting in v1.0.3, app passwords require:
+- **At least 12 characters** (increased from 4)
+- **At least one uppercase letter** (A-Z)
+- **At least one lowercase letter** (a-z)
+- **At least one number** (0-9)
+- **At least one special character** (!@#$%^&*)
+
+Example: `MyOrg2025!Secure`
+
+### My account is locked, what happened?
+You tried to login with the wrong password 5+ times. The system automatically locked your IP address for **15 minutes** to prevent brute force attacks. After 15 minutes, try again with the correct password.
+
+If you forgot the password, you can:
+1. Wait 15 minutes and use the Admin Override password
+2. Or use the developer password (from `.env` file) to reset it
+
 ### I forgot my app password, what do I do?
-Use the developer password to log in, then go to Security Settings to reset the app password.
+1. **If not locked out**: Use Admin Override password (go to Admin Panel → Security → "Unlock Override Settings")
+2. **If locked out**: Wait 15 minutes for lockout to expire
+3. Use developer password from `.env` file to log in
+4. Go to Security Settings to reset the app password
 
 ### I forgot my developer password, what do I do?
 The developer password is in your `.env` file on the server. If you lost the file:
@@ -137,20 +166,23 @@ The developer password is in your `.env` file on the server. If you lost the fil
 3. Restart the application
 
 ### How secure is this system?
-- Passwords are stored with proper hashing
-- Session data is encrypted
-- No passwords in database (except hashed checkout codes)
-- Developer password stored outside database (`.env` only)
-- Regular security updates via GitHub
+- **Passwords** are stored with PBKDF2-SHA256 hashing (not plaintext)
+- **Session data** is encrypted with Fernet (cryptography library)
+- **Rate limiting** prevents brute force attacks
+- **Database** can be encrypted at rest with SQLCipher
+- **Developer password** stored outside database (`.env` only)
+- **HTTP headers** enforce HTTPS and prevent common attacks
+- **Regular security updates** via GitHub
 
 See [SECURITY.md](../SECURITY.md) for detailed security information.
 
 ### Can I use this on a public server?
-Yes, but ensure you:
-- Use HTTPS/SSL (Let's Encrypt recommended)
-- Set strong passwords
-- Keep the software updated
-- Restrict access with firewall rules
+Yes, and it's recommended! v1.0.3 includes enterprise-grade protections. To be safe:
+- **Use HTTPS/SSL** (Let's Encrypt recommended) - enforced by HTTP headers
+- **Set strong passwords** (system enforces minimum requirements)
+- **Keep the software updated** (pull latest from GitHub)
+- **Restrict access** with firewall rules for admin URLs
+- **Enable database encryption** for sensitive data
 - Follow the [Security Guide](../SECURITY.md)
 
 ## Customization

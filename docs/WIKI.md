@@ -2,6 +2,11 @@
 
 Welcome to the Youth Secure Check-in documentation! This wiki provides comprehensive guides for installation, configuration, and usage.
 
+**Current Version**: 1.0.3 (Enterprise Security Release)  
+**Last Updated**: December 30, 2025
+
+---
+
 ## 📚 Table of Contents
 
 ### Getting Started
@@ -473,16 +478,59 @@ See [CSV Import/Export](#csv-importexport) section below.
 
 ## Security Settings
 
+### 🔒 Enterprise Security Features (v1.0.3+)
+
+This version includes production-grade security protections:
+
+#### Password Hashing
+- All passwords stored as PBKDF2-SHA256 hashes
+- Plaintext passwords automatically migrated on first login
+- Industry-standard encryption protecting your system
+
+#### Rate Limiting & Account Lockout
+- **Rate Limit**: Maximum 5 login attempts per minute per IP
+- **Auto-Lockout**: 15-minute lockout after 5 failed attempts
+- **Protection**: Prevents brute force password attacks
+- **Automatic Reset**: Lockout expires automatically after 15 minutes
+
+#### Strong Password Requirements
+When changing app passwords, enforce:
+- **Minimum Length**: 12 characters
+- **Uppercase Letters**: At least one (A-Z)
+- **Lowercase Letters**: At least one (a-z)
+- **Numbers**: At least one (0-9)
+- **Special Characters**: At least one (!@#$%^&*)
+
+Example strong password: `MyOrg2025!Secure`
+
+#### HTTP Security Headers (v1.0.3+)
+- **HSTS**: Forces HTTPS, prevents downgrade attacks
+- **X-Frame-Options**: Prevents clickjacking
+- **Content-Security-Policy**: Restricts malicious script injection
+- **X-Content-Type-Options**: Prevents MIME sniffing
+- **X-XSS-Protection**: Legacy XSS protection for older browsers
+
 ### Access Passwords
 
 #### App Password
 **Purpose**: Main login for check-in and admin access
 
+**Password Requirements** (v1.0.3+):
+- Minimum 12 characters
+- Mix of uppercase, lowercase, numbers, and special characters
+- Example: `Welcome2025!`
+
 **Changing App Password:**
 1. Admin Panel → Security
 2. "Access Codes" section
-3. Enter new password (4+ characters)
+3. Enter new password (12+ characters with mixed types)
 4. Click "Update Login Code"
+5. System validates strength and confirms update
+
+**Password Change History:**
+- Passwords are automatically hashed before storage
+- Old passwords cannot be recovered (security feature)
+- If forgotten, use override password with developer access
 
 #### Admin Override Password
 **Purpose**: Override checkout requirements, admin functions
@@ -538,13 +586,16 @@ See [Label Printer Setup](#label-printer-setup) section.
 
 #### Security Best Practices
 
-1. **Use Strong Passwords**: 8+ characters, mix of types
+1. **Use Strong Passwords** (v1.0.3+): System enforces 12+ characters with mixed types
 2. **Change Regularly**: Update passwords quarterly
 3. **Limit Access**: Only give passwords to trusted leaders
 4. **Enable Checkout Codes**: Prevents unauthorized pickups
 5. **Monitor History**: Review check-in/out logs regularly
 6. **Backup Often**: Export configuration and family data
 7. **Update Software**: Pull latest updates from GitHub
+8. **Account Lockout**: If locked out after failed attempts, wait 15 minutes for automatic reset
+9. **Report Suspicious Activity**: Multiple failed login attempts are logged by IP address
+10. **HTTPS Only**: Always access over HTTPS in production (enforced by HTTP headers)
 
 ---
 
@@ -1312,6 +1363,20 @@ echo "SECRET_KEY=your_generated_key" >> .env
 ```
 
 ### Application Issues
+
+**Account Locked Out (v1.0.3+):**
+- Cause: 5+ failed login attempts within 1 minute
+- Duration: Automatic 15-minute lockout
+- Resolution: Wait 15 minutes for automatic unlock, then try again
+- Prevention: Use correct password; avoid repeated failed attempts
+- Note: Lockout is per IP address, not per account
+
+**Incorrect Password Error:**
+1. Verify CAPS LOCK is off
+2. Check password in Admin Panel → Security → Access Codes
+3. Password must have 12+ chars, uppercase, lowercase, number, special char
+4. If forgotten, use Admin Override (requires developer password)
+5. If still locked, wait 15 minutes for lockout to expire
 
 **Can't Login:**
 1. Check password in Security Settings
