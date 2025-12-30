@@ -10,6 +10,8 @@ on:
       - '*.py'
       - 'templates/**'
       - 'static/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -29,12 +31,26 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
       
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "version=latest" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Build and push latest
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:latest
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:latest
+            ${{ steps.version.outputs.is_release == 'true' && format('{0}/youth-secure-checkin:v{1}', secrets.DOCKER_HUB_USERNAME, steps.version.outputs.version) || '' }}
           cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/youth-secure-checkin:buildcache,mode=max
       
