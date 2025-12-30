@@ -232,7 +232,7 @@ See [requirements.txt](requirements.txt) for full dependency list:
 - python-dotenv==1.0.1
 - gunicorn==23.0.0 (for production)
 - cryptography==41.0.7 (encryption)
-- sqlcipher3-binary==3.10.6.0 (database encryption)
+- pysqlcipher3==1.0.0 (database encryption)
 
 ## 🐳 Deployment Options
 
