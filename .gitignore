@@ -99,3 +99,14 @@ test_demo.py
 
 # Pentest scripts (security sensitive)
 pentest_*.py
+
+# Development tracking and assessment documents (not for public repo)
+FILES_MODIFIED_CREATED.md
+IMPLEMENTATION_COMPLETE.md
+LOGIN_SECURITY_ASSESSMENT.md
+RELEASE_v*_SUMMARY.md
+V1.0.1_DEPLOYMENT_COMPLETE.md
+
+# Backup/redundant files (git handles versioning)
+*.backup
+DOCKER.md.backup
