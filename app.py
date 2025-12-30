@@ -3,6 +3,8 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import requests
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 # Application version
 APP_VERSION = "1.0.2"
@@ -352,6 +354,63 @@ try:
 except Exception as e:
     print(f"Warning: Name hash population failed: {str(e)}")
 
+def migrate_plaintext_passwords():
+    """Migrate plaintext passwords to hashed versions"""
+    try:
+        conn = get_db()
+        
+        # Get the app password
+        cur = conn.execute("SELECT value FROM settings WHERE key = 'app_password'")
+        row = cur.fetchone()
+        
+        if row and row['value'] and not row['value'].startswith('pbkdf2:'):
+            # Password is plaintext, hash it
+            plaintext = row['value']
+            hashed = generate_password_hash(plaintext, method='pbkdf2:sha256')
+            conn.execute("UPDATE settings SET value = ? WHERE key = 'app_password'", (hashed,))
+            conn.commit()
+            logger.info("Password migration: app_password hashed")
+        
+        # Create login tracking tables if they don't exist
+        try:
+            conn.execute("SELECT 1 FROM login_attempts LIMIT 1")
+        except:
+            logger.info("Creating login_attempts table...")
+            conn.execute("""
+                CREATE TABLE login_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ip_address TEXT NOT NULL,
+                    attempt_time TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.execute("CREATE INDEX idx_login_attempts_ip_time ON login_attempts(ip_address, attempt_time)")
+            conn.commit()
+        
+        try:
+            conn.execute("SELECT 1 FROM login_lockout LIMIT 1")
+        except:
+            logger.info("Creating login_lockout table...")
+            conn.execute("""
+                CREATE TABLE login_lockout (
+                    ip_address TEXT PRIMARY KEY,
+                    locked_until TEXT NOT NULL
+                )
+            """)
+            conn.execute("CREATE INDEX idx_login_lockout_ip ON login_lockout(ip_address)")
+            conn.commit()
+        
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Password migration error: {str(e)}")
+
+# Migrate passwords on app startup
+try:
+    with app.app_context():
+        migrate_plaintext_passwords()
+except Exception as e:
+    print(f"Warning: Password migration failed: {str(e)}")
+
 # Trust proxy headers for HTTPS detection behind reverse proxy
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
@@ -520,19 +579,109 @@ def ensure_db():
     ensure_adult_phone_column()
 
 def get_app_password():
-    """Get the app password from settings, or return default"""
+    """Get the app password hash from settings, or return None"""
     conn = get_db()
     cur = conn.execute("SELECT value FROM settings WHERE key = 'app_password'")
     row = cur.fetchone()
     conn.close()
-    return row['value'] if row else 'changeme'
+    return row['value'] if row else None
 
 def set_app_password(password):
-    """Set the app password in settings"""
+    """Set the app password hash in settings (passwords should already be validated/hashed)"""
+    if not password:
+        return False
+    
+    # Generate hash if plaintext was passed (for backward compatibility)
+    if not password.startswith('pbkdf2:'):
+        password = generate_password_hash(password, method='pbkdf2:sha256')
+    
     conn = get_db()
     conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('app_password', ?)", (password,))
     conn.commit()
     conn.close()
+    return True
+
+def verify_password(plaintext, hash_value):
+    """Verify plaintext password against hash"""
+    if not hash_value:
+        return False
+    try:
+        return check_password_hash(hash_value, plaintext)
+    except Exception as e:
+        logger.warning(f"Password verification error: {e}")
+        return False
+
+def get_login_attempts(ip_address):
+    """Get the number of failed login attempts for an IP"""
+    conn = get_db()
+    cur = conn.execute("""
+        SELECT COUNT(*) as count FROM login_attempts 
+        WHERE ip_address = ? AND attempt_time > datetime('now', '-1 minute')
+    """, (ip_address,))
+    row = cur.fetchone()
+    conn.close()
+    return row['count'] if row else 0
+
+def is_login_locked(ip_address):
+    """Check if IP is locked out due to too many attempts"""
+    conn = get_db()
+    cur = conn.execute("""
+        SELECT 1 FROM login_lockout 
+        WHERE ip_address = ? AND locked_until > datetime('now')
+    """, (ip_address,))
+    row = cur.fetchone()
+    conn.close()
+    return row is not None
+
+def record_login_attempt(ip_address, success=False):
+    """Record a login attempt (failed or successful)"""
+    conn = get_db()
+    
+    if not success:
+        # Record failed attempt
+        conn.execute("""
+            INSERT INTO login_attempts (ip_address, attempt_time)
+            VALUES (?, datetime('now'))
+        """, (ip_address,))
+        
+        # Check if we should lock out this IP
+        attempts = get_login_attempts(ip_address) + 1
+        if attempts >= 5:
+            # Lock for 15 minutes
+            locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            conn.execute("""
+                INSERT OR REPLACE INTO login_lockout (ip_address, locked_until)
+                VALUES (?, ?)
+            """, (ip_address, locked_until.isoformat()))
+            logger.warning(f"IP {ip_address} locked out after 5 failed attempts")
+    else:
+        # Clear failed attempts on successful login
+        conn.execute("DELETE FROM login_attempts WHERE ip_address = ?", (ip_address,))
+        conn.execute("DELETE FROM login_lockout WHERE ip_address = ?", (ip_address,))
+    
+    conn.commit()
+    conn.close()
+
+def validate_password_strength(password):
+    """Validate password meets minimum security requirements"""
+    errors = []
+    
+    if len(password) < 12:
+        errors.append("Password must be at least 12 characters long")
+    
+    if not re.search(r'[A-Z]', password):
+        errors.append("Password must contain at least one uppercase letter")
+    
+    if not re.search(r'[a-z]', password):
+        errors.append("Password must contain at least one lowercase letter")
+    
+    if not re.search(r'[0-9]', password):
+        errors.append("Password must contain at least one number")
+    
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:\'",.<>?/\\|`~]', password):
+        errors.append("Password must contain at least one special character (!@#$%^&* etc)")
+    
+    return len(errors) == 0, errors
 
 def get_override_password():
     """Get the admin override checkout password from settings, or return app password as default"""
@@ -1032,20 +1181,77 @@ def setup():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        ip_address = request.remote_addr
         password = request.form.get('password', '').strip()
-        app_password = get_app_password()
-
-        # Check against app password or developer password
-        if password == app_password or password == DEVELOPER_PASSWORD:
+        
+        # Check if IP is locked out
+        if is_login_locked(ip_address):
+            flash('Too many failed login attempts. Please try again in 15 minutes.', 'danger')
+            logger.warning(f"Login attempt from locked IP: {ip_address}")
+            return render_template('login.html'), 429
+        
+        # Check if too many recent attempts
+        recent_attempts = get_login_attempts(ip_address)
+        if recent_attempts >= 5:
+            # Lock immediately
+            locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            conn = get_db()
+            conn.execute("""
+                INSERT OR REPLACE INTO login_lockout (ip_address, locked_until)
+                VALUES (?, ?)
+            """, (ip_address, locked_until.isoformat()))
+            conn.commit()
+            conn.close()
+            
+            flash('Too many failed login attempts. Please try again in 15 minutes.', 'danger')
+            logger.warning(f"IP {ip_address} locked out")
+            return render_template('login.html'), 429
+        
+        # Verify password
+        stored_hash = get_app_password()
+        
+        # Fallback: check if password matches plaintext in settings (for backward compatibility)
+        password_valid = False
+        if stored_hash:
+            password_valid = verify_password(password, stored_hash)
+        else:
+            # No password set - this is first setup
+            flash('Password not configured. Please contact administrator.', 'danger')
+            logger.warning("Login attempt with no password configured")
+            record_login_attempt(ip_address, success=False)
+            return render_template('login.html')
+        
+        if password_valid:
+            # Successful login
             session['authenticated'] = True
+            record_login_attempt(ip_address, success=True)
+            logger.info(f"Successful login from {ip_address}")
+            
             next_url = request.args.get('next')
-            if next_url:
+            if next_url and is_safe_url(next_url):
                 return redirect(next_url)
             return redirect(url_for('index'))
         else:
-            flash('Incorrect password. Please try again.', 'danger')
+            # Failed login
+            record_login_attempt(ip_address, success=False)
+            attempts = get_login_attempts(ip_address)
+            remaining = 5 - attempts
+            
+            if remaining > 0:
+                flash(f'Incorrect password. {remaining} attempts remaining.', 'danger')
+            else:
+                flash('Too many failed attempts. Account locked for 15 minutes.', 'danger')
+            
+            logger.warning(f"Failed login attempt from {ip_address} (attempt {attempts}/5)")
 
     return render_template('login.html')
+
+def is_safe_url(target):
+    """Check if URL is safe for redirect"""
+    from urllib.parse import urlparse, urljoin
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 
 @app.route('/logout')
 def logout():
@@ -3264,8 +3470,15 @@ def admin_security():
             # Update login access code
             new_password = request.form.get('new_password', '').strip()
             if new_password:
-                set_app_password(new_password)
-                flash('Login access code updated successfully!', 'success')
+                # Validate password strength
+                is_valid, errors = validate_password_strength(new_password)
+                if not is_valid:
+                    for error in errors:
+                        flash(error, 'danger')
+                else:
+                    set_app_password(new_password)
+                    flash('Login access code updated successfully!', 'success')
+                    logger.info(f"Login password changed from {request.remote_addr}")
             
             # Update admin override checkout code
             new_override = request.form.get('new_override_password', '').strip()

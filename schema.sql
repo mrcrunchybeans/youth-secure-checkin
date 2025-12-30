@@ -65,3 +65,19 @@ CREATE TABLE IF NOT EXISTS share_tokens (
     FOREIGN KEY (family_id) REFERENCES families(id),
     FOREIGN KEY (event_id) REFERENCES events(id)
 );
+
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_address TEXT NOT NULL,
+    attempt_time TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS login_lockout (
+    ip_address TEXT PRIMARY KEY,
+    locked_until TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts(ip_address, attempt_time);
+CREATE INDEX IF NOT EXISTS idx_login_lockout_ip ON login_lockout(ip_address);
+);
