@@ -96,3 +96,6 @@ migrate*.py
 migrate_add_tlc_synced.py
 test_tlc_connection.py
 test_demo.py
+
+# Pentest scripts (security sensitive)
+pentest_*.py
