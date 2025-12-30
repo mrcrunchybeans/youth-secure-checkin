@@ -37,6 +37,8 @@ instance/
 *.db
 *.sqlite
 *.sqlite3
+# But ALLOW migration/encryption scripts
+!migrate_encrypt_database.py
 
 # Environment variables
 .env
