@@ -261,8 +261,8 @@ except Exception as e:
 
 def populate_name_hashes():
     """
-    Populate name_hash column for existing adults and kids records.
-    This enables name search on encrypted databases.
+    Populate name_hash and name_token_hashes columns for existing adults and kids records.
+    This enables name search on encrypted databases with support for partial names.
     Runs on app startup if any records are missing hashes.
     """
     from encryption import FieldEncryption
@@ -275,29 +275,31 @@ def populate_name_hashes():
         
         # Populate missing name_hashes in adults table
         adults_missing = conn.execute(
-            "SELECT id, name FROM adults WHERE name_hash IS NULL OR name_hash = ''"
+            "SELECT id, name FROM adults WHERE name_hash IS NULL OR name_hash = '' OR name_token_hashes IS NULL OR name_token_hashes = ''"
         ).fetchall()
         
         if adults_missing:
-            logger.info(f"Populating name_hash for {len(adults_missing)} adults records...")
+            logger.info(f"Populating name_hash and token hashes for {len(adults_missing)} adults records...")
             for row in adults_missing:
                 name_hash = FieldEncryption.hash_for_search(row['name'])
-                conn.execute("UPDATE adults SET name_hash = ? WHERE id = ?", 
-                           (name_hash, row['id']))
+                token_hashes = json.dumps(FieldEncryption.hash_name_tokens(row['name']))
+                conn.execute("UPDATE adults SET name_hash = ?, name_token_hashes = ? WHERE id = ?", 
+                           (name_hash, token_hashes, row['id']))
             conn.commit()
             logger.info("Adult name hashes populated")
         
         # Populate missing name_hashes in kids table
         kids_missing = conn.execute(
-            "SELECT id, name FROM kids WHERE name_hash IS NULL OR name_hash = ''"
+            "SELECT id, name FROM kids WHERE name_hash IS NULL OR name_hash = '' OR name_token_hashes IS NULL OR name_token_hashes = ''"
         ).fetchall()
         
         if kids_missing:
-            logger.info(f"Populating name_hash for {len(kids_missing)} kids records...")
+            logger.info(f"Populating name_hash and token hashes for {len(kids_missing)} kids records...")
             for row in kids_missing:
                 name_hash = FieldEncryption.hash_for_search(row['name'])
-                conn.execute("UPDATE kids SET name_hash = ? WHERE id = ?", 
-                           (name_hash, row['id']))
+                token_hashes = json.dumps(FieldEncryption.hash_name_tokens(row['name']))
+                conn.execute("UPDATE kids SET name_hash = ?, name_token_hashes = ? WHERE id = ?", 
+                           (name_hash, token_hashes, row['id']))
             conn.commit()
             logger.info("Kid name hashes populated")
         
@@ -1219,29 +1221,72 @@ def checkin_last4():
 @app.route('/search_name', methods=['POST'])
 @require_auth
 def search_name():
-    """Search families by kid or adult name using name hashes (works with encryption)."""
+    """Search families by kid or adult name using tokenized hashes (supports partial names)."""
     name = request.form.get('name', '').strip()
     event_id = request.form.get('event_id')
     if not name:
         return jsonify({'error': 'Name required'}), 400
 
-    # Compute hash of search term for comparison
+    # Generate token hashes of search term for partial matching
     from encryption import FieldEncryption
-    search_hash = FieldEncryption.hash_for_search(name)
+    token_hashes = FieldEncryption.hash_name_tokens(name)
+    token_hashes_json = json.dumps(token_hashes)
     
     conn = get_db()
-    cur = conn.execute("""
-        SELECT f.id, f.phone, f.troop, f.default_adult_id,
+    
+    # Build a query that checks if any token hash exists in the stored token_hashes
+    # We'll do this in Python to be more flexible with JSON handling
+    families = []
+    all_families = conn.execute("""
+        SELECT DISTINCT f.id, f.phone, f.troop, f.default_adult_id,
                (SELECT GROUP_CONCAT(a.id || ':' || a.name)
                 FROM adults a WHERE a.family_id = f.id) as adults,
                (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
                 FROM kids k WHERE k.family_id = f.id) as kids
         FROM families f
-        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id AND k.name_hash = ?)
-           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id AND a.name_hash = ?)
-        LIMIT 20
-    """, (search_hash, search_hash))
-    families = cur.fetchall()
+        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id)
+           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id)
+        LIMIT 100
+    """).fetchall()
+    
+    # Filter in Python - check if any token hash matches
+    for family in all_families:
+        match = False
+        
+        # Check kids
+        kids_with_hashes = conn.execute(
+            "SELECT name_token_hashes FROM kids WHERE family_id = ?", (family['id'],)
+        ).fetchall()
+        for kid_row in kids_with_hashes:
+            if kid_row and kid_row[0]:
+                try:
+                    stored_hashes = json.loads(kid_row[0])
+                    if any(h in stored_hashes for h in token_hashes):
+                        match = True
+                        break
+                except:
+                    pass
+        
+        if match:
+            families.append(family)
+            continue
+        
+        # Check adults
+        adults_with_hashes = conn.execute(
+            "SELECT name_token_hashes FROM adults WHERE family_id = ?", (family['id'],)
+        ).fetchall()
+        for adult_row in adults_with_hashes:
+            if adult_row and adult_row[0]:
+                try:
+                    stored_hashes = json.loads(adult_row[0])
+                    if any(h in stored_hashes for h in token_hashes):
+                        match = True
+                        break
+                except:
+                    pass
+        
+        if match:
+            families.append(family)
 
     if not families:
         conn.close()
@@ -2277,8 +2322,9 @@ def add_family():
                 if name.strip():
                     adult_phone = adult_phones[i].strip() if i < len(adult_phones) else ''
                     name_hash = FieldEncryption.hash_for_search(name.strip())
-                    cur = conn.execute("INSERT INTO adults (family_id, name, name_hash, phone) VALUES (?, ?, ?, ?)", 
-                                      (family_id, name.strip(), name_hash, adult_phone if adult_phone else None))
+                    token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name.strip()))
+                    cur = conn.execute("INSERT INTO adults (family_id, name, name_hash, name_token_hashes, phone) VALUES (?, ?, ?, ?, ?)", 
+                                      (family_id, name.strip(), name_hash, token_hashes, adult_phone if adult_phone else None))
                     if i == default_adult_index:
                         default_adult_id = cur.lastrowid
             
@@ -2291,8 +2337,9 @@ def add_family():
                 if name.strip():
                     note = kid_notes[i] if i < len(kid_notes) else ''
                     name_hash = FieldEncryption.hash_for_search(name.strip())
-                    conn.execute("INSERT INTO kids (family_id, name, name_hash, notes) VALUES (?, ?, ?, ?)", 
-                                (family_id, name.strip(), name_hash, note))
+                    token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name.strip()))
+                    conn.execute("INSERT INTO kids (family_id, name, name_hash, name_token_hashes, notes) VALUES (?, ?, ?, ?, ?)", 
+                                (family_id, name.strip(), name_hash, token_hashes, note))
             
             conn.commit()
             flash('Family added successfully', 'success')
@@ -2350,16 +2397,17 @@ def edit_family(family_id):
                 adult_id = adult_ids[i] if i < len(adult_ids) and adult_ids[i] else None
                 adult_phone = adult_phones[i].strip() if i < len(adult_phones) else ''
                 name_hash = FieldEncryption.hash_for_search(name.strip())
+                token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name.strip()))
                 
                 if adult_id:
                     # Update existing
-                    conn.execute("UPDATE adults SET name = ?, name_hash = ?, phone = ? WHERE id = ?", 
-                               (name.strip(), name_hash, adult_phone if adult_phone else None, adult_id))
+                    conn.execute("UPDATE adults SET name = ?, name_hash = ?, name_token_hashes = ?, phone = ? WHERE id = ?", 
+                               (name.strip(), name_hash, token_hashes, adult_phone if adult_phone else None, adult_id))
                     processed_adult_ids.append(int(adult_id))
                 else:
                     # Add new
-                    conn.execute("INSERT INTO adults (family_id, name, name_hash, phone) VALUES (?, ?, ?, ?)", 
-                               (family_id, name.strip(), name_hash, adult_phone if adult_phone else None))
+                    conn.execute("INSERT INTO adults (family_id, name, name_hash, name_token_hashes, phone) VALUES (?, ?, ?, ?, ?)", 
+                               (family_id, name.strip(), name_hash, token_hashes, adult_phone if adult_phone else None))
             
             # Delete removed adults
             for aid in existing_adults:
@@ -2380,14 +2428,15 @@ def edit_family(family_id):
                 kid_id = kid_ids[i] if i < len(kid_ids) and kid_ids[i] else None
                 note = kid_notes[i] if i < len(kid_notes) else ''
                 name_hash = FieldEncryption.hash_for_search(name.strip())
+                token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name.strip()))
                 
                 if kid_id:
                     # Update existing
-                    conn.execute("UPDATE kids SET name = ?, name_hash = ?, notes = ? WHERE id = ?", (name.strip(), name_hash, note, kid_id))
+                    conn.execute("UPDATE kids SET name = ?, name_hash = ?, name_token_hashes = ?, notes = ? WHERE id = ?", (name.strip(), name_hash, token_hashes, note, kid_id))
                     processed_kid_ids.append(int(kid_id))
                 else:
                     # Add new
-                    conn.execute("INSERT INTO kids (family_id, name, name_hash, notes) VALUES (?, ?, ?, ?)", (family_id, name.strip(), name_hash, note))
+                    conn.execute("INSERT INTO kids (family_id, name, name_hash, name_token_hashes, notes) VALUES (?, ?, ?, ?, ?)", (family_id, name.strip(), name_hash, token_hashes, note))
             
             # Delete removed kids
             for kid in existing_kids:

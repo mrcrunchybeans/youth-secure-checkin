@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS adults (
     family_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     name_hash TEXT,
+    name_token_hashes TEXT,
     phone TEXT,
     FOREIGN KEY (family_id) REFERENCES families(id)
 );
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS kids (
     family_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     name_hash TEXT,
+    name_token_hashes TEXT,
     notes TEXT,
     FOREIGN KEY (family_id) REFERENCES families(id)
 );

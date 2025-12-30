@@ -24,6 +24,33 @@ def hash_for_search(name):
     normalized = name.lower().strip()
     return hashlib.sha256(normalized.encode()).hexdigest()
 
+def hash_name_tokens(name):
+    """Generate hashes for all name tokens for partial search"""
+    if not name:
+        return None
+    try:
+        # Normalize: lowercase and strip whitespace
+        normalized = name.lower().strip()
+        tokens = set()
+        
+        # Add full name
+        tokens.add(normalized)
+        
+        # Split into words and generate prefix tokens
+        words = normalized.split()
+        for word in words:
+            tokens.add(word)  # Full word
+            # Add prefixes (2+ characters)
+            for i in range(2, len(word) + 1):
+                tokens.add(word[:i])
+        
+        # Hash all tokens and store as JSON
+        token_hashes = [hashlib.sha256(token.encode()).hexdigest() for token in tokens]
+        import json
+        return json.dumps(token_hashes)
+    except:
+        return None
+
 # Demo families with realistic names
 DEMO_FAMILIES = [
     {
@@ -222,8 +249,8 @@ def seed_families_and_kids(conn):
         family_adult_ids = []
         for adult_name in fam_data['adults']:
             cur = conn.execute(
-                "INSERT INTO adults (family_id, name, name_hash) VALUES (?, ?, ?)",
-                (family_id, adult_name, hash_for_search(adult_name))
+                "INSERT INTO adults (family_id, name, name_hash, name_token_hashes) VALUES (?, ?, ?, ?)",
+                (family_id, adult_name, hash_for_search(adult_name), hash_name_tokens(adult_name))
             )
             adult_id = cur.lastrowid
             family_adult_ids.append(adult_id)

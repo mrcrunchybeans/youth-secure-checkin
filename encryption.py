@@ -91,6 +91,62 @@ class FieldEncryption:
         except Exception as e:
             logger.error(f'Name hashing failed: {e}')
             raise
+    
+    @staticmethod
+    def generate_name_tokens(name):
+        """Generate searchable tokens for partial name matching.
+        
+        For "John Smith", generates tokens for:
+        - Full name: "john smith"
+        - First name parts: "john", "joh", "jo"
+        - Last name parts: "smith", "smit", "smi", "sm"
+        
+        Returns a set of tokens for tokenized search.
+        """
+        if not name:
+            return set()
+        
+        try:
+            # Normalize: lowercase and strip whitespace
+            normalized = str(name).strip().lower()
+            tokens = set()
+            
+            # Add full name
+            tokens.add(normalized)
+            
+            # Split into words and generate prefix tokens for each word
+            words = normalized.split()
+            for word in words:
+                tokens.add(word)  # Full word
+                # Add prefixes (2+ characters)
+                for i in range(2, len(word) + 1):
+                    tokens.add(word[:i])
+            
+            return tokens
+        except Exception as e:
+            logger.error(f'Token generation failed: {e}')
+            raise
+    
+    @staticmethod
+    def hash_name_tokens(name):
+        """Generate hashes for all name tokens.
+        
+        Returns a list of SHA-256 hashes for all tokens of the name.
+        This enables partial name search while maintaining encryption.
+        """
+        if not name:
+            return []
+        
+        try:
+            tokens = FieldEncryption.generate_name_tokens(name)
+            hashes = []
+            for token in tokens:
+                hash_digest = hashlib.sha256(token.encode()).hexdigest()
+                hashes.append(hash_digest)
+            return hashes
+        except Exception as e:
+            logger.error(f'Token hashing failed: {e}')
+            raise
 
 
 class DatabaseEncryption:
