@@ -273,28 +273,41 @@ def populate_name_hashes():
     try:
         conn = get_db()
         
-        # Add name_token_hashes column if it doesn't exist
+        # Add missing columns to adults table
         try:
             cursor = conn.execute("PRAGMA table_info(adults)")
             columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'name_hash' not in columns:
+                logger.info("Adding name_hash column to adults table...")
+                conn.execute("ALTER TABLE adults ADD COLUMN name_hash TEXT")
+                conn.commit()
             
             if 'name_token_hashes' not in columns:
                 logger.info("Adding name_token_hashes column to adults table...")
                 conn.execute("ALTER TABLE adults ADD COLUMN name_token_hashes TEXT")
                 conn.commit()
         except Exception as e:
-            logger.warning(f"Could not add name_token_hashes to adults: {e}")
+            if "duplicate column" not in str(e):
+                logger.warning(f"Could not add columns to adults: {e}")
         
+        # Add missing columns to kids table
         try:
             cursor = conn.execute("PRAGMA table_info(kids)")
             columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'name_hash' not in columns:
+                logger.info("Adding name_hash column to kids table...")
+                conn.execute("ALTER TABLE kids ADD COLUMN name_hash TEXT")
+                conn.commit()
             
             if 'name_token_hashes' not in columns:
                 logger.info("Adding name_token_hashes column to kids table...")
                 conn.execute("ALTER TABLE kids ADD COLUMN name_token_hashes TEXT")
                 conn.commit()
         except Exception as e:
-            logger.warning(f"Could not add name_token_hashes to kids: {e}")
+            if "duplicate column" not in str(e):
+                logger.warning(f"Could not add columns to kids: {e}")
         
         # Populate missing name_hashes in adults table
         adults_missing = conn.execute(
@@ -329,7 +342,7 @@ def populate_name_hashes():
         conn.close()
         
     except Exception as e:
-        logger.warning(f"Could not populate name hashes (may not exist yet): {str(e)}")
+        logger.warning(f"Could not populate name hashes: {str(e)}")
         # This is not fatal - happens on fresh installs before schema is created
 
 # Populate name hashes on app startup (for existing databases)
