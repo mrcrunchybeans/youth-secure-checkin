@@ -47,7 +47,7 @@ docker compose up -d
 
 ### 📚 Documentation
 
-- **[Release Notes](RELEASE_NOTES_1.0.2.md)** - Full technical details
+- **[Release Notes](RELEASE_NOTES_1.0.3.md)** - Full technical details
 - **[Security Guide](SECURITY.md)** - Architecture & best practices
 - **[README](README.md)** - Updated with new features
 - **[Security Assessment](LOGIN_SECURITY_ASSESSMENT.md)** - Detailed vulnerability analysis
@@ -83,4 +83,4 @@ docker compose up -d
 **Backward Compatible**: Yes ✅  
 **Ready to Deploy**: Yes ✅  
 
-Download v1.0.2 now and secure your check-in system!
+Download v1.0.3 now and secure your check-in system!
