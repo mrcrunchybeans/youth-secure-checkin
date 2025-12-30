@@ -10,10 +10,19 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import random
 import json
+import hashlib
 
 # Demo configuration
 DEMO_TROOP = "Demo Troop 4603"
 DATABASE_PATH = os.getenv('DATABASE_PATH', 'data/demo.db')
+
+def hash_for_search(name):
+    """Hash a name for searchable field-level encryption (SHA-256)"""
+    if not name:
+        return None
+    # Normalize: lowercase and strip whitespace
+    normalized = name.lower().strip()
+    return hashlib.sha256(normalized.encode()).hexdigest()
 
 # Demo families with realistic names
 DEMO_FAMILIES = [
@@ -213,8 +222,8 @@ def seed_families_and_kids(conn):
         family_adult_ids = []
         for adult_name in fam_data['adults']:
             cur = conn.execute(
-                "INSERT INTO adults (family_id, name) VALUES (?, ?)",
-                (family_id, adult_name)
+                "INSERT INTO adults (family_id, name, name_hash) VALUES (?, ?, ?)",
+                (family_id, adult_name, hash_for_search(adult_name))
             )
             adult_id = cur.lastrowid
             family_adult_ids.append(adult_id)
@@ -231,8 +240,8 @@ def seed_families_and_kids(conn):
         family_kid_ids = []
         for kid_data in fam_data['kids']:
             cur = conn.execute(
-                "INSERT INTO kids (family_id, name, notes) VALUES (?, ?, ?)",
-                (family_id, kid_data['name'], kid_data['notes'])
+                "INSERT INTO kids (family_id, name, notes, name_hash) VALUES (?, ?, ?, ?)",
+                (family_id, kid_data['name'], kid_data['notes'], hash_for_search(kid_data['name']))
             )
             kid_id = cur.lastrowid
             family_kid_ids.append(kid_id)
