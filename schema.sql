@@ -80,4 +80,3 @@ CREATE TABLE IF NOT EXISTS login_lockout (
 
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts(ip_address, attempt_time);
 CREATE INDEX IF NOT EXISTS idx_login_lockout_ip ON login_lockout(ip_address);
-);
