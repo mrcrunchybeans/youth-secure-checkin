@@ -64,6 +64,10 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ## 🚀 Quick Start
 
+### ⚠️ Encryption Required (v1.0.1+)
+
+All instances now require encryption keys. **New deployments** include them automatically. **Existing users upgrading from v1.0.0**: Migration is **automatic on startup** - just add encryption keys to `.env`! See [DOCKER_ENCRYPTION_MIGRATION.md](DOCKER_ENCRYPTION_MIGRATION.md) for details.
+
 ### Docker Deployment (Recommended)
 
 Deploy in 30 seconds with Docker:
@@ -76,9 +80,13 @@ mkdir -p data uploads
 # Download docker-compose.yml
 curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
 
-# Create .env file with your secrets
-echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
-echo "DEVELOPER_PASSWORD=your-secure-password" >> .env
+# Create .env file with your secrets AND encryption keys
+cat > .env << EOF
+SECRET_KEY=$(openssl rand -hex 32)
+DEVELOPER_PASSWORD=your-secure-password
+DB_ENCRYPTION_KEY=$(openssl rand -hex 32)
+FIELD_ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+EOF
 
 # Start the application
 docker compose up -d
@@ -90,6 +98,8 @@ docker compose logs
 ```
 
 **Note:** Use `docker compose` (with space), not `docker-compose` (with hyphen).
+
+**Quick Reference:** See [DOCKER_ENCRYPTION_QUICK_REF.md](DOCKER_ENCRYPTION_QUICK_REF.md) for common commands.
 
 **Try the Demo:**
 ```bash

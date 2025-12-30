@@ -183,6 +183,82 @@ def init_db():
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-key-for-local')  # override in prod with env var
 
+# Automatic encryption migration on startup (v1.0.1+)
+def auto_migrate_encryption():
+    """
+    Automatically migrate database to encryption if:
+    1. Encryption keys are set in environment
+    2. Database exists but is not encrypted
+    3. No backup already exists from this migration attempt
+    
+    This makes the upgrade seamless for Docker users.
+    """
+    from encryption import DatabaseEncryption
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    db_encryption_key = os.getenv('DB_ENCRYPTION_KEY')
+    field_encryption_key = os.getenv('FIELD_ENCRYPTION_KEY')
+    
+    # Only run if both encryption keys are set
+    if not db_encryption_key or not field_encryption_key:
+        return
+    
+    # Only run if database file exists
+    if not DB_PATH.exists():
+        return
+    
+    # Check if database is already encrypted
+    try:
+        test_conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=5)
+        test_conn.close()
+        # Database opened successfully with standard SQLite = not encrypted yet
+    except (sqlite3.DatabaseError, sqlite3.OperationalError):
+        # Database is likely already encrypted (SQLCipher), don't migrate again
+        return
+    
+    # Check if we already have a recent backup from this migration attempt
+    # (to avoid re-running on every restart)
+    backup_dir = DB_PATH.parent / 'backups'
+    if backup_dir.exists():
+        backup_files = list(backup_dir.glob('checkin.db.backup-*'))
+        if backup_files:
+            # A backup already exists, assume migration was done
+            return
+    
+    logger.info("Encryption migration: Detected unencrypted database with encryption keys set")
+    logger.info("Encryption migration: Starting automatic migration...")
+    
+    try:
+        # Create backups directory
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Backup original database
+        backup_timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        backup_path = backup_dir / f'checkin.db.backup-{backup_timestamp}'
+        shutil.copy2(DB_PATH, backup_path)
+        logger.info(f"Encryption migration: Database backed up to {backup_path}")
+        
+        # Run the migration
+        from migrate_encrypt_database import migrate_database
+        migrate_database(auto_mode=True)
+        
+        logger.info("Encryption migration: Automatic migration completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Encryption migration: Failed - {str(e)}")
+        logger.error("Encryption migration: Database was not modified, backup available")
+        # Don't raise - allow app to start even if migration fails
+        # User can run manual migration or troubleshoot
+
+# Run auto-migration on app startup
+try:
+    with app.app_context():
+        auto_migrate_encryption()
+except Exception as e:
+    print(f"Warning: Auto-migration check failed: {str(e)}")
+
 # Trust proxy headers for HTTPS detection behind reverse proxy
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 

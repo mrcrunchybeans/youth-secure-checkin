@@ -50,29 +50,40 @@ def get_last_four(phone):
     return digits[-4:] if len(digits) >= 4 else None
 
 
-def migrate_database():
-    """Migrate data from unencrypted to encrypted database."""
+def migrate_database(auto_mode=False):
+    """
+    Migrate data from unencrypted to encrypted database.
     
-    print("\n" + "="*60)
-    print("🔐 Database Encryption Migration")
-    print("="*60)
+    Args:
+        auto_mode (bool): If True, suppresses some output and doesn't ask for confirmation
+    """
+    
+    if not auto_mode:
+        print("\n" + "="*60)
+        print("🔐 Database Encryption Migration")
+        print("="*60)
     
     # Validate encryption keys
-    print("\n🔑 Validating encryption keys...")
+    if not auto_mode:
+        print("\n🔑 Validating encryption keys...")
     try:
         DatabaseEncryption.validate_keys()
-        print("✅ Encryption keys valid")
+        if not auto_mode:
+            print("✅ Encryption keys valid")
     except Exception as e:
         print(f"❌ Encryption setup failed: {e}")
         sys.exit(1)
     
     # Backup original
+    if not auto_mode:
+        print("\n📋 Creating backup...")
     backup_path = backup_original_db()
     if not backup_path:
         sys.exit(1)
     
     # Connect to original unencrypted database
-    print("\n📖 Reading original database...")
+    if not auto_mode:
+        print("\n📖 Reading original database...")
     old_db_path = os.path.join('data', 'checkin.db')
     old_conn = sqlite3.connect(old_db_path)
     old_conn.row_factory = sqlite3.Row
