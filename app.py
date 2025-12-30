@@ -273,6 +273,29 @@ def populate_name_hashes():
     try:
         conn = get_db()
         
+        # Add name_token_hashes column if it doesn't exist
+        try:
+            cursor = conn.execute("PRAGMA table_info(adults)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'name_token_hashes' not in columns:
+                logger.info("Adding name_token_hashes column to adults table...")
+                conn.execute("ALTER TABLE adults ADD COLUMN name_token_hashes TEXT")
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Could not add name_token_hashes to adults: {e}")
+        
+        try:
+            cursor = conn.execute("PRAGMA table_info(kids)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'name_token_hashes' not in columns:
+                logger.info("Adding name_token_hashes column to kids table...")
+                conn.execute("ALTER TABLE kids ADD COLUMN name_token_hashes TEXT")
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Could not add name_token_hashes to kids: {e}")
+        
         # Populate missing name_hashes in adults table
         adults_missing = conn.execute(
             "SELECT id, name FROM adults WHERE name_hash IS NULL OR name_hash = '' OR name_token_hashes IS NULL OR name_token_hashes = ''"
@@ -1221,72 +1244,98 @@ def checkin_last4():
 @app.route('/search_name', methods=['POST'])
 @require_auth
 def search_name():
-    """Search families by kid or adult name using tokenized hashes (supports partial names)."""
+    """Search families by kid or adult name using tokenized hashes (supports partial names).
+    Gracefully falls back to name_hash if token hashes not available yet."""
     name = request.form.get('name', '').strip()
     event_id = request.form.get('event_id')
     if not name:
         return jsonify({'error': 'Name required'}), 400
 
-    # Generate token hashes of search term for partial matching
     from encryption import FieldEncryption
-    token_hashes = FieldEncryption.hash_name_tokens(name)
-    token_hashes_json = json.dumps(token_hashes)
     
     conn = get_db()
-    
-    # Build a query that checks if any token hash exists in the stored token_hashes
-    # We'll do this in Python to be more flexible with JSON handling
     families = []
-    all_families = conn.execute("""
-        SELECT DISTINCT f.id, f.phone, f.troop, f.default_adult_id,
-               (SELECT GROUP_CONCAT(a.id || ':' || a.name)
-                FROM adults a WHERE a.family_id = f.id) as adults,
-               (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
-                FROM kids k WHERE k.family_id = f.id) as kids
-        FROM families f
-        WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id)
-           OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id)
-        LIMIT 100
-    """).fetchall()
     
-    # Filter in Python - check if any token hash matches
-    for family in all_families:
-        match = False
+    # Check if name_token_hashes column exists
+    try:
+        cursor = conn.execute("PRAGMA table_info(kids)")
+        columns = [row[1] for row in cursor.fetchall()]
+        has_token_hashes = 'name_token_hashes' in columns
+    except:
+        has_token_hashes = False
+    
+    if has_token_hashes:
+        # Use tokenized search for partial name matching
+        token_hashes = FieldEncryption.hash_name_tokens(name)
         
-        # Check kids
-        kids_with_hashes = conn.execute(
-            "SELECT name_token_hashes FROM kids WHERE family_id = ?", (family['id'],)
-        ).fetchall()
-        for kid_row in kids_with_hashes:
-            if kid_row and kid_row[0]:
-                try:
-                    stored_hashes = json.loads(kid_row[0])
-                    if any(h in stored_hashes for h in token_hashes):
-                        match = True
-                        break
-                except:
-                    pass
+        # Get all families with kids/adults
+        all_families = conn.execute("""
+            SELECT DISTINCT f.id, f.phone, f.troop, f.default_adult_id,
+                   (SELECT GROUP_CONCAT(a.id || ':' || a.name)
+                    FROM adults a WHERE a.family_id = f.id) as adults,
+                   (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
+                    FROM kids k WHERE k.family_id = f.id) as kids
+            FROM families f
+            WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id)
+               OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id)
+            LIMIT 100
+        """).fetchall()
         
-        if match:
-            families.append(family)
-            continue
+        # Filter in Python - check if any token hash matches
+        for family in all_families:
+            match = False
+            
+            # Check kids
+            kids_with_hashes = conn.execute(
+                "SELECT name_token_hashes FROM kids WHERE family_id = ?", (family['id'],)
+            ).fetchall()
+            for kid_row in kids_with_hashes:
+                if kid_row and kid_row[0]:
+                    try:
+                        stored_hashes = json.loads(kid_row[0])
+                        if any(h in stored_hashes for h in token_hashes):
+                            match = True
+                            break
+                    except:
+                        pass
+            
+            if match:
+                families.append(family)
+                continue
+            
+            # Check adults
+            adults_with_hashes = conn.execute(
+                "SELECT name_token_hashes FROM adults WHERE family_id = ?", (family['id'],)
+            ).fetchall()
+            for adult_row in adults_with_hashes:
+                if adult_row and adult_row[0]:
+                    try:
+                        stored_hashes = json.loads(adult_row[0])
+                        if any(h in stored_hashes for h in token_hashes):
+                            match = True
+                            break
+                    except:
+                        pass
+            
+            if match:
+                families.append(family)
+    
+    else:
+        # Fallback: Use name_hash for exact matching if token hashes not available
+        search_hash = FieldEncryption.hash_for_search(name)
         
-        # Check adults
-        adults_with_hashes = conn.execute(
-            "SELECT name_token_hashes FROM adults WHERE family_id = ?", (family['id'],)
-        ).fetchall()
-        for adult_row in adults_with_hashes:
-            if adult_row and adult_row[0]:
-                try:
-                    stored_hashes = json.loads(adult_row[0])
-                    if any(h in stored_hashes for h in token_hashes):
-                        match = True
-                        break
-                except:
-                    pass
-        
-        if match:
-            families.append(family)
+        cur = conn.execute("""
+            SELECT f.id, f.phone, f.troop, f.default_adult_id,
+                   (SELECT GROUP_CONCAT(a.id || ':' || a.name)
+                    FROM adults a WHERE a.family_id = f.id) as adults,
+                   (SELECT GROUP_CONCAT(k.id || ':' || k.name || ':' || COALESCE(k.notes, ''))
+                    FROM kids k WHERE k.family_id = f.id) as kids
+            FROM families f
+            WHERE EXISTS (SELECT 1 FROM kids k WHERE k.family_id = f.id AND k.name_hash = ?)
+               OR EXISTS (SELECT 1 FROM adults a WHERE a.family_id = f.id AND a.name_hash = ?)
+            LIMIT 20
+        """, (search_hash, search_hash))
+        families = cur.fetchall()
 
     if not families:
         conn.close()
