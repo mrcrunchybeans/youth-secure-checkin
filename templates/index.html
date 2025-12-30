@@ -409,14 +409,41 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     return;
   }
   
-  // Check if input is all digits (phone search) or text (name search)
-  const isPhoneSearch = /^\d+$/.test(searchInput);
+  // Determine search type based on content
+  const isAllDigits = /^\d+$/.test(searchInput);
+  const hasLetters = /[a-zA-Z]/.test(searchInput);
+  const isCheckoutCode = /^[a-zA-Z0-9]+$/.test(searchInput) && searchInput.length >= 4 && !hasLetters;
   
-  // For alphanumeric input that might be a checkout code
-  const couldBeCheckoutCode = /^[a-zA-Z0-9]+$/.test(searchInput) && searchInput.length >= 4;
-  
-  if (isPhoneSearch || couldBeCheckoutCode) {
-    // Phone search or checkout code - try both
+  // Prefer name search if input contains letters
+  if (hasLetters) {
+    // Name search
+    fetch('/search_name', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({name: searchInput, event_id: eventId})
+    })
+    .then(response => response.json())
+    .then(data => {
+      const families = data.families || [];
+      
+      if (families.length === 0) {
+        alert('No matches found for "' + searchInput + '"');
+        return;
+      }
+      
+      if (families.length === 1) {
+        populateFamilyModal(families[0]);
+        new bootstrap.Modal(document.getElementById('familyModal')).show();
+      } else {
+        showMultipleFamilies(families);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Search failed. Please try again.');
+    });
+  } else if (isAllDigits || isCheckoutCode) {
+    // Phone search or checkout code
     fetch('/checkin_last4', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -435,7 +462,7 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
         return;
       }
       
-      // Handle multiple matches (like name search)
+      // Handle multiple matches
       if (data.families && data.families.length > 0) {
         if (data.families.length === 1) {
           populateFamilyModal(data.families[0]);
@@ -454,32 +481,7 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
       alert('Search failed');
     });
   } else {
-    // Name search
-    fetch('/search_name', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({name: searchInput, event_id: eventId})
-    })
-    .then(response => response.json())
-    .then(data => {
-      const families = data.families || [];
-      
-      if (families.length === 0) {
-        alert('No matches found');
-        return;
-      }
-      
-      if (families.length === 1) {
-        populateFamilyModal(families[0]);
-        new bootstrap.Modal(document.getElementById('familyModal')).show();
-      } else {
-        showMultipleFamilies(families);
-      }
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      alert('Search failed. Please try again.');
-    });
+    alert('Please enter a phone number (digits) or a name (with letters)');
   }
 });
 
