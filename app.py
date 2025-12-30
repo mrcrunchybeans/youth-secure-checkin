@@ -5,9 +5,11 @@ from datetime import datetime, timezone, timedelta
 import requests
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+import logging
 
 # Application version
 APP_VERSION = "1.0.2"
+logger = logging.getLogger(__name__)
 from requests.adapters import HTTPAdapter
 from urllib3.util.connection import create_connection
 import urllib3
@@ -369,13 +371,13 @@ def migrate_plaintext_passwords():
             hashed = generate_password_hash(plaintext, method='pbkdf2:sha256')
             conn.execute("UPDATE settings SET value = ? WHERE key = 'app_password'", (hashed,))
             conn.commit()
-            logger.info("Password migration: app_password hashed")
+            print("INFO:app:Password migration: app_password hashed")
         
         # Create login tracking tables if they don't exist
         try:
             conn.execute("SELECT 1 FROM login_attempts LIMIT 1")
         except:
-            logger.info("Creating login_attempts table...")
+            print("INFO:app:Creating login_attempts table...")
             conn.execute("""
                 CREATE TABLE login_attempts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -390,7 +392,7 @@ def migrate_plaintext_passwords():
         try:
             conn.execute("SELECT 1 FROM login_lockout LIMIT 1")
         except:
-            logger.info("Creating login_lockout table...")
+            print("INFO:app:Creating login_lockout table...")
             conn.execute("""
                 CREATE TABLE login_lockout (
                     ip_address TEXT PRIMARY KEY,
@@ -402,7 +404,7 @@ def migrate_plaintext_passwords():
         
         conn.close()
     except Exception as e:
-        logger.warning(f"Password migration error: {str(e)}")
+        print(f"WARNING:app:Password migration error: {str(e)}")
 
 # Migrate passwords on app startup
 try:
