@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Flask 3.0](https://img.shields.io/badge/flask-3.0-green.svg)](https://flask.palletsprojects.com/)
+[![Flask 3.1](https://img.shields.io/badge/flask-3.1-green.svg)](https://flask.palletsprojects.com/)
 
 A secure, flexible check-in/check-out system for youth organizations including Trail Life, scouting groups, churches, schools, and community programs. Features family management, event tracking, QR code checkout, label printing, and comprehensive security controls.
 
@@ -26,6 +26,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ### 👨‍👩‍👧‍👦 Family Management
 - **Family Records**: Store families with adults and children
+- **Improved Data Entry**: Clear, intuitive Add/Edit Family pages with helpful examples and context
 - **Group Assignment**: Organize by troop/den/class/group
 - **CSV Import/Export**: Bulk import families, export for backup
 - **Flexible Import**: Supports multiple CSV column name variations
@@ -64,6 +65,10 @@ A secure, flexible check-in/check-out system for youth organizations including T
 
 ## 🚀 Quick Start
 
+### ⚠️ Encryption Required (v1.0.2+)
+
+All instances now require encryption keys. **New deployments** include them automatically. **Existing users upgrading from v1.0.0 or v1.0.1**: Migration is **automatic on startup** - just add encryption keys to `.env`! See [DOCKER_ENCRYPTION_MIGRATION.md](DOCKER_ENCRYPTION_MIGRATION.md) for details.
+
 ### Docker Deployment (Recommended)
 
 Deploy in 30 seconds with Docker:
@@ -76,9 +81,13 @@ mkdir -p data uploads
 # Download docker-compose.yml
 curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
 
-# Create .env file with your secrets
-echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
-echo "DEVELOPER_PASSWORD=your-secure-password" >> .env
+# Create .env file with your secrets AND encryption keys
+cat > .env << EOF
+SECRET_KEY=$(openssl rand -hex 32)
+DEVELOPER_PASSWORD=your-secure-password
+DB_ENCRYPTION_KEY=$(openssl rand -hex 32)
+FIELD_ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+EOF
 
 # Start the application
 docker compose up -d
@@ -90,6 +99,8 @@ docker compose logs
 ```
 
 **Note:** Use `docker compose` (with space), not `docker-compose` (with hyphen).
+
+**Quick Reference:** See [DOCKER_ENCRYPTION_QUICK_REF.md](DOCKER_ENCRYPTION_QUICK_REF.md) for common commands.
 
 **Try the Demo:**
 ```bash
@@ -135,8 +146,10 @@ Complete first-time setup wizard, then start checking in families!
 ## 📖 Documentation
 
 - **[Docker Guide](DOCKER.md)** - Docker deployment (recommended)
+- **[Encryption Migration Guide](DOCKER_ENCRYPTION_MIGRATION.md)** - Automatic encryption setup (v1.0.2+)
+- **[Encryption Quick Reference](DOCKER_ENCRYPTION_QUICK_REF.md)** - Common encryption commands
+- **[Security Guide](SECURITY.md)** - Security best practices and encryption architecture
 - **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Production hosting guide
-- **[Security Guide](SECURITY.md)** - Security best practices
 - **[FAQ](docs/FAQ.md)** - Frequently asked questions
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
 
@@ -211,13 +224,15 @@ Access comprehensive settings at `/admin`:
 ## 📋 Requirements
 
 See [requirements.txt](requirements.txt) for full dependency list:
-- Flask==3.0.0
-- icalendar==5.0.11
-- requests==2.31.0
-- qrcode==7.4.2
-- Pillow==10.1.0
-- python-dotenv==1.0.0
-- gunicorn==21.2.0 (for production)
+- Flask==3.1.1
+- icalendar==6.1.0
+- requests==2.32.4
+- qrcode==8.0
+- Pillow==11.0.0
+- python-dotenv==1.0.1
+- gunicorn==23.0.0 (for production)
+- cryptography==41.0.7 (encryption)
+- pysqlcipher3==1.2.0 (database encryption)
 
 ## 🐳 Deployment Options
 

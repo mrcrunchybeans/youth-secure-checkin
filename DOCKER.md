@@ -1,5 +1,14 @@
 # YouthCheckIn - Docker Deployment Guide
 
+## ⚠️ Important: Encryption Required (v1.0.1+)
+
+As of December 2025, all instances **require encryption keys** in the `.env` file:
+- `DB_ENCRYPTION_KEY` - Database encryption (AES-256)
+- `FIELD_ENCRYPTION_KEY` - Field encryption (AES-256 Fernet)
+
+**New deployments:** Follow the Quick Start below (keys auto-generated)
+**Upgrading from v1.0.0 or earlier:** See [DOCKER_ENCRYPTION_MIGRATION.md](DOCKER_ENCRYPTION_MIGRATION.md) for safe upgrade steps
+
 ## 📋 Prerequisites
 
 - Docker Engine 20.10+ or Docker Desktop
@@ -21,10 +30,12 @@ mkdir -p data uploads
 # Download docker-compose.yml
 curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
 
-# Create .env file with your secrets
+# Create .env file with required secrets AND encryption keys
 cat > .env << EOF
 SECRET_KEY=$(openssl rand -hex 32)
 DEVELOPER_PASSWORD=your-secure-password-here
+DB_ENCRYPTION_KEY=$(openssl rand -hex 32)
+FIELD_ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 EOF
 
 # Start the production service
@@ -32,6 +43,9 @@ docker compose up -d
 
 # Check logs to verify startup
 docker compose logs -f
+
+# If this is your FIRST TIME with data, migration will happen automatically
+# If UPGRADING from v1.0.0 or earlier, see: DOCKER_ENCRYPTION_MIGRATION.md
 ```
 
 **Note:** Use `docker compose` (with a space, not hyphen). The older `docker-compose` command may not be installed on newer systems.
@@ -498,7 +512,7 @@ curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/ma
 # Create unique .env file
 cat > .env << EOF
 SECRET_KEY=$(openssl rand -hex 32)
-DEVELOPER_PASSWORD=unique-password-for-this-troop
+DEVELOPER_PASSWORD=unique-secure-password-here
 EOF
 
 # Edit docker-compose.yml to use unique container name and port

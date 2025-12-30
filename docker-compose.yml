@@ -1,5 +1,14 @@
 # Youth Secure Check-in - Docker Compose Configuration
 # 
+# IMPORTANT: Encryption Keys Required (v1.0.1+)
+# Your .env file MUST contain:
+#   SECRET_KEY=<your-secret-key>
+#   DEVELOPER_PASSWORD=<your-password>
+#   DB_ENCRYPTION_KEY=<64-char-hex-string>
+#   FIELD_ENCRYPTION_KEY=<44-char-base64-string>
+#
+# See DOCKER_ENCRYPTION_QUICK_REF.md for key generation
+#
 # Usage:
 #   docker compose up -d                    # Start production
 #   docker compose --profile demo up -d     # Start demo mode (for developers)
@@ -20,6 +29,8 @@ services:
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
+      - DB_ENCRYPTION_KEY=${DB_ENCRYPTION_KEY}
+      - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
     volumes:
       # Persist database and uploads
       - ./data:/app/data

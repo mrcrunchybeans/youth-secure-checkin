@@ -10,6 +10,8 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     libcups2-dev \
     wget \
     sqlite3 \
+    libsqlcipher-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

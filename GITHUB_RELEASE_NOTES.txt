@@ -1,0 +1,152 @@
+# Copy this text into GitHub Releases for v1.0.1
+
+---
+
+## 🔐 Automatic Encryption Migration (NEW)
+
+When you update to v1.0.1, database encryption migration happens **completely automatically on startup**. No manual steps needed!
+
+**What gets encrypted:**
+- Database at rest (AES-256 SQLCipher)
+- Sensitive fields: names, phone numbers, addresses, notes (Fernet)
+
+**For users:** Just add encryption keys to `.env` and restart. That's it!
+
+```bash
+# Generate encryption keys
+DB_ENCRYPTION_KEY=$(openssl rand -hex 32)
+FIELD_ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+# Add to .env
+echo "DB_ENCRYPTION_KEY=$DB_ENCRYPTION_KEY" >> .env
+echo "FIELD_ENCRYPTION_KEY=$FIELD_ENCRYPTION_KEY" >> .env
+
+# Restart (migration runs automatically on startup)
+docker compose pull
+docker compose down
+docker compose up -d
+```
+
+Migration happens silently, backups are created automatically, and the app continues normally with encrypted data.
+
+**See [DOCKER_ENCRYPTION_MIGRATION.md](https://github.com/mrcrunchybeans/youth-secure-checkin/blob/master/DOCKER_ENCRYPTION_MIGRATION.md) for full details.**
+
+---
+
+## 🎨 Improved Family Data Entry
+
+The Add/Edit Family page has been redesigned for clarity:
+
+**Before:** Confusing form with unclear "Group/Troop" field that users were filling with last names
+
+**After:** 
+- Clear sections: Authorization Settings → Adults → Children
+- Helpful examples in placeholders (e.g., "John Smith", "555-123-4567")
+- Context about how data is used
+- Better visual organization with card-based layout
+- Clearer labels and button text
+
+This makes it obvious what information to enter and how it's used during check-in.
+
+---
+
+## ✨ What's Changed
+
+### New Features
+- ✅ Automatic encryption migration on Docker update
+- ✅ Redesigned family data entry form
+- ✅ Automatic backup before encryption
+- ✅ Option for manual migration control
+
+### Improvements
+- Better user experience for form entry
+- Clear encryption setup process
+- Comprehensive documentation
+- All changes are backward compatible
+
+### No Breaking Changes
+- Old databases continue to work
+- Migration is transparent and automatic
+- All existing functionality preserved
+
+---
+
+## 📚 Documentation
+
+- **[DOCKER_ENCRYPTION_MIGRATION.md](https://github.com/mrcrunchybeans/youth-secure-checkin/blob/master/DOCKER_ENCRYPTION_MIGRATION.md)** - Complete guide to updating and migrating
+- **[DOCKER_ENCRYPTION_QUICK_REF.md](https://github.com/mrcrunchybeans/youth-secure-checkin/blob/master/DOCKER_ENCRYPTION_QUICK_REF.md)** - Quick reference
+- **[ENCRYPTION_SETUP.md](https://github.com/mrcrunchybeans/youth-secure-checkin/blob/master/ENCRYPTION_SETUP.md)** - Key generation
+- **[SECURITY_ENCRYPTION.md](https://github.com/mrcrunchybeans/youth-secure-checkin/blob/master/SECURITY_ENCRYPTION.md)** - Architecture details
+
+---
+
+## 🚀 How to Update
+
+### Existing users (v1.0.0 → v1.0.1)
+
+```bash
+# 1. Generate and add encryption keys (see above)
+# 2. Pull latest image
+docker compose pull
+
+# 3. Restart
+docker compose down
+docker compose up -d
+
+# 4. Done! Migration happens automatically.
+```
+
+### New installations
+
+Encryption is included from the start. See README for setup.
+
+---
+
+## ✅ What to Test
+
+1. **Add/Edit Family** - New cleaner form with helpful examples
+2. **Encryption Migration** - Pull image, add keys, restart, check logs
+3. **Manual Migration** - Set `SKIP_AUTO_ENCRYPTION=1` to defer if needed
+4. **Rollback** - Restore from `data/backups/checkin.db.backup-*` if needed
+
+---
+
+## 🛡️ Security
+
+**Keys are unique per deployment:**
+```bash
+# Each instance gets its own keys
+DB_ENCRYPTION_KEY=$(openssl rand -hex 32)      # 64-char hex string
+FIELD_ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")  # 44-char base64
+```
+
+**Store safely:**
+- ✅ In `.env` (never commit to Git)
+- ✅ In password manager
+- ✅ Backup separately from database
+- ❌ NOT in plain text in docker-compose.yml
+- ❌ NOT hardcoded anywhere
+
+**Backups:**
+- Created automatically before encryption
+- Located in `data/backups/checkin.db.backup-TIMESTAMP`
+- Can be deleted after 30 days of stable operation
+
+---
+
+## 📋 v1.0.1 Summary
+
+**Release Date:** December 30, 2025
+
+**Highlights:**
+- 🔐 Automatic database encryption on update
+- 🎨 Improved family data entry form
+- 📚 Comprehensive encryption documentation
+- ✅ Zero manual migration steps needed
+- ✅ Fully backward compatible
+
+**No breaking changes. All existing features work as before.**
+
+See [RELEASE_NOTES.md](https://github.com/mrcrunchybeans/youth-secure-checkin/blob/master/RELEASE_NOTES.md) for complete details.
+
+---

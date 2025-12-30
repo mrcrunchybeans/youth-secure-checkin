@@ -2,89 +2,146 @@
 {% block content %}
 <div class="container">
   <h2>Add Family</h2>
+  
+  <div class="alert alert-info mb-4" role="alert">
+    <strong>ℹ️ Data Entry Tip:</strong> Phone numbers are highly recommended - they're the primary way families are found at check-in. You can also search by adult or child name if needed. Always capture at least one phone number per family when possible.
+  </div>
+
   <form method="post">
-    <div class="mb-3">
-      <label class="form-label">{{ branding.group_term }}</label>
-      <input name="troop" class="form-control" />
+    <!-- Authorized Adults - this is for emergency contacts/permission -->
+    <div class="card mb-4">
+      <div class="card-header bg-light">
+        <h5 class="mb-0">Authorization Settings</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label"><strong>Who is authorized to pick up?</strong></label>
+          <textarea name="authorized_adults" class="form-control" rows="2" placeholder="e.g., Mom, Dad, Grandma Jane, Aunt Sarah" style="font-size: 0.9rem;"></textarea>
+          <small class="form-text text-muted d-block mt-2">
+            List the names of all adults who are allowed to pick up the child(ren). This helps staff at check-out verify the correct person is picking up.
+          </small>
+        </div>
+      </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Authorized Adults for Checkout (applies to all kids)</label>
-      <textarea name="authorized_adults" class="form-control" rows="2" placeholder="e.g., Mom, Dad, Grandma Jane" style="font-size: 0.9rem;"></textarea>
-      <small class="form-text text-muted">List adults authorized to pick up any child in this family.</small>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Adults</label>
-      <div id="adults">
-        <div class="mb-2">
-          <div class="d-flex align-items-center mb-1">
-            <input type="radio" name="default_adult_index" value="0" class="me-2" checked title="Set as default for check-in" />
-            <input name="adults" class="form-control" placeholder="Adult name" />
+
+    <!-- Adults in Household -->
+    <div class="card mb-4">
+      <div class="card-header bg-light">
+        <h5 class="mb-0">Adults in Household</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted"><small>Enter the names and phone numbers of adults associated with this family. The first adult will be used as the default at check-in.</small></p>
+        
+        <div id="adults">
+          <div class="mb-3 border rounded p-3 bg-light">
+            <div class="mb-2">
+              <div class="d-flex align-items-center">
+                <input type="radio" name="default_adult_index" value="0" class="form-check-input me-2" checked title="Set as default for check-in" />
+                <div style="flex: 1;">
+                  <input name="adults" class="form-control" placeholder="Name (e.g., John Smith)" required />
+                </div>
+              </div>
+            </div>
+            <input name="adult_phones" class="form-control" type="tel" placeholder="Phone number (optional, e.g., 555-123-4567)" style="font-size: 0.9rem;" />
+            <small class="form-text text-muted d-block mt-2">The name and phone are used for check-in and family lookup.</small>
           </div>
-          <input name="adult_phones" class="form-control ms-4" type="tel" placeholder="Phone number (optional)" style="font-size: 0.9rem;" />
         </div>
+        
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('adults')">+ Add Another Adult</button>
+        <small class="form-text text-muted d-block mt-2">The adult with the radio button selected will be the default choice at check-in.</small>
       </div>
-      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('adults')">Add Adult</button>
-      <small class="form-text text-muted d-block mt-2">Select the radio button next to the adult who should be pre-selected during check-in. Each adult can have their own phone number for check-in.</small>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Kids</label>
-      <div id="kids">
-        <div class="mb-3 border rounded p-2 bg-light">
-          <input name="kids" class="form-control mb-2" placeholder="Kid name" />
-          <textarea name="kid_notes" class="form-control" rows="2" placeholder="Notes (dietary restrictions, special needs, etc.)" style="font-size: 0.9rem;"></textarea>
+
+    <!-- Children in Family -->
+    <div class="card mb-4">
+      <div class="card-header bg-light">
+        <h5 class="mb-0">Children in Family</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted"><small>Enter each child's name and any important notes (allergies, special needs, etc.)</small></p>
+        
+        <div id="kids">
+          <div class="mb-3 border rounded p-3 bg-light">
+            <input name="kids" class="form-control mb-2" placeholder="Child's name (e.g., Sarah Smith)" required />
+            <textarea name="kid_notes" class="form-control" rows="2" placeholder="Notes (e.g., peanut allergy, uses EpiPen, has hearing aid)" style="font-size: 0.9rem;"></textarea>
+            <small class="form-text text-muted d-block mt-2">Notes are visible during check-in to alert staff of any special considerations.</small>
+          </div>
         </div>
+        
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('kids')">+ Add Another Child</button>
       </div>
-      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addField('kids')">Add Kid</button>
     </div>
-    <button type="submit" class="btn btn-primary">Add Family</button>
+
+    <!-- Hidden field for backwards compatibility -->
+    <input type="hidden" name="troop" value="" />
+
+    <!-- Submit -->
+    <div class="mb-4">
+      <button type="submit" class="btn btn-primary btn-lg">Add Family</button>
+      <a href="/admin/families" class="btn btn-secondary btn-lg">Cancel</a>
+    </div>
   </form>
-  <a href="/admin/families" class="btn btn-secondary mt-3">Back</a>
 </div>
+
 <script>
 function addField(type) {
   const div = document.getElementById(type);
   if (type === 'adults') {
     const currentCount = div.querySelectorAll('input[name="adults"]').length;
     const container = document.createElement('div');
-    container.className = 'mb-2';
+    container.className = 'mb-3 border rounded p-3 bg-light';
     const wrapper = document.createElement('div');
-    wrapper.className = 'd-flex align-items-center mb-1';
+    wrapper.className = 'mb-2';
+    const radioWrapper = document.createElement('div');
+    radioWrapper.className = 'd-flex align-items-center';
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'default_adult_index';
     radio.value = currentCount.toString();
-    radio.className = 'me-2';
+    radio.className = 'form-check-input me-2';
     radio.title = 'Set as default for check-in';
+    const inputWrapper = document.createElement('div');
+    inputWrapper.style.flex = '1';
     const input = document.createElement('input');
     input.name = type;
     input.className = 'form-control';
-    input.placeholder = 'Adult name';
+    input.placeholder = 'Name (e.g., John Smith)';
+    inputWrapper.appendChild(input);
+    radioWrapper.appendChild(radio);
+    radioWrapper.appendChild(inputWrapper);
+    wrapper.appendChild(radioWrapper);
     const phoneInput = document.createElement('input');
     phoneInput.name = 'adult_phones';
-    phoneInput.className = 'form-control ms-4';
+    phoneInput.className = 'form-control';
     phoneInput.type = 'tel';
-    phoneInput.placeholder = 'Phone number (optional)';
+    phoneInput.placeholder = 'Phone number (optional, e.g., 555-123-4567)';
     phoneInput.style.fontSize = '0.9rem';
-    wrapper.appendChild(radio);
-    wrapper.appendChild(input);
+    const note = document.createElement('small');
+    note.className = 'form-text text-muted d-block mt-2';
+    note.textContent = 'The name and phone are used for check-in and family lookup.';
     container.appendChild(wrapper);
     container.appendChild(phoneInput);
+    container.appendChild(note);
     div.appendChild(container);
   } else {
     const wrapper = document.createElement('div');
-    wrapper.className = 'mb-3 border rounded p-2 bg-light';
+    wrapper.className = 'mb-3 border rounded p-3 bg-light';
     const input = document.createElement('input');
     input.name = type;
     input.className = 'form-control mb-2';
-    input.placeholder = 'Kid name';
+    input.placeholder = 'Child\'s name (e.g., Sarah Smith)';
     const textarea = document.createElement('textarea');
     textarea.name = 'kid_notes';
     textarea.className = 'form-control';
     textarea.rows = 2;
-    textarea.placeholder = 'Notes (dietary restrictions, special needs, etc.)';
+    textarea.placeholder = 'Notes (e.g., peanut allergy, uses EpiPen, has hearing aid)';
     textarea.style.fontSize = '0.9rem';
+    const note = document.createElement('small');
+    note.className = 'form-text text-muted d-block mt-2';
+    note.textContent = 'Notes are visible during check-in to alert staff of any special considerations.';
     wrapper.appendChild(input);
     wrapper.appendChild(textarea);
+    wrapper.appendChild(note);
     div.appendChild(wrapper);
   }
 }
