@@ -1,13 +1,37 @@
 # YouthCheckIn - Docker Deployment Guide
 
-## ⚠️ Important: Encryption Required (v1.0.1+)
+## 🎯 What is YouthCheckIn?
 
-As of December 2025, all instances **require encryption keys** in the `.env` file:
-- `DB_ENCRYPTION_KEY` - Database encryption (AES-256)
-- `FIELD_ENCRYPTION_KEY` - Field encryption (AES-256 Fernet)
+YouthCheckIn is a **free, open-source check-in system** designed for youth organizations, churches, schools, and community groups. Parents quickly look up their family using the last 4 digits of their phone number, select their kids, and check them in with a single tap. Volunteers see real-time check-in status and checkout codes for accountability.
 
-**New deployments:** Follow the Quick Start below (keys auto-generated)
-**Upgrading from v1.0.0 or earlier:** See [DOCKER_ENCRYPTION_MIGRATION.md](DOCKER_ENCRYPTION_MIGRATION.md) for safe upgrade steps
+**Key Features:**
+- ✅ **Free & Open Source** - MIT License, no subscriptions ever
+- 🏠 **Self-Hosted** - Your data stays on your server (complete privacy)
+- 🔒 **Enterprise Security** (v1.0.3+) - AES-256 encryption, rate limiting, account lockout
+- ⚡ **Fast** - 10-second check-in process, minimal training needed
+- 📱 **Mobile-Friendly** - Works great on phones, tablets, and desktops
+- 🎨 **Customizable** - Your colors, logo, and terminology
+- 📊 **Attendance Tracking** - History, reports, and export capabilities
+- 🔄 **Calendar Integration** - Auto-syncs with Google Calendar or iCal
+
+**Technology Stack:**
+- **Backend**: Flask 3.1.1 (Python web framework)
+- **Database**: SQLite with SQLCipher encryption (AES-256)
+- **Frontend**: Bootstrap 5.3 + vanilla JavaScript
+- **Deployment**: Docker + Docker Compose (one-command startup)
+
+## 📖 This Deployment Guide
+
+This guide walks you through deploying YouthCheckIn using Docker, which provides:
+- ✅ **One-command startup** - `docker compose up -d`
+- ✅ **No dependency conflicts** - Everything isolated in containers
+- ✅ **Easy updates** - Pull new image and restart
+- ✅ **Data persistence** - Your database and uploads survive container restarts
+- ✅ **Multiple deployment options** - VPS, cloud, or local server
+
+Whether you're trying the **demo first** or deploying to **production**, this guide has you covered.
+
+---
 
 ## 📋 Prerequisites
 
@@ -21,34 +45,27 @@ As of December 2025, all instances **require encryption keys** in the `.env` fil
 ### Option 1: Pull from Docker Hub (Recommended)
 
 ```bash
-# Create a directory for your instance
-mkdir youth-checkin && cd youth-checkin
+# Pull the latest image
+docker pull mrcrunchybeans/youth-secure-checkin:latest
 
-# Create required directories
-mkdir -p data uploads
-
-# Download docker-compose.yml
+# Create docker-compose.yml
 curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
 
-# Create .env file with required secrets AND encryption keys
+# Generate encryption keys (required for v1.0.3+)
+python -c "import secrets; print('DB_ENCRYPTION_KEY=' + secrets.token_hex(32))"
+python -c "from cryptography.fernet import Fernet; print('FIELD_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
+
+# Create .env file with your keys
 cat > .env << EOF
-SECRET_KEY=$(openssl rand -hex 32)
-DEVELOPER_PASSWORD=your-secure-password-here
-DB_ENCRYPTION_KEY=$(openssl rand -hex 32)
-FIELD_ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+DEVELOPER_PASSWORD=$(python -c "import secrets; print(secrets.token_urlsafe(16))")
+DB_ENCRYPTION_KEY=<paste-your-db-key-here>
+FIELD_ENCRYPTION_KEY=<paste-your-field-key-here>
 EOF
 
-# Start the production service
+# Start the application
 docker compose up -d
-
-# Check logs to verify startup
-docker compose logs -f
-
-# If this is your FIRST TIME with data, migration will happen automatically
-# If UPGRADING from v1.0.0 or earlier, see: DOCKER_ENCRYPTION_MIGRATION.md
 ```
-
-**Note:** Use `docker compose` (with a space, not hyphen). The older `docker-compose` command may not be installed on newer systems.
 
 ### Option 2: Build from Source
 
@@ -57,13 +74,25 @@ docker compose logs -f
 git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
 cd youth-secure-checkin
 
-# Start with docker compose (uses profile)
+# Generate encryption keys (required)
+python -c "import secrets; print('DB_ENCRYPTION_KEY=' + secrets.token_hex(32))"
+python -c "from cryptography.fernet import Fernet; print('FIELD_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
+
+# Create .env file
+cat > .env << EOF
+SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+DEVELOPER_PASSWORD=$(python -c "import secrets; print(secrets.token_urlsafe(16))")
+DB_ENCRYPTION_KEY=<your-key>
+FIELD_ENCRYPTION_KEY=<your-key>
+EOF
+
+# Start application
 docker compose up -d
 ```
 
 ### Access Application
 
-**Youth Check-in:** `http://localhost:5000`
+Open your browser to: `http://localhost:5000`
 
 The setup wizard will guide you through initial configuration:
 1. Organization details and branding
@@ -71,22 +100,17 @@ The setup wizard will guide you through initial configuration:
 3. Access code for check-in page
 4. Admin password
 
-**Services started:**
-- Youth Secure Check-in (port 5000)
-
 ## 🎭 Demo Mode
 
 Want to try it with sample data first?
 
 ```bash
-# Pull demo image
-docker pull mrcrunchybeans/youth-secure-checkin:demo
+# Clone repository (required for demo)
+git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
+cd youth-secure-checkin
 
-# Download demo compose file
-curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.demo.yml
-
-# Run demo with pre-loaded data
-docker compose -f docker-compose.demo.yml up -d
+# Run demo with pre-loaded data (no encryption keys needed for demo)
+docker compose --profile demo up -d
 ```
 
 **Demo credentials:**
@@ -98,69 +122,109 @@ docker compose -f docker-compose.demo.yml up -d
 
 **Demo features:**
 - 8 pre-loaded families with kids
-- 8 upcoming events
+- 6 upcoming events
 - Sample check-in history
 - QR code checkout enabled
 - Auto-resets every 24 hours
+
+## 🔐 Encryption Keys (Required for Production)
+
+**v1.0.3 and later require encryption keys for production use.**
+
+### Generate Keys
+
+**Option 1: Python**
+
+```bash
+# Database Encryption Key (64 hex characters)
+python -c "import secrets; print('DB_ENCRYPTION_KEY=' + secrets.token_hex(32))"
+
+# Field Encryption Key (44 base64 characters)
+python -c "from cryptography.fernet import Fernet; print('FIELD_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
+```
+
+**Option 2: PowerShell (Windows)**
+
+```powershell
+# Database Encryption Key
+$dbKey = -join ((0..9) + 'a'..'f' | Get-Random -Count 64)
+Write-Host "DB_ENCRYPTION_KEY=$dbKey"
+
+# Field Encryption Key (requires cryptography library)
+python -c "from cryptography.fernet import Fernet; print('FIELD_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
+```
+
+### Store Keys Securely
+
+Never commit `.env` to version control! It's already in `.gitignore`.
+
+**Create `.env` file:**
+
+```bash
+SECRET_KEY=<your-secret-key-hex-64-chars>
+DEVELOPER_PASSWORD=<your-secure-password>
+DB_ENCRYPTION_KEY=<your-db-encryption-key-hex-64-chars>
+FIELD_ENCRYPTION_KEY=<your-field-encryption-key-base64-44-chars>
+```
 
 ## 🔧 Configuration Options
 
 ### Environment Variables
 
-Create a `.env` file for production secrets:
+All variables in `.env` are required for production:
+
+| Variable | Description | Length |
+|----------|-------------|--------|
+| `SECRET_KEY` | Flask session encryption key | 64 hex characters |
+| `DEVELOPER_PASSWORD` | Emergency admin access | 16+ characters |
+| `DB_ENCRYPTION_KEY` | Database-level AES-256 encryption | 64 hex characters |
+| `FIELD_ENCRYPTION_KEY` | Field-level Fernet encryption | 44 base64 characters |
+
+**Demo mode** uses hardcoded demo keys (no .env needed).
+
+### Docker Compose Profiles
+
+The `docker-compose.yml` uses profiles. Run without a profile for production:
 
 ```bash
-# Generate secure keys
-SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-DEVELOPER_PASSWORD=$(python3 -c "import secrets; print(secrets.token_urlsafe(16))")
+# Production (default)
+docker compose up -d
 
-# Create .env file
-cat > .env << EOF
-SECRET_KEY=${SECRET_KEY}
-DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
-EOF
+# Demo mode (with auto-reset)
+docker compose --profile demo up -d
+
+# Production with Nginx reverse proxy (optional)
+docker compose --profile with-nginx up -d
 ```
 
-**Important:** Never commit `.env` to version control! It's already in `.gitignore`.
+### Customize Services
 
-### Docker Compose Configuration
-
-The main `docker-compose.yml` uses profiles. Available profiles:
-
-- **production** - Production web service (default recommended)
-- **demo** - Demo mode with sample data and auto-reset
-- **with-nginx** - Nginx reverse proxy with SSL support
-
-Edit `docker-compose.yml` to customize production service:
+Edit `docker-compose.yml` to customize:
 
 ```yaml
 services:
   web:
-    build: .
+    image: mrcrunchybeans/youth-secure-checkin:latest
     container_name: youth-checkin
     ports:
-      - "5000:5000"  # Change port mapping if needed
+      - "5000:5000"  # Change host port if needed
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
+      - DB_ENCRYPTION_KEY=${DB_ENCRYPTION_KEY}
+      - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY}
     volumes:
       - ./data:/app/data           # Database storage
-      - ./uploads:/app/uploads     # Logo/favicon uploads
+      - ./uploads:/app/uploads     # Uploads (logos, etc)
     restart: unless-stopped
-    profiles:
-      - production
 ```
 
 ## 📁 Data Persistence
 
 Data is stored in local directories (automatically created):
 
-- **Database**: `./data/checkin.db` (SQLite database)
+- **Database**: `./data/checkin.db` (encrypted SQLite database)
 - **Uploads**: `./uploads/` (logos, favicons, custom branding images)
-
-**Note:** Volume paths differ between production and demo:
-- Production: `./uploads` → `/app/uploads`
-- Demo: Docker volumes `demo-uploads` → `/app/static/uploads`
 
 These directories persist between container restarts and updates.
 
@@ -171,7 +235,7 @@ These directories persist between container restarts and updates.
 docker compose down
 
 # Backup everything
-tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/
+tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/ .env
 
 # Restart
 docker compose up -d
@@ -195,24 +259,24 @@ docker compose up -d
 
 **Or use Admin Panel → Backups → Restore from Backup**
 
-## 🔐 Security Best Practices
+## 🔐 Security Best Practices (v1.0.3+)
+
+### Encryption Features
+
+YouthCheckIn v1.0.3 includes enterprise-grade security:
+
+- **SQLCipher**: AES-256 database-level encryption at rest
+- **Fernet**: Field-level encryption for sensitive data (names, notes)
+- **PBKDF2-SHA256**: Password hashing with automatic plaintext migration
+- **Rate Limiting**: 5 attempts/minute prevents brute force attacks
+- **Account Lockout**: 15-minute lockout after 5 failed attempts
+- **HTTP Security Headers**: HSTS, CSP, X-Frame-Options, X-XSS-Protection
 
 ### Protect Your Secrets
 
 1. **Never commit `.env` files** (already in .gitignore)
-2. **Generate strong random secrets**:
-
-```powershell
-# PowerShell (Windows)
--join ((48..57) + (65..90) + (97..122) | Get-Random -Count 64 | ForEach-Object {[char]$_})
-```
-
-```bash
-# Bash (Linux/Mac)
-python3 -c "import secrets; print(secrets.token_hex(32))"
-```
-
-3. **Use strong admin passwords** during initial setup
+2. **Generate strong random keys** (see Encryption Keys section above)
+3. **Use strong admin passwords** during initial setup wizard
 4. **Keep images updated**:
 
 ```bash
@@ -220,17 +284,21 @@ docker compose pull
 docker compose up -d
 ```
 
+5. **Store encryption keys securely**:
+   - Use secret management tools (Vault, AWS Secrets Manager, etc.)
+   - Don't hardcode in scripts or config files
+   - Rotate keys periodically
+
 ### SSL/TLS for Production
 
 **Recommended Options:**
 
 1. **Caddy** (easiest): Automatic Let's Encrypt certificates
-2. **Cloudflare Tunnel**: Zero-config SSL + DDoS protection  
-3. **Nginx/Traefik**: Manual SSL setup
-4. **Built-in Nginx profile**:
+2. **Cloudflare Tunnel**: Zero-config SSL + DDoS protection
+3. **Nginx**: Use included Nginx profile for reverse proxy
 
 ```bash
-# Set up nginx.conf and SSL certificates first
+# Configure nginx.conf and SSL certificates first
 docker compose --profile with-nginx up -d
 ```
 
@@ -257,7 +325,7 @@ docker compose logs web
 ### Restart Application
 
 ```bash
-# Quick restart (keeps data)
+# Quick restart (keeps all data)
 docker compose restart
 
 # Full restart
@@ -282,10 +350,10 @@ docker compose exec web python -c "from app import APP_VERSION; print(f'Version:
 ### Stop Application
 
 ```bash
-# Stop containers (data is safe)
+# Stop containers (all data is safe in ./data and ./uploads)
 docker compose down
 
-# ⚠️ Delete everything including volumes
+# ⚠️ Delete everything including volumes (use with caution)
 docker compose down -v
 ```
 
@@ -295,7 +363,7 @@ docker compose down -v
 # Access running container
 docker compose exec web /bin/sh
 
-# Check database
+# Check database (if encrypted, SQLCipher is required)
 docker compose exec web sqlite3 data/checkin.db ".tables"
 
 # View Python version
@@ -332,23 +400,30 @@ curl http://localhost:5000/health
 
 ## 🔍 Troubleshooting
 
+### Encryption Keys Not Set
+
+**Error:** `FIELD_ENCRYPTION_KEY not set in environment`
+
+**Solution:** Generate and add keys to `.env`:
+
+```bash
+python -c "import secrets; print('DB_ENCRYPTION_KEY=' + secrets.token_hex(32))"
+python -c "from cryptography.fernet import Fernet; print('FIELD_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
+```
+
+Then restart: `docker compose up -d`
+
 ### Port Already in Use
 
 **Windows PowerShell:**
 ```powershell
-# Find what's using port 5000
 netstat -ano | findstr :5000
-
-# Kill the process (use PID from above)
 taskkill /PID <PID> /F
 ```
 
 **Linux/Mac:**
 ```bash
-# Find process
 sudo lsof -i :5000
-
-# Kill process
 sudo kill -9 <PID>
 ```
 
@@ -362,32 +437,17 @@ ports:
 
 ```bash
 # View detailed logs
-docker compose logs
+docker compose logs web
 
 # Check configuration
 docker compose config
 
-# Verify .env file exists and has required variables
+# Verify .env file exists and is valid
 cat .env
-# Should contain:
-# SECRET_KEY=your-secret-key
-# DEVELOPER_PASSWORD=your-password
 
 # Recreate containers
 docker compose down
 docker compose up -d --force-recreate
-```
-
-### "No Service Selected" Error
-
-If you see `no service selected`, you forgot to specify the profile:
-
-```bash
-# Wrong:
-docker compose up -d
-
-# Correct:
-docker compose up -d
 ```
 
 ### Can't Pull Docker Image
@@ -396,7 +456,7 @@ docker compose up -d
 # Test Docker Hub connection
 docker pull mrcrunchybeans/youth-secure-checkin:latest
 
-# Login if needed (for private images)
+# Login if needed
 docker login
 
 # Check Docker daemon is running
@@ -412,7 +472,7 @@ docker compose down
 # Backup current database
 cp data/checkin.db data/checkin.db.backup-$(date +%Y%m%d)
 
-# Option 1: Let app recreate database (auto-initialized on startup)
+# Option 1: Let app recreate database
 rm data/checkin.db
 docker compose up -d
 
@@ -420,27 +480,6 @@ docker compose up -d
 docker compose up -d
 # Then use Admin Panel → Backups → Restore
 ```
-
-### "No Such Table" Errors
-
-If you see `sqlite3.OperationalError: no such table: settings` or similar:
-
-```bash
-# The database wasn't initialized properly
-# Stop the container
-docker compose down
-
-# Remove the empty/corrupt database
-rm -f data/checkin.db
-
-# Restart - database will be auto-created from schema
-docker compose up -d
-
-# Verify it's working
-docker compose logs
-```
-
-**Note:** The database is automatically initialized from `schema.sql` when the container starts if no database exists.
 
 ### Volume/Permission Issues
 
@@ -499,116 +538,48 @@ services:
 
 ### Multiple Instances
 
-Run multiple isolated instances on the same server (e.g., for different troops):
-
-```bash
-# Create directory for each instance
-mkdir -p ~/tx-1932 && cd ~/tx-1932
-mkdir -p data uploads
-
-# Download docker-compose.yml
-curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
-
-# Create unique .env file
-cat > .env << EOF
-SECRET_KEY=$(openssl rand -hex 32)
-DEVELOPER_PASSWORD=unique-secure-password-here
-EOF
-
-# Edit docker-compose.yml to use unique container name and port
-# Change: container_name: youth-checkin → container_name: youth-checkin-tx1932
-# Change: ports: "5000:5000" → ports: "5001:5000"
-
-# Start this instance
-docker compose up -d
-```
-
-**Or create a custom compose file:**
+Run multiple isolated instances with separate encryption keys:
 
 ```yaml
-# docker-compose.tx1932.yml
+# docker-compose.troop123.yml
 services:
   web:
-    image: mrcrunchybeans/youth-secure-checkin:latest
-    container_name: youth-checkin-tx1932
+    container_name: youth-checkin-troop123
     ports:
       - "5001:5000"
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY_TROOP123}
+      - DEVELOPER_PASSWORD=${DEVELOPER_PASSWORD_TROOP123}
+      - DB_ENCRYPTION_KEY=${DB_ENCRYPTION_KEY_TROOP123}
+      - FIELD_ENCRYPTION_KEY=${FIELD_ENCRYPTION_KEY_TROOP123}
     volumes:
-      - ./data:/app/data
-      - ./uploads:/app/uploads
-    restart: unless-stopped
+      - ./data-troop123:/app/data
+      - ./uploads-troop123:/app/uploads
 ```
 
 Start with:
 ```bash
-docker compose -f docker-compose.tx1932.yml up -d
+docker compose -f docker-compose.troop123.yml up -d
 ```
-
-### VPS Deployment with Cloudflare Tunnel
-
-For secure HTTPS access without port forwarding:
-
-1. **Set up instance on VPS:**
-```bash
-ssh root@your-vps-ip
-mkdir -p ~/youth-checkin && cd ~/youth-checkin
-mkdir -p data uploads
-
-curl -O https://raw.githubusercontent.com/mrcrunchybeans/youth-secure-checkin/master/docker-compose.yml
-
-cat > .env << EOF
-SECRET_KEY=$(openssl rand -hex 32)
-DEVELOPER_PASSWORD=your-secure-password
-EOF
-
-docker compose up -d
-```
-
-2. **Install cloudflared on VPS:**
-```bash
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
-cloudflared tunnel login
-```
-
-3. **Create tunnel in Cloudflare Dashboard:**
-   - Go to Zero Trust → Networks → Tunnels
-   - Create tunnel, install connector on VPS
-   - Add public hostname pointing to `http://localhost:5000`
-
-4. **Access via your custom domain with automatic HTTPS!**
 
 ### Performance Tuning
 
-Add to `.env`:
+Gunicorn workers (formula: CPU cores × 2 + 1):
 
-```bash
-# Number of Gunicorn workers (formula: CPU cores * 2 + 1)
-GUNICORN_WORKERS=5
-
-# Worker timeout (seconds)
-GUNICORN_TIMEOUT=120
-
-# Max requests per worker (memory leak protection)
-GUNICORN_MAX_REQUESTS=1000
-```
-
-Update Dockerfile CMD or compose command:
 ```yaml
-command: gunicorn --bind 0.0.0.0:5000 --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120} --max-requests ${GUNICORN_MAX_REQUESTS:-1000} wsgi:app
+command: gunicorn --bind 0.0.0.0:5000 --workers 5 --timeout 120 --max-requests 1000 wsgi:app
 ```
 
 ## 🌐 Production Deployment
 
-### Quick Checklist
+### Pre-Deployment Checklist
 
 Before going live:
 
-- [ ] Generate strong `SECRET_KEY` in `.env`
-- [ ] Set secure `DEVELOPER_PASSWORD` in `.env`
+- [ ] Generate strong `SECRET_KEY` (64 hex characters)
+- [ ] Generate strong `DB_ENCRYPTION_KEY` (64 hex characters)
+- [ ] Generate strong `FIELD_ENCRYPTION_KEY` (44 base64 characters)
+- [ ] Set secure `DEVELOPER_PASSWORD` (16+ characters)
 - [ ] Set strong admin password during setup wizard
 - [ ] Configure SSL/HTTPS (Caddy/Cloudflare/Nginx)
 - [ ] Set up automated backups
@@ -649,7 +620,7 @@ See `DEPLOYMENT_CHECKLIST.md` for platform-specific guides.
 crontab -e
 
 # Add daily backup at 2 AM
-0 2 * * * cd /path/to/youth-secure-checkin && docker compose down && tar -czf ~/backups/checkin-$(date +\%Y\%m\%d-\%H\%M).tar.gz data/ uploads/ && docker compose up -d
+0 2 * * * cd /path/to/youth-secure-checkin && docker compose down && tar -czf ~/backups/checkin-$(date +\%Y\%m\%d-\%H\%M).tar.gz data/ uploads/ .env && docker compose up -d
 ```
 
 **Windows Task Scheduler:**
@@ -687,7 +658,6 @@ Create `/etc/logrotate.d/docker-youth-checkin`:
 ```bash
 # Pull image
 docker pull mrcrunchybeans/youth-secure-checkin:latest
-docker pull mrcrunchybeans/youth-secure-checkin:demo
 
 # List images
 docker images
@@ -702,8 +672,11 @@ docker build -t youth-checkin .
 ### Containers
 
 ```bash
-# Start
+# Start production
 docker compose up -d
+
+# Start demo
+docker compose --profile demo up -d
 
 # Stop
 docker compose down
@@ -746,11 +719,11 @@ docker network inspect youth-secure-checkin_checkin-network
 ### Common Commands
 
 ```bash
-# Start production
+# Start production (requires .env with encryption keys)
 docker compose up -d
 
-# Start demo
-docker compose -f docker-compose.demo.yml up -d
+# Start demo (no .env needed)
+docker compose --profile demo up -d
 
 # View logs
 docker compose logs -f
@@ -762,7 +735,7 @@ docker compose down
 docker compose pull && docker compose up -d
 
 # Backup
-docker compose down && tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/ && docker compose up -d
+docker compose down && tar -czf backup-$(date +%Y%m%d).tar.gz data/ uploads/ .env && docker compose up -d
 
 # Shell access
 docker compose exec web /bin/sh
@@ -775,28 +748,39 @@ docker compose exec web python -c "from app import APP_VERSION; print(APP_VERSIO
 
 **In Container:**
 - Application: `/app/`
-- Database: `/app/data/checkin.db`
-- Uploads: `/app/uploads/` (production) or `/app/static/uploads/` (demo)
+- Database: `/app/data/checkin.db` (encrypted)
+- Uploads: `/app/uploads/`
 - Logs: stdout (view with `docker compose logs`)
 
 **On Host:**
 - Database: `./data/checkin.db`
 - Uploads: `./uploads/`
-- Configuration: `.env`
-- Compose: `docker-compose.yml` or `docker-compose.demo.yml`
+- Configuration: `.env` (with encryption keys)
+- Compose: `docker-compose.yml`
 
 ### Ports
 
-- **5000**: Application (default, mapped from host to container)
+- **5000**: Application (default, mapped from host)
 - **80/443**: Nginx (if using with-nginx profile)
 
 Change host port in docker-compose.yml: `"<host-port>:5000"`
 
+## 🔒 Security Notes (v1.0.3+)
+
+- **Encryption is mandatory**: DB_ENCRYPTION_KEY and FIELD_ENCRYPTION_KEY are required
+- **Automatic migration**: Plaintext passwords are automatically hashed to PBKDF2-SHA256 on first run
+- **Rate limiting**: 5 login attempts per minute per IP address
+- **Account lockout**: 15-minute lockout after 5 failed admin login attempts
+- **HTTP headers**: HSTS, CSP, X-Frame-Options, X-XSS-Protection configured automatically
+- **Database encryption**: SQLCipher AES-256 encrypts the entire database at rest
+- **Field encryption**: Sensitive fields use Fernet encryption for defense-in-depth
+
 ## 🆘 Need Help?
 
 - **Application Guide**: See `README.md` for features and usage
-- **Deployment Guide**: See `DEPLOYMENT_CHECKLIST.md` for hosting platforms  
+- **Deployment Guide**: See `DEPLOYMENT_CHECKLIST.md` for hosting platforms
 - **Security Guide**: See `SECURITY.md` for best practices
+- **Encryption Details**: See `DOCKER_ENCRYPTION_QUICK_REF.md` for key generation
 - **Issues**: [GitHub Issues](https://github.com/mrcrunchybeans/youth-secure-checkin/issues)
 - **Docker Docs**: [docs.docker.com](https://docs.docker.com/)
 - **Docker Compose**: [docs.docker.com/compose](https://docs.docker.com/compose/)
@@ -804,13 +788,10 @@ Change host port in docker-compose.yml: `"<host-port>:5000"`
 ## 📝 Notes
 
 - Docker Compose V2 uses `docker compose` (no hyphen), V1 uses `docker-compose`
-- Use `--profile demo` only if you want to run the demo instance with sample data
 - Always stop containers before backing up database files
 - Demo mode auto-resets every 24 hours and should not be used for production
-- Production uses local directories; demo uses named Docker volumes
+- Production uses local directories for data persistence
 - The application runs on port 5000 inside the container (not configurable)
 - Health checks run every 30 seconds with 3 retries
 - Default worker count is 3 for production, 2 for demo
-- Database file is `checkin.db` (not `troop_checkin.db`)
-- Database is auto-initialized from `schema.sql` on first startup
-- The `.env` file must contain `SECRET_KEY` and `DEVELOPER_PASSWORD`
+- **v1.0.3+**: Encryption keys are required for production deployments

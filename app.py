@@ -2506,18 +2506,45 @@ def add_event():
     if request.method == 'POST':
         name = request.form.get('name')
         date = request.form.get('date')
-        time = request.form.get('time')
         description = request.form.get('description')
         
-        if not name or not date or not time:
-            flash('Name, date, and time are required', 'danger')
+        if not name or not date:
+            flash('Event name and date are required', 'danger')
             return render_template('admin/add_event.html')
-            
-        start_time = f"{date}T{time}:00"
+        
+        # Convert 12-hour time to 24-hour format
+        start_time = None
+        start_hour = request.form.get('start_hour')
+        start_minute = request.form.get('start_minute')
+        start_ampm = request.form.get('start_ampm')
+        
+        if start_hour and start_minute and start_ampm:
+            hour = int(start_hour)
+            # Convert 12-hour to 24-hour
+            if start_ampm == 'PM' and hour != 12:
+                hour += 12
+            elif start_ampm == 'AM' and hour == 12:
+                hour = 0
+            start_time = f"{date}T{hour:02d}:{start_minute}:00"
+        
+        # Convert optional end time
+        end_time = None
+        end_hour = request.form.get('end_hour')
+        end_minute = request.form.get('end_minute')
+        end_ampm = request.form.get('end_ampm')
+        
+        if end_hour and end_minute and end_ampm:
+            hour = int(end_hour)
+            # Convert 12-hour to 24-hour
+            if end_ampm == 'PM' and hour != 12:
+                hour += 12
+            elif end_ampm == 'AM' and hour == 12:
+                hour = 0
+            end_time = f"{date}T{hour:02d}:{end_minute}:00"
         
         conn = get_db()
-        conn.execute("INSERT INTO events (name, start_time, description) VALUES (?, ?, ?)",
-                    (name, start_time, description))
+        conn.execute("INSERT INTO events (name, start_time, end_time, description) VALUES (?, ?, ?, ?)",
+                    (name, start_time, end_time, description))
         conn.commit()
         conn.close()
         
@@ -2533,13 +2560,46 @@ def edit_event(event_id):
     if request.method == 'POST':
         name = request.form.get('name')
         date = request.form.get('date')
-        time = request.form.get('time')
         description = request.form.get('description')
         
-        start_time = f"{date}T{time}:00"
+        if not name or not date:
+            flash('Event name and date are required', 'danger')
+            event = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+            conn.close()
+            return render_template('admin/edit_event.html', event=event)
         
-        conn.execute("UPDATE events SET name = ?, start_time = ?, description = ? WHERE id = ?",
-                    (name, start_time, description, event_id))
+        # Convert 12-hour time to 24-hour format
+        start_time = None
+        start_hour = request.form.get('start_hour')
+        start_minute = request.form.get('start_minute')
+        start_ampm = request.form.get('start_ampm')
+        
+        if start_hour and start_minute and start_ampm:
+            hour = int(start_hour)
+            # Convert 12-hour to 24-hour
+            if start_ampm == 'PM' and hour != 12:
+                hour += 12
+            elif start_ampm == 'AM' and hour == 12:
+                hour = 0
+            start_time = f"{date}T{hour:02d}:{start_minute}:00"
+        
+        # Convert optional end time
+        end_time = None
+        end_hour = request.form.get('end_hour')
+        end_minute = request.form.get('end_minute')
+        end_ampm = request.form.get('end_ampm')
+        
+        if end_hour and end_minute and end_ampm:
+            hour = int(end_hour)
+            # Convert 12-hour to 24-hour
+            if end_ampm == 'PM' and hour != 12:
+                hour += 12
+            elif end_ampm == 'AM' and hour == 12:
+                hour = 0
+            end_time = f"{date}T{hour:02d}:{end_minute}:00"
+        
+        conn.execute("UPDATE events SET name = ?, start_time = ?, end_time = ?, description = ? WHERE id = ?",
+                    (name, start_time, end_time, description, event_id))
         conn.commit()
         conn.close()
         
@@ -3490,14 +3550,14 @@ def admin_security():
                         flash(error, 'danger')
                 else:
                     set_app_password(new_password)
-                    flash('Login access code updated successfully!', 'success')
+                    flash(f'✅ Login access code updated successfully! Your new code is: <strong style="font-family: monospace; font-size: 1.1em;">{new_password}</strong><br><small class="text-muted">⚠️ Save this code somewhere safe - we cannot display it again for security.</small>', 'success')
                     logger.info(f"Login password changed from {request.remote_addr}")
             
             # Update admin override checkout code
             new_override = request.form.get('new_override_password', '').strip()
             if new_override:
                 set_override_password(new_override)
-                flash('Admin override checkout code updated successfully!', 'success')
+                flash(f'✅ Admin override checkout code updated successfully! Your new code is: <strong style="font-family: monospace; font-size: 1.1em;">{new_override}</strong><br><small class="text-muted">⚠️ Save this code somewhere safe - we cannot display it again for security.</small>', 'success')
         
         # Handle label printing settings
         elif 'require_checkout_code' in request.form or 'checkout_code_method' in request.form:

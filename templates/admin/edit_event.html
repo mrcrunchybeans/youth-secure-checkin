@@ -21,19 +21,119 @@
             <input type="date" class="form-control" id="date" name="date" required
                    value="{{ event['start_time'][:10] if event['start_time'] else '' }}">
           </div>
-          
-          <div class="col-md-3 mb-3">
-            <label for="time" class="form-label">Start Time</label>
-            <input type="time" class="form-control" id="time" name="time"
-                   value="{{ event['start_time'][11:16] if event['start_time'] and event['start_time']|length > 16 else '' }}">
-            <small class="form-text text-muted">24-hour format</small>
+        </div>
+
+        <!-- Start Time (Optional) -->
+        {% set start_hour, start_minute, start_ampm = '', '', '' %}
+        {% if event['start_time'] %}
+          {% set hour_24 = event['start_time'][11:13]|int %}
+          {% if hour_24 == 0 %}
+            {% set start_hour, start_ampm = '12', 'AM' %}
+          {% elif hour_24 < 12 %}
+            {% set start_hour, start_ampm = hour_24|string, 'AM' %}
+          {% elif hour_24 == 12 %}
+            {% set start_hour, start_ampm = '12', 'PM' %}
+          {% else %}
+            {% set start_hour, start_ampm = (hour_24 - 12)|string, 'PM' %}
+          {% endif %}
+          {% set start_minute = event['start_time'][14:16] %}
+        {% endif %}
+
+        {% set end_hour, end_minute, end_ampm = '', '', '' %}
+        {% if event['end_time'] %}
+          {% set hour_24 = event['end_time'][11:13]|int %}
+          {% if hour_24 == 0 %}
+            {% set end_hour, end_ampm = '12', 'AM' %}
+          {% elif hour_24 < 12 %}
+            {% set end_hour, end_ampm = hour_24|string, 'AM' %}
+          {% elif hour_24 == 12 %}
+            {% set end_hour, end_ampm = '12', 'PM' %}
+          {% else %}
+            {% set end_hour, end_ampm = (hour_24 - 12)|string, 'PM' %}
+          {% endif %}
+          {% set end_minute = event['end_time'][14:16] %}
+        {% endif %}
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Start Time <span class="badge bg-secondary">Optional</span></label>
+            <div class="row g-2">
+              <div class="col-4">
+                <select class="form-select" id="start_hour" name="start_hour">
+                  <option value="">Hour</option>
+                  <option value="12" {% if start_hour == '12' %}selected{% endif %}>12</option>
+                  <option value="1" {% if start_hour == '1' %}selected{% endif %}>1</option>
+                  <option value="2" {% if start_hour == '2' %}selected{% endif %}>2</option>
+                  <option value="3" {% if start_hour == '3' %}selected{% endif %}>3</option>
+                  <option value="4" {% if start_hour == '4' %}selected{% endif %}>4</option>
+                  <option value="5" {% if start_hour == '5' %}selected{% endif %}>5</option>
+                  <option value="6" {% if start_hour == '6' %}selected{% endif %}>6</option>
+                  <option value="7" {% if start_hour == '7' %}selected{% endif %}>7</option>
+                  <option value="8" {% if start_hour == '8' %}selected{% endif %}>8</option>
+                  <option value="9" {% if start_hour == '9' %}selected{% endif %}>9</option>
+                  <option value="10" {% if start_hour == '10' %}selected{% endif %}>10</option>
+                  <option value="11" {% if start_hour == '11' %}selected{% endif %}>11</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <select class="form-select" id="start_minute" name="start_minute">
+                  <option value="">Min</option>
+                  <option value="00" {% if start_minute == '00' %}selected{% endif %}>00</option>
+                  <option value="15" {% if start_minute == '15' %}selected{% endif %}>15</option>
+                  <option value="30" {% if start_minute == '30' %}selected{% endif %}>30</option>
+                  <option value="45" {% if start_minute == '45' %}selected{% endif %}>45</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <select class="form-select" id="start_ampm" name="start_ampm">
+                  <option value="">AM/PM</option>
+                  <option value="AM" {% if start_ampm == 'AM' %}selected{% endif %}>AM</option>
+                  <option value="PM" {% if start_ampm == 'PM' %}selected{% endif %}>PM</option>
+                </select>
+              </div>
+            </div>
+            <small class="form-text text-muted d-block mt-1">e.g., 7:30 PM</small>
           </div>
 
-          <div class="col-md-3 mb-3">
-            <label for="end_time" class="form-label">End Time</label>
-            <input type="time" class="form-control" id="end_time" name="end_time"
-                   value="{{ event['end_time'][11:16] if event['end_time'] and event['end_time']|length > 16 else '' }}">
-            <small class="form-text text-muted">Optional</small>
+          <!-- End Time (Optional) -->
+          <div class="col-md-6 mb-3">
+            <label class="form-label">End Time <span class="badge bg-secondary">Optional</span></label>
+            <div class="row g-2">
+              <div class="col-4">
+                <select class="form-select" id="end_hour" name="end_hour">
+                  <option value="">Hour</option>
+                  <option value="12" {% if end_hour == '12' %}selected{% endif %}>12</option>
+                  <option value="1" {% if end_hour == '1' %}selected{% endif %}>1</option>
+                  <option value="2" {% if end_hour == '2' %}selected{% endif %}>2</option>
+                  <option value="3" {% if end_hour == '3' %}selected{% endif %}>3</option>
+                  <option value="4" {% if end_hour == '4' %}selected{% endif %}>4</option>
+                  <option value="5" {% if end_hour == '5' %}selected{% endif %}>5</option>
+                  <option value="6" {% if end_hour == '6' %}selected{% endif %}>6</option>
+                  <option value="7" {% if end_hour == '7' %}selected{% endif %}>7</option>
+                  <option value="8" {% if end_hour == '8' %}selected{% endif %}>8</option>
+                  <option value="9" {% if end_hour == '9' %}selected{% endif %}>9</option>
+                  <option value="10" {% if end_hour == '10' %}selected{% endif %}>10</option>
+                  <option value="11" {% if end_hour == '11' %}selected{% endif %}>11</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <select class="form-select" id="end_minute" name="end_minute">
+                  <option value="">Min</option>
+                  <option value="00" {% if end_minute == '00' %}selected{% endif %}>00</option>
+                  <option value="15" {% if end_minute == '15' %}selected{% endif %}>15</option>
+                  <option value="30" {% if end_minute == '30' %}selected{% endif %}>30</option>
+                  <option value="45" {% if end_minute == '45' %}selected{% endif %}>45</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <select class="form-select" id="end_ampm" name="end_ampm">
+                  <option value="">AM/PM</option>
+                  <option value="AM" {% if end_ampm == 'AM' %}selected{% endif %}>AM</option>
+                  <option value="PM" {% if end_ampm == 'PM' %}selected{% endif %}>PM</option>
+                </select>
+              </div>
+            </div>
+            <small class="form-text text-muted d-block mt-1">e.g., 9:00 PM</small>
           </div>
         </div>
 

@@ -31,7 +31,11 @@
               <div class="col-md-6">
                 <label class="form-label">Current Code</label>
                 <div class="form-control bg-light">
-                  <code style="font-size: 1.1em;">{{ current_password }}</code>
+                  {% if current_password %}
+                    <code style="font-size: 1.1em;"><i class="bi bi-check-circle-fill text-success"></i> Code is set</code>
+                  {% else %}
+                    <code style="font-size: 1.1em;"><i class="bi bi-exclamation-circle-fill text-warning"></i> No code set</code>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -66,7 +70,11 @@
                 <div class="col-md-6">
                   <label class="form-label">Current Override Code</label>
                   <div class="form-control bg-light">
-                    <code style="font-size: 1.1em;">{{ current_override_password }}</code>
+                    {% if current_override_password %}
+                      <code style="font-size: 1.1em;"><i class="bi bi-check-circle-fill text-success"></i> Code is set</code>
+                    {% else %}
+                      <code style="font-size: 1.1em;"><i class="bi bi-exclamation-circle-fill text-warning"></i> No code set</code>
+                    {% endif %}
                   </div>
                 </div>
               </div>
