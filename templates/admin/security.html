@@ -118,102 +118,84 @@
       <div class="card mb-4">
         <div class="card-body">
           <h5 class="card-title mb-3">
-            <i class="bi bi-qr-code"></i> Checkout Code Settings
+            <i class="bi bi-qr-code"></i> Checkout Method
           </h5>
           <form method="POST">
             <!-- Checkout Method Selection -->
-            <div class="mb-4 pb-4 border-bottom">
-              <label for="checkout_method" class="form-label fw-semibold">Checkout Method</label>
+            <div class="mb-3">
+              <label for="checkout_method" class="form-label fw-semibold">How families check out their children</label>
               <select class="form-select" id="checkout_method" name="checkout_method">
-                <option value="codes" {% if label_settings.checkout_method == 'codes' or not label_settings.checkout_method %}selected{% endif %}>
-                  📱 Checkout Codes Only (5-digit code or QR scan)
+                <option value="random_codes" {% if label_settings.checkout_method == 'random_codes' or not label_settings.checkout_method %}selected{% endif %}>
+                  🎲 Random 5-Digit Codes (Generate on check-in)
                 </option>
-                <option value="phone" {% if label_settings.checkout_method == 'phone' %}selected{% endif %}>
-                  ☎️ Phone Number Only (Last 4 digits of phone used at check-in)
-                </option>
-                <option value="both" {% if label_settings.checkout_method == 'both' %}selected{% endif %}>
-                  📱☎️ Either Codes or Phone Number (Families choose)
+                <option value="phone_codes" {% if label_settings.checkout_method == 'phone_codes' %}selected{% endif %}>
+                  📞 Phone-Based Codes (Last 4 digits of phone)
                 </option>
               </select>
               <div class="text-muted small mt-2">
-                <div><strong>Codes Only:</strong> Families present a 5-digit code (via QR code or printed label)</div>
-                <div><strong>Phone Number:</strong> Families enter the last 4 digits of the phone number they used at check-in</div>
-                <div><strong>Either:</strong> Both options available at checkout - families can use whichever is more convenient</div>
+                <div><strong>Random 5-Digit:</strong> A unique code is generated for each check-in and delivered via QR code or label</div>
+                <div><strong>Phone-Based:</strong> The last 4 digits of the phone number becomes the checkout code</div>
               </div>
             </div>
 
-            <!-- Code-specific settings (shown when codes are enabled) -->
-            <div id="code-settings-section" style="{% if label_settings.checkout_method == 'phone' %}display: none;{% endif %}">
-              <div class="mb-3">
-                <div class="form-check form-switch">
-                  <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
-                         {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}>
-                  <label class="form-check-label fw-semibold" for="require_checkout_code">
-                    Require checkout codes (when using code-based checkout)
-                  </label>
-                </div>
-                <div class="text-muted small mt-1">
-                  When enabled, families must present a 5-digit code to check out their children. 
-                  Administrators can override with their admin code.
-                </div>
-              </div>
-
-              <div id="code-method-section" style="{% if label_settings.require_checkout_code != 'true' %}opacity: 0.5; pointer-events: none;{% endif %}"
-              <div class="mb-3">
-                <label for="checkout_code_method" class="form-label fw-semibold">Code Delivery Method</label>
-                <select class="form-select" id="checkout_code_method" name="checkout_code_method">
-                  <option value="qr" {% if label_settings.checkout_code_method == 'qr' or not label_settings.checkout_code_method %}selected{% endif %}>
-                    📱 QR Code Only (Free - Show on screen)
-                  </option>
-                  <option value="label" {% if label_settings.checkout_code_method == 'label' %}selected{% endif %}>
-                    🖨️ Print Labels (Requires label printer)
-                  </option>
-                  <option value="both" {% if label_settings.checkout_code_method == 'both' %}selected{% endif %}>
-                    📱🖨️ Both QR Code and Print Label
-                  </option>
-                </select>
-                <div class="text-muted small mt-1">
-                  <strong>QR Code:</strong> Parents scan with their phone to view/share the code<br>
-                  <strong>Print Labels:</strong> Automatically prints on check-in (requires label printer setup)<br>
-                  <strong>Both:</strong> Shows QR code on screen AND prints a label
-                </div>
-              </div>
-
-              <div id="printer-settings" style="{% if label_settings.checkout_code_method == 'qr' %}display: none;{% endif %}">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label for="label_printer_type" class="form-label fw-semibold">Printer Type</label>
-                    <select class="form-select" id="label_printer_type" name="label_printer_type">
-                      <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO LabelWriter</option>
-                      <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL Series</option>
-                    </select>
+            <!-- Settings for random codes only -->
+            <div id="random-code-settings" style="{% if label_settings.checkout_method == 'phone_codes' %}display: none;{% endif %}">
+              <div class="border-top pt-3 mt-3">
+                <h6 class="mb-3">Code Delivery Method</h6>
+                <div class="mb-3">
+                  <select class="form-select" id="checkout_code_method" name="checkout_code_method">
+                    <option value="qr" {% if label_settings.checkout_code_method == 'qr' or not label_settings.checkout_code_method %}selected{% endif %}>
+                      📱 QR Code Only (Free - Show on screen)
+                    </option>
+                    <option value="label" {% if label_settings.checkout_code_method == 'label' %}selected{% endif %}>
+                      🖨️ Print Labels (Requires label printer)
+                    </option>
+                    <option value="both" {% if label_settings.checkout_code_method == 'both' %}selected{% endif %}>
+                      📱🖨️ Both QR Code and Print Label
+                    </option>
+                  </select>
+                  <div class="text-muted small mt-1">
+                    <strong>QR Code:</strong> Parents scan with their phone to view/share the code<br>
+                    <strong>Print Labels:</strong> Automatically prints on check-in (requires label printer setup)<br>
+                    <strong>Both:</strong> Shows QR code on screen AND prints a label
                   </div>
+                </div>
 
-                  <div class="col-md-6">
-                    <label for="label_size" class="form-label fw-semibold">Label Size</label>
-                    <select class="form-select" id="label_size" name="label_size">
-                      <optgroup label="Portrait Labels">
-                        <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>30336 (1" × 2⅛")</option>
-                      </optgroup>
-                      <optgroup label="Small Landscape">
-                        <option value="30330" {% if label_settings.label_size == '30330' %}selected{% endif %}>30330 (¾" × 2")</option>
-                        <option value="11352" {% if label_settings.label_size == '11352' %}selected{% endif %}>11352 (⅞" × 2¾")</option>
-                      </optgroup>
-                      <optgroup label="Medium Landscape">
-                        <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>30334 (2¼" × 1¼")</option>
-                        <option value="30252" {% if label_settings.label_size == '30252' %}selected{% endif %}>30252 (1⅛" × 3½")</option>
-                      </optgroup>
-                      <optgroup label="Large Landscape">
-                        <option value="30323" {% if label_settings.label_size == '30323' %}selected{% endif %}>30323 (2⅛" × 4")</option>
-                      </optgroup>
-                    </select>
+                <div id="printer-settings" style="{% if label_settings.checkout_code_method == 'qr' %}display: none;{% endif %}">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label for="label_printer_type" class="form-label fw-semibold">Printer Type</label>
+                      <select class="form-select" id="label_printer_type" name="label_printer_type">
+                        <option value="dymo" {% if label_settings.label_printer_type == 'dymo' or not label_settings.label_printer_type %}selected{% endif %}>DYMO LabelWriter</option>
+                        <option value="brother" {% if label_settings.label_printer_type == 'brother' %}selected{% endif %}>Brother QL Series</option>
+                      </select>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label for="label_size" class="form-label fw-semibold">Label Size</label>
+                      <select class="form-select" id="label_size" name="label_size">
+                        <optgroup label="Portrait Labels">
+                          <option value="30336" {% if label_settings.label_size == '30336' or not label_settings.label_size %}selected{% endif %}>30336 (1" × 2⅛")</option>
+                        </optgroup>
+                        <optgroup label="Small Landscape">
+                          <option value="30330" {% if label_settings.label_size == '30330' %}selected{% endif %}>30330 (¾" × 2")</option>
+                          <option value="11352" {% if label_settings.label_size == '11352' %}selected{% endif %}>11352 (⅞" × 2¾")</option>
+                        </optgroup>
+                        <optgroup label="Medium Landscape">
+                          <option value="30334" {% if label_settings.label_size == '30334' %}selected{% endif %}>30334 (2¼" × 1¼")</option>
+                          <option value="30252" {% if label_settings.label_size == '30252' %}selected{% endif %}>30252 (1⅛" × 3½")</option>
+                        </optgroup>
+                        <optgroup label="Large Landscape">
+                          <option value="30323" {% if label_settings.label_size == '30323' %}selected{% endif %}>30323 (2⅛" × 4")</option>
+                        </optgroup>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-            </div>
 
-            <div class="mt-3">
+            <div class="mt-4">
               <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-circle"></i> Save Checkout Settings
               </button>
@@ -256,38 +238,22 @@
 
 
 <script>
-  // Toggle code settings visibility based on checkout method
+  // Toggle visibility of random code settings
   const checkoutMethodSelect = document.getElementById('checkout_method');
-  const codeSettingsSection = document.getElementById('code-settings-section');
-  const methodSelect = document.getElementById('checkout_code_method');
-  const printerSettings = document.getElementById('printer-settings');
+  const randomCodeSettings = document.getElementById('random-code-settings');
   
-  // Show/hide code settings based on checkout method
   checkoutMethodSelect.addEventListener('change', function() {
-    if (this.value === 'phone') {
-      codeSettingsSection.style.display = 'none';
-    } else {
-      codeSettingsSection.style.display = 'block';
-    }
+    randomCodeSettings.style.display = this.value === 'random_codes' ? 'block' : 'none';
   });
   
   // Toggle printer settings visibility based on code delivery method
-  methodSelect.addEventListener('change', function() {
-    printerSettings.style.display = (this.value === 'label' || this.value === 'both') ? 'block' : 'none';
-  });
+  const methodSelect = document.getElementById('checkout_code_method');
+  const printerSettings = document.getElementById('printer-settings');
   
-  // Enable/disable method section based on require codes checkbox
-  const requireCheckbox = document.getElementById('require_checkout_code');
-  const methodSection = document.getElementById('code-method-section');
-  
-  requireCheckbox.addEventListener('change', function() {
-    if (this.checked) {
-      methodSection.style.opacity = '1';
-      methodSection.style.pointerEvents = 'auto';
-    } else {
-      methodSection.style.opacity = '0.5';
-      methodSection.style.pointerEvents = 'none';
-    }
-  });
+  if (methodSelect) {
+    methodSelect.addEventListener('change', function() {
+      printerSettings.style.display = (this.value === 'label' || this.value === 'both') ? 'block' : 'none';
+    });
+  }
 </script>
 {% endblock %}

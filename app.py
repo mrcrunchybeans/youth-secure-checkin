@@ -1340,51 +1340,60 @@ def checkin_last4():
     
     # Get checkout method setting
     checkout_method_row = conn.execute("SELECT value FROM settings WHERE key = 'checkout_method'").fetchone()
-    checkout_method = checkout_method_row[0] if checkout_method_row else 'codes'
+    checkout_method = checkout_method_row[0] if checkout_method_row else 'random_codes'
     
-    # First, check if this is a checkout code (before checking phone numbers)
-    # Checkout codes are alphanumeric and stored in checkins table
-    # Skip this check if checkout_method is 'phone' only
-    if checkout_method != 'phone' and len(phone_digits) >= 4:
-        checkout_match = conn.execute("""
-            SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_code, c.checkout_time,
-                   k.name as kid_name, k.family_id, f.phone as family_phone
-            FROM checkins c
-            JOIN kids k ON k.id = c.kid_id
-            JOIN families f ON f.id = k.family_id
-            WHERE c.checkout_code = ? AND c.checkout_time IS NULL
-        """, (phone_digits,)).fetchall()
-        
-        if checkout_match:
-            # This is a checkout code! Return checkout info instead of family search
-            kids_to_checkout = []
-            family_id = None
-            family_phone = None
-            event_id_from_checkin = None
+    # RANDOM CODES MODE: Only accept checkout codes, strict matching
+    if checkout_method == 'random_codes':
+        if len(phone_digits) >= 4:
+            checkout_match = conn.execute("""
+                SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_code, c.checkout_time,
+                       k.name as kid_name, k.family_id, f.phone as family_phone
+                FROM checkins c
+                JOIN kids k ON k.id = c.kid_id
+                JOIN families f ON f.id = k.family_id
+                WHERE c.checkout_code = ? AND c.checkout_time IS NULL
+            """, (phone_digits,)).fetchall()
             
-            for row in checkout_match:
-                kids_to_checkout.append({
-                    'checkin_id': row['checkin_id'],
-                    'kid_id': row['kid_id'],
-                    'kid_name': row['kid_name']
+            if checkout_match:
+                # This is a valid checkout code
+                kids_to_checkout = []
+                family_id = None
+                family_phone = None
+                event_id_from_checkin = None
+                
+                for row in checkout_match:
+                    kids_to_checkout.append({
+                        'checkin_id': row['checkin_id'],
+                        'kid_id': row['kid_id'],
+                        'kid_name': row['kid_name']
+                    })
+                    family_id = row['family_id']
+                    family_phone = row['family_phone']
+                    event_id_from_checkin = row['event_id']
+                
+                conn.close()
+                return jsonify({
+                    'is_checkout_code': True,
+                    'checkout_code': phone_digits,
+                    'family_id': family_id,
+                    'family_phone': family_phone,
+                    'event_id': event_id_from_checkin,
+                    'kids': kids_to_checkout
                 })
-                family_id = row['family_id']
-                family_phone = row['family_phone']
-                event_id_from_checkin = row['event_id']
-            
+        
+        # In random codes mode, phone input is for check-in family lookup only
+        if not phone_digits.isdigit():
             conn.close()
-            return jsonify({
-                'is_checkout_code': True,
-                'checkout_code': phone_digits,
-                'family_id': family_id,
-                'family_phone': family_phone,
-                'event_id': event_id_from_checkin,
-                'kids': kids_to_checkout
-            })
+            return jsonify({'error': 'Invalid phone number'}), 400
     
-    # For phone-based checkout, check if this phone has any kids currently checked in
-    if checkout_method != 'codes' and phone_digits.isdigit():
-        # Check for kids currently checked in (checkout_time IS NULL) for this event
+    # PHONE-BASED CODES MODE: Accept phone digits as checkout code (last 4 of phone)
+    elif checkout_method == 'phone_codes':
+        if not phone_digits.isdigit() or len(phone_digits) != 4:
+            conn.close()
+            return jsonify({'error': 'Please enter the last 4 digits of your phone number'}), 400
+        
+        # Find families whose phone number ends with these digits and have checked-in kids
+        # The checkout_code field stores the last 4 digits for phone_codes mode
         phone_checkout_match = conn.execute("""
             SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_time,
                    k.name as kid_name, k.family_id, f.phone as family_phone
@@ -1393,12 +1402,10 @@ def checkin_last4():
             JOIN families f ON f.id = k.family_id
             WHERE c.checkout_time IS NULL
               AND c.event_id = ?
-              AND (REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
-                   OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?)
-        """, (event_id, '%' + phone_digits, phone_digits)).fetchall()
+              AND c.checkout_code = ?
+        """, (event_id, phone_digits)).fetchall()
         
         if phone_checkout_match:
-            # Found kids to check out by phone number
             kids_to_checkout = []
             family_id = None
             family_phone = None
@@ -1421,8 +1428,12 @@ def checkin_last4():
                 'event_id': event_id,
                 'kids': kids_to_checkout
             })
+        
+        # No kids found - phone number doesn't match any checked-in families
+        conn.close()
+        return jsonify({'error': 'No checked-in children found for that phone number'}), 404
     
-    # Not a checkout code or phone-based checkout, proceed with check-in family search
+    # If we get here, only proceed with family lookup for check-in (random codes mode only)
     if not phone_digits.isdigit():
         conn.close()
         return jsonify({'error': 'Invalid phone number'}), 400
@@ -1834,16 +1845,19 @@ def checkin_selected():
     conn = get_db()
     now = datetime.utcnow().isoformat()
     
-    # Check if checkout codes are enabled and get method
-    require_codes_setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
-    require_codes = require_codes_setting and require_codes_setting[0] == 'true'
+    # Get checkout method setting
+    checkout_method_row = conn.execute("SELECT value FROM settings WHERE key = 'checkout_method'").fetchone()
+    checkout_method = checkout_method_row[0] if checkout_method_row else 'random_codes'
     
-    checkout_method_setting = conn.execute("SELECT value FROM settings WHERE key = 'checkout_code_method'").fetchone()
-    checkout_method = checkout_method_setting[0] if checkout_method_setting else 'qr'  # Default to QR
+    # Get code delivery method (only used for random_codes)
+    code_delivery_method = 'qr'  # Default
+    if checkout_method == 'random_codes':
+        code_delivery_setting = conn.execute("SELECT value FROM settings WHERE key = 'checkout_code_method'").fetchone()
+        code_delivery_method = code_delivery_setting[0] if code_delivery_setting else 'qr'
     
     # Get label printer settings if printing is needed
     label_size = '30336'  # Default
-    if require_codes and checkout_method in ['label', 'both'] and LABEL_PRINTING_AVAILABLE:
+    if checkout_method == 'random_codes' and code_delivery_method in ['label', 'both'] and LABEL_PRINTING_AVAILABLE:
         printer_type = conn.execute("SELECT value FROM settings WHERE key = 'label_printer_type'").fetchone()
         label_size_setting = conn.execute("SELECT value FROM settings WHERE key = 'label_size'").fetchone()
         printer_type = printer_type[0] if printer_type else 'dymo'
@@ -1872,28 +1886,39 @@ def checkin_selected():
     phone = family_row['phone'] if family_row else ''
     authorized_adults = family_row['authorized_adults'] if family_row else ''
     
-    # Check if this family already has a checkout code for this event from previous check-ins
+    # Determine checkout code based on method
     family_checkout_code = None
-    if require_codes:
-        # Look for existing checkout code for this family/event combination
-        existing_code = conn.execute("""
-            SELECT DISTINCT c.checkout_code 
-            FROM checkins c
-            JOIN kids k ON k.id = c.kid_id
-            WHERE k.family_id = ? AND c.event_id = ? AND c.checkout_time IS NULL AND c.checkout_code IS NOT NULL
-            LIMIT 1
-        """, (family_id, event_id)).fetchone()
-        
-        if existing_code and existing_code[0]:
-            # Reuse existing code for siblings checked in separately
-            family_checkout_code = existing_code[0]
-        else:
-            # Generate new code if none exists
-            try:
-                family_checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
-            except Exception as e:
-                print(f"Error generating checkout code: {e}")
-                family_checkout_code = None
+    if checkout_method == 'random_codes':
+        # Generate or reuse random 5-digit code
+        if True:  # require_codes
+            # Look for existing checkout code for this family/event combination
+            existing_code = conn.execute("""
+                SELECT DISTINCT c.checkout_code 
+                FROM checkins c
+                JOIN kids k ON k.id = c.kid_id
+                WHERE k.family_id = ? AND c.event_id = ? AND c.checkout_time IS NULL AND c.checkout_code IS NOT NULL
+                LIMIT 1
+            """, (family_id, event_id)).fetchone()
+            
+            if existing_code and existing_code[0]:
+                # Reuse existing code for siblings checked in separately
+                family_checkout_code = existing_code[0]
+            else:
+                # Generate new random code
+                try:
+                    family_checkout_code = generate_unique_code(int(event_id), str(DB_PATH))
+                except Exception as e:
+                    print(f"Error generating checkout code: {e}")
+                    family_checkout_code = None
+    elif checkout_method == 'phone_codes':
+        # Use last 4 digits of phone as the checkout code
+        if phone:
+            # Extract last 4 digits from formatted phone number
+            digits_only = ''.join(c for c in phone if c.isdigit())
+            if len(digits_only) >= 4:
+                family_checkout_code = digits_only[-4:]
+            else:
+                family_checkout_code = digits_only.zfill(4)
     
     for kid_id in kid_ids:
         # Check if already checked in to this event
@@ -1901,7 +1926,7 @@ def checkin_selected():
         if cur.fetchone():
             continue
         
-        # Insert check-in with the SAME family code for all kids
+        # Insert check-in with the checkout code (if applicable)
         cursor = conn.execute("INSERT INTO checkins (kid_id, adult_id, event_id, checkin_time, checkout_code) VALUES (?, ?, ?, ?, ?)", 
                     (kid_id, adult_id, event_id, now, family_checkout_code))
         checkin_id = cursor.lastrowid
@@ -1933,8 +1958,8 @@ def checkin_selected():
         # Collect kid names for combined label
         kid_names_for_label.append(kid_name)
     
-    # Create a single combined label if multiple kids checked in together
-    if family_checkout_code and checkout_method in ['label', 'both'] and len(kid_names_for_label) > 0:
+    # Create a single combined label if multiple kids checked in together (random codes only)
+    if family_checkout_code and checkout_method == 'random_codes' and code_delivery_method in ['label', 'both'] and len(kid_names_for_label) > 0:
         try:
             # Combine all kid names for the label (comma separated)
             combined_names = ', '.join(kid_names_for_label)
@@ -1957,11 +1982,11 @@ def checkin_selected():
     
     conn.commit()
     
-    # Generate share token and QR code ONLY if codes are required and method includes QR
+    # Generate share token and QR code ONLY if random codes AND QR method
     share_token = None
     qr_code_data = None
     short_url = None
-    if require_codes and checkout_method in ['qr', 'both'] and checked_in_data and len(checked_in_data) > 0 and any(c['id'] for c in checked_in_data):
+    if checkout_method == 'random_codes' and code_delivery_method in ['qr', 'both'] and checked_in_data and len(checked_in_data) > 0 and any(c['id'] for c in checked_in_data):
         share_token = generate_share_token()
         expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat()
         checkin_ids = ','.join([str(c['id']) for c in checked_in_data])
@@ -3604,21 +3629,19 @@ def admin_security():
                 set_override_password(new_override)
                 flash(f'✅ Admin override checkout code updated successfully! Your new code is: <strong style="font-family: monospace; font-size: 1.1em;">{new_override}</strong><br><small class="text-muted">⚠️ Save this code somewhere safe - we cannot display it again for security.</small>', 'success')
         
-        # Handle label printing settings
-        elif 'require_checkout_code' in request.form or 'checkout_code_method' in request.form or 'checkout_method' in request.form:
-            checkout_method = request.form.get('checkout_method', 'codes')
-            require_codes = 'true' if request.form.get('require_checkout_code') else 'false'
+        # Handle checkout method settings
+        elif 'checkout_method' in request.form:
+            checkout_method = request.form.get('checkout_method', 'random_codes')
             checkout_code_method = request.form.get('checkout_code_method', 'qr')
             printer_type = request.form.get('label_printer_type', 'dymo')
             label_size = request.form.get('label_size', '30336')
             
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_method', ?)", (checkout_method,))
-            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_codes,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_code_method', ?)", (checkout_code_method,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_size', ?)", (label_size,))
             conn.commit()
-            flash('Checkout code settings updated successfully!', 'success')
+            flash('Checkout method settings updated successfully!', 'success')
         
         conn.close()
         return redirect(url_for('admin_security'))
