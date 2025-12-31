@@ -1338,9 +1338,14 @@ def checkin_last4():
     
     conn = get_db()
     
+    # Get checkout method setting
+    checkout_method_row = conn.execute("SELECT value FROM settings WHERE key = 'checkout_method'").fetchone()
+    checkout_method = checkout_method_row[0] if checkout_method_row else 'codes'
+    
     # First, check if this is a checkout code (before checking phone numbers)
     # Checkout codes are alphanumeric and stored in checkins table
-    if len(phone_digits) >= 4:
+    # Skip this check if checkout_method is 'phone' only
+    if checkout_method != 'phone' and len(phone_digits) >= 4:
         checkout_match = conn.execute("""
             SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_code, c.checkout_time,
                    k.name as kid_name, k.family_id, f.phone as family_phone
@@ -1377,7 +1382,47 @@ def checkin_last4():
                 'kids': kids_to_checkout
             })
     
-    # Not a checkout code, proceed with phone number search
+    # For phone-based checkout, check if this phone has any kids currently checked in
+    if checkout_method != 'codes' and phone_digits.isdigit():
+        # Check for kids currently checked in (checkout_time IS NULL) for this event
+        phone_checkout_match = conn.execute("""
+            SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_time,
+                   k.name as kid_name, k.family_id, f.phone as family_phone
+            FROM checkins c
+            JOIN kids k ON k.id = c.kid_id
+            JOIN families f ON f.id = k.family_id
+            WHERE c.checkout_time IS NULL
+              AND c.event_id = ?
+              AND (REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                   OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?)
+        """, (event_id, '%' + phone_digits, phone_digits)).fetchall()
+        
+        if phone_checkout_match:
+            # Found kids to check out by phone number
+            kids_to_checkout = []
+            family_id = None
+            family_phone = None
+            
+            for row in phone_checkout_match:
+                kids_to_checkout.append({
+                    'checkin_id': row['checkin_id'],
+                    'kid_id': row['kid_id'],
+                    'kid_name': row['kid_name']
+                })
+                family_id = row['family_id']
+                family_phone = row['family_phone']
+            
+            conn.close()
+            return jsonify({
+                'is_phone_checkout': True,
+                'phone_digits': phone_digits,
+                'family_id': family_id,
+                'family_phone': family_phone,
+                'event_id': event_id,
+                'kids': kids_to_checkout
+            })
+    
+    # Not a checkout code or phone-based checkout, proceed with check-in family search
     if not phone_digits.isdigit():
         conn.close()
         return jsonify({'error': 'Invalid phone number'}), 400
@@ -3560,12 +3605,14 @@ def admin_security():
                 flash(f'✅ Admin override checkout code updated successfully! Your new code is: <strong style="font-family: monospace; font-size: 1.1em;">{new_override}</strong><br><small class="text-muted">⚠️ Save this code somewhere safe - we cannot display it again for security.</small>', 'success')
         
         # Handle label printing settings
-        elif 'require_checkout_code' in request.form or 'checkout_code_method' in request.form:
+        elif 'require_checkout_code' in request.form or 'checkout_code_method' in request.form or 'checkout_method' in request.form:
+            checkout_method = request.form.get('checkout_method', 'codes')
             require_codes = 'true' if request.form.get('require_checkout_code') else 'false'
             checkout_code_method = request.form.get('checkout_code_method', 'qr')
             printer_type = request.form.get('label_printer_type', 'dymo')
             label_size = request.form.get('label_size', '30336')
             
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_method', ?)", (checkout_method,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_codes,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_code_method', ?)", (checkout_code_method,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
@@ -3585,7 +3632,7 @@ def admin_security():
     
     # Fetch label printing settings
     label_settings = {}
-    for key in ['require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
+    for key in ['checkout_method', 'require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         label_settings[key] = row[0] if row else None
     

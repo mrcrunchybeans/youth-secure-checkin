@@ -613,6 +613,9 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
             } else if (data.is_checkout_code) {
                 // Handle checkout code entry
                 handleCheckoutCodeEntry(data);
+            } else if (data.is_phone_checkout) {
+                // Handle phone-based checkout - show confirmation directly
+                handlePhoneCheckout(data);
             } else if (data.families) {
                 // Multiple families matched - show picker or use first one
                 if (data.families.length === 1) {
@@ -627,6 +630,42 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
             }
         });
 });
+
+// Handle phone-based checkout - show confirmation with kids list
+function handlePhoneCheckout(data) {
+    // Build the kids list with checkboxes
+    const kidsContainer = document.getElementById('checkout-confirm-kids');
+    let html = '';
+    
+    data.kids.forEach((kid, index) => {
+        html += `
+        <div class="form-check" style="padding: 0.8rem 1rem; margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 10px; border: 2px solid #dee2e6;">
+            <input class="form-check-input" type="checkbox" id="checkout-kid-${kid.kid_id}" 
+                   data-kid-id="${kid.kid_id}" data-checkin-id="${kid.checkin_id}" 
+                   style="width: 1.5rem; height: 1.5rem; margin-top: 0.15rem;" checked>
+            <label class="form-check-label" for="checkout-kid-${kid.kid_id}" 
+                   style="font-size: 1.3rem; font-weight: 600; margin-left: 0.5rem; cursor: pointer;">
+                ${kid.kid_name}
+            </label>
+        </div>`;
+    });
+    
+    kidsContainer.innerHTML = html;
+    
+    // Store data for the confirm button
+    const confirmBtn = document.getElementById('confirm-checkout-btn');
+    confirmBtn.dataset.eventId = data.event_id;
+    confirmBtn.dataset.isPhoneCheckout = 'true';
+    confirmBtn.dataset.phoneDigits = data.phone_digits;
+    delete confirmBtn.dataset.checkoutCode;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('checkoutConfirmModal'));
+    modal.show();
+    
+    // Clear phone input
+    document.getElementById('phone').value = '';
+}
 
 // Handle checkout code entry - show branded modal with checkboxes
 function handleCheckoutCodeEntry(data) {
@@ -653,6 +692,7 @@ function handleCheckoutCodeEntry(data) {
     const confirmBtn = document.getElementById('confirm-checkout-btn');
     confirmBtn.dataset.eventId = data.event_id;
     confirmBtn.dataset.checkoutCode = data.checkout_code;
+    confirmBtn.dataset.isPhoneCheckout = 'false';
     
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('checkoutConfirmModal'));
@@ -666,6 +706,7 @@ function handleCheckoutCodeEntry(data) {
 document.getElementById('confirm-checkout-btn').addEventListener('click', function() {
     const eventId = this.dataset.eventId;
     const checkoutCode = this.dataset.checkoutCode;
+    const isPhoneCheckout = this.dataset.isPhoneCheckout === 'true';
     
     // Get selected kids
     const selectedKids = [];
@@ -691,7 +732,9 @@ document.getElementById('confirm-checkout-btn').addEventListener('click', functi
     
     const formData = new FormData();
     formData.append('event_id', eventId);
-    formData.append('checkout_code', checkoutCode);
+    if (!isPhoneCheckout) {
+        formData.append('checkout_code', checkoutCode);
+    }
     additionalKids.forEach(kidId => {
         formData.append('additional_kid_ids', kidId);
     });

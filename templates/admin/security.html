@@ -121,21 +121,44 @@
             <i class="bi bi-qr-code"></i> Checkout Code Settings
           </h5>
           <form method="POST">
-            <div class="mb-3">
-              <div class="form-check form-switch">
-                <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
-                       {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}>
-                <label class="form-check-label fw-semibold" for="require_checkout_code">
-                  Require checkout codes
-                </label>
-              </div>
-              <div class="text-muted small mt-1">
-                When enabled, families must present a 5-digit code to check out their children. 
-                Administrators can override with their admin code.
+            <!-- Checkout Method Selection -->
+            <div class="mb-4 pb-4 border-bottom">
+              <label for="checkout_method" class="form-label fw-semibold">Checkout Method</label>
+              <select class="form-select" id="checkout_method" name="checkout_method">
+                <option value="codes" {% if label_settings.checkout_method == 'codes' or not label_settings.checkout_method %}selected{% endif %}>
+                  📱 Checkout Codes Only (5-digit code or QR scan)
+                </option>
+                <option value="phone" {% if label_settings.checkout_method == 'phone' %}selected{% endif %}>
+                  ☎️ Phone Number Only (Last 4 digits of phone used at check-in)
+                </option>
+                <option value="both" {% if label_settings.checkout_method == 'both' %}selected{% endif %}>
+                  📱☎️ Either Codes or Phone Number (Families choose)
+                </option>
+              </select>
+              <div class="text-muted small mt-2">
+                <div><strong>Codes Only:</strong> Families present a 5-digit code (via QR code or printed label)</div>
+                <div><strong>Phone Number:</strong> Families enter the last 4 digits of the phone number they used at check-in</div>
+                <div><strong>Either:</strong> Both options available at checkout - families can use whichever is more convenient</div>
               </div>
             </div>
 
-            <div id="code-method-section" style="{% if label_settings.require_checkout_code != 'true' %}opacity: 0.5; pointer-events: none;{% endif %}">
+            <!-- Code-specific settings (shown when codes are enabled) -->
+            <div id="code-settings-section" style="{% if label_settings.checkout_method == 'phone' %}display: none;{% endif %}">
+              <div class="mb-3">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="require_checkout_code" name="require_checkout_code"
+                         {% if label_settings.require_checkout_code == 'true' %}checked{% endif %}>
+                  <label class="form-check-label fw-semibold" for="require_checkout_code">
+                    Require checkout codes (when using code-based checkout)
+                  </label>
+                </div>
+                <div class="text-muted small mt-1">
+                  When enabled, families must present a 5-digit code to check out their children. 
+                  Administrators can override with their admin code.
+                </div>
+              </div>
+
+              <div id="code-method-section" style="{% if label_settings.require_checkout_code != 'true' %}opacity: 0.5; pointer-events: none;{% endif %}"
               <div class="mb-3">
                 <label for="checkout_code_method" class="form-label fw-semibold">Code Delivery Method</label>
                 <select class="form-select" id="checkout_code_method" name="checkout_code_method">
@@ -188,6 +211,7 @@
                 </div>
               </div>
             </div>
+            </div>
 
             <div class="mt-3">
               <button type="submit" class="btn btn-primary">
@@ -232,10 +256,22 @@
 
 
 <script>
-  // Toggle printer settings visibility based on method
+  // Toggle code settings visibility based on checkout method
+  const checkoutMethodSelect = document.getElementById('checkout_method');
+  const codeSettingsSection = document.getElementById('code-settings-section');
   const methodSelect = document.getElementById('checkout_code_method');
   const printerSettings = document.getElementById('printer-settings');
   
+  // Show/hide code settings based on checkout method
+  checkoutMethodSelect.addEventListener('change', function() {
+    if (this.value === 'phone') {
+      codeSettingsSection.style.display = 'none';
+    } else {
+      codeSettingsSection.style.display = 'block';
+    }
+  });
+  
+  // Toggle printer settings visibility based on code delivery method
   methodSelect.addEventListener('change', function() {
     printerSettings.style.display = (this.value === 'label' || this.value === 'both') ? 'block' : 'none';
   });
