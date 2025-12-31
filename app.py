@@ -1388,52 +1388,49 @@ def checkin_last4():
     
     # PHONE-BASED CODES MODE: Accept phone digits as checkout code (last 4 of phone)
     elif checkout_method == 'phone_codes':
-        if not phone_digits.isdigit() or len(phone_digits) != 4:
-            conn.close()
-            return jsonify({'error': 'Please enter the last 4 digits of your phone number'}), 400
-        
-        # Find families whose phone number ends with these digits and have checked-in kids
-        # The checkout_code field stores the last 4 digits for phone_codes mode
-        phone_checkout_match = conn.execute("""
-            SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_time,
-                   k.name as kid_name, k.family_id, f.phone as family_phone
-            FROM checkins c
-            JOIN kids k ON k.id = c.kid_id
-            JOIN families f ON f.id = k.family_id
-            WHERE c.checkout_time IS NULL
-              AND c.event_id = ?
-              AND c.checkout_code = ?
-        """, (event_id, phone_digits)).fetchall()
-        
-        if phone_checkout_match:
-            kids_to_checkout = []
-            family_id = None
-            family_phone = None
+        # Try to find checked-in kids with this phone code first
+        if phone_digits.isdigit() and len(phone_digits) == 4:
+            phone_checkout_match = conn.execute("""
+                SELECT c.id as checkin_id, c.kid_id, c.event_id, c.checkout_time,
+                       k.name as kid_name, k.family_id, f.phone as family_phone
+                FROM checkins c
+                JOIN kids k ON k.id = c.kid_id
+                JOIN families f ON f.id = k.family_id
+                WHERE c.checkout_time IS NULL
+                  AND c.event_id = ?
+                  AND c.checkout_code = ?
+            """, (event_id, phone_digits)).fetchall()
             
-            for row in phone_checkout_match:
-                kids_to_checkout.append({
-                    'checkin_id': row['checkin_id'],
-                    'kid_id': row['kid_id'],
-                    'kid_name': row['kid_name']
+            if phone_checkout_match:
+                kids_to_checkout = []
+                family_id = None
+                family_phone = None
+                
+                for row in phone_checkout_match:
+                    kids_to_checkout.append({
+                        'checkin_id': row['checkin_id'],
+                        'kid_id': row['kid_id'],
+                        'kid_name': row['kid_name']
+                    })
+                    family_id = row['family_id']
+                    family_phone = row['family_phone']
+                
+                conn.close()
+                return jsonify({
+                    'is_phone_checkout': True,
+                    'phone_digits': phone_digits,
+                    'family_id': family_id,
+                    'family_phone': family_phone,
+                    'event_id': event_id,
+                    'kids': kids_to_checkout
                 })
-                family_id = row['family_id']
-                family_phone = row['family_phone']
-            
-            conn.close()
-            return jsonify({
-                'is_phone_checkout': True,
-                'phone_digits': phone_digits,
-                'family_id': family_id,
-                'family_phone': family_phone,
-                'event_id': event_id,
-                'kids': kids_to_checkout
-            })
         
-        # No kids found - phone number doesn't match any checked-in families
-        conn.close()
-        return jsonify({'error': 'No checked-in children found for that phone number'}), 404
+        # If no checkout found, fall through to family lookup for check-in
+        if not phone_digits.isdigit():
+            conn.close()
+            return jsonify({'error': 'Invalid phone number'}), 400
     
-    # If we get here, only proceed with family lookup for check-in (random codes mode only)
+    # If we get here, proceed with family lookup for check-in (both modes allow this)
     if not phone_digits.isdigit():
         conn.close()
         return jsonify({'error': 'Invalid phone number'}), 400
