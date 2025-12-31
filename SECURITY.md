@@ -128,15 +128,29 @@ cp .env.docker .env
 
 ### Checkout Security
 
-**QR Codes:**
-- Unique code per check-in
-- Expires after use
-- Displayed on-screen only
+The system supports two **strict, mutually-exclusive checkout modes** configured per event:
 
-**Label Printing:**
-- Physical security tokens
-- One-time use codes
-- Destroy after pickup
+**Random 5-Digit Codes Mode** (Default)
+- System generates unique codes during check-in
+- Codes delivered via QR code and/or printed labels
+- Each code is single-use and expires after checkout
+- Best for: Accountability - volunteers control distribution of codes
+- QR Code: Display on-screen, family scans with phone
+- Label: Physical token printed and given to family
+- Both: Offer both options
+
+**Phone-Based Codes Mode**
+- Uses last 4 digits of family's phone number as code
+- No code generation or printing needed
+- Families remember their own phone number
+- Best for: Simplicity - minimal overhead, fast checkout
+
+**Security Considerations:**
+- **Mode Selection**: Choose ONE mode per event - they are not compatible
+- **Random Codes**: More accountable, harder to guess (10,000 combinations)
+- **Phone Codes**: Simpler, but vulnerable if phone numbers are known
+- **Admin Override**: Available in both modes for emergency situations
+- **Authorized Adults**: Restrict pickup by authorized contacts only
 
 ### Authorized Adults
 

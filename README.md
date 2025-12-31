@@ -46,11 +46,16 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Setup Wizard**: First-run configuration guide
 - **Dark Mode**: Toggle between light and dark themes (persisted in browser)
 
-### 🎫 Checkout Options
-- **QR Codes**: Display on screen for mobile scanning
-- **Label Printing**: Brother QL series thermal printers
-- **Dual Mode**: Support both QR and labels simultaneously
-- **Custom Labels**: Three-line configurable text
+### 🎫 Checkout Methods
+
+**Two Strict Modes** (choose one per event):
+- **Random 5-Digit Codes**: System generates unique codes during check-in
+  - Delivered via QR code (scan with phone) or printed labels
+  - Dual Mode: Support both QR and labels simultaneously
+  - Custom Labels: Three-line configurable text with family/event info
+- **Phone-Based Codes**: Uses last 4 digits of phone number as code
+  - No generation needed, fast checkout
+  - Simple and efficient for smaller groups
 
 ### 📊 Event Management
 - **iCal Import**: Auto-import from Google Calendar, Outlook, etc.

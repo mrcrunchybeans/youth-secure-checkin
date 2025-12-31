@@ -558,23 +558,32 @@ Example strong password: `MyOrg2025!Secure`
 
 ### Checkout Code Settings
 
-#### Configuration Options
+#### Configuration Options (v1.0.3+)
 
-**Require Checkout Codes:**
-- Toggle on/off
-- When on: Families must use code to checkout
-- When off: Open checkout for anyone
+The checkout system now uses two **strict, mutually-exclusive modes**:
 
-**Checkout Code Method:**
-1. **QR Code Only**: Display on screen, scan with phone
-2. **Label Only**: Print with Brother QL printer
-3. **Both Methods**: Support both options
+**Mode 1: Random 5-Digit Codes** (Default)
+- System generates a unique 5-digit code for each check-in
+- Delivered via:
+  - **QR Code Only**: Display on screen, families scan with phone
+  - **Label Only**: Print with Brother QL printer
+  - **Both Methods**: Support both QR and printed labels
+- No phone number needed for checkout
+- Best for: Larger groups, secure checkout with printed tokens
 
-#### Label Printing Setup
+**Mode 2: Phone-Based Codes**
+- Last 4 digits of the family's phone number becomes the checkout code
+- No code generation or printing needed
+- Simple and fast for families who remember their phone number
+- Best for: Small groups, minimal overhead, families comfortable with phone
 
-See [Label Printer Setup](#label-printer-setup) section.
+**Important**: These modes are separate - you choose ONE for your event. The system only accepts the code type configured for that event.
 
-**Label Settings:**
+#### Code Delivery Method (Random Codes Mode Only)
+
+See [Label Printer Setup](#label-printer-setup) section for printer setup.
+
+**Label Customization** (Random Codes with Labels):
 - **Line 1**: First line of text
   - Default: "Check-out Code"
 - **Line 2**: Second line (supports placeholders)
