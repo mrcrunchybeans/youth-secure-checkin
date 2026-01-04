@@ -199,9 +199,9 @@ DEMO_SETTINGS = {
     'checkout_code_method': 'qr',
     'demo_mode': 'true',
     'demo_banner': 'Resets every 24 hours | Check-in code: demo123 | Admin password: demo123',
-    'admin_password_hash': 'pbkdf2:sha256:260000$demo$5d8c8a8e8f9e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f',  # password: demo123
+    'admin_password_hash': 'pbkdf2:sha256:1000000$vS5uK51KX7u12tVM$1d536b0387dd2137ca7873758788a030af136d9e64b042f827cbe5f99c85198a',  # password: demo123
     'is_setup_complete': 'true',  # Bypass setup screen for demo
-    'app_password': 'demo123',  # Default app password for demo
+    'app_password': 'pbkdf2:sha256:1000000$vS5uK51KX7u12tVM$1d536b0387dd2137ca7873758788a030af136d9e64b042f827cbe5f99c85198a',  # Default app password for demo (hashed: demo123)
 }
 
 

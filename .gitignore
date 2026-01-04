@@ -43,26 +43,29 @@ instance/
 # Environment variables
 .env
 .env.local
-
+.ignore/
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
+*Homepage_*
 # OS
 .DS_Store
 Thumbs.db
-
+BEFORE_*
 # Logs
 *.log
-
+beaver
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
-
+CURRENT_WEBSITE*
+GITHUB_REPOSITORY_AUDIT*
+REDESIGN_CHECKLIST*
+WEBSITE_CONTENT*
 # Local development files (not for public repo)
 local-scripts/
 local-dev-files/
