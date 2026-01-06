@@ -16,6 +16,7 @@ APP_VERSION = "1.0.2"
 def get_git_commit_hash():
     """Get the current git commit hash for deployment tracking"""
     try:
+        # Try method 1: subprocess (faster if git is in PATH)
         result = subprocess.run(
             ['git', 'rev-parse', '--short', 'HEAD'],
             cwd=Path(__file__).parent,
@@ -27,6 +28,28 @@ def get_git_commit_hash():
             return result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
         pass
+    
+    # Fallback method 2: Read .git/HEAD directly (more reliable on production)
+    try:
+        git_dir = Path(__file__).parent / '.git'
+        if git_dir.exists():
+            head_file = git_dir / 'HEAD'
+            if head_file.exists():
+                head_content = head_file.read_text().strip()
+                # HEAD file contains "ref: refs/heads/branch_name"
+                if head_content.startswith('ref:'):
+                    ref_path = head_content.split()[-1]
+                    ref_file = git_dir / ref_path
+                    if ref_file.exists():
+                        commit = ref_file.read_text().strip()[:8]
+                        if commit:
+                            return commit
+                else:
+                    # Detached HEAD state
+                    return head_content[:8]
+    except Exception:
+        pass
+    
     return None
 
 def get_version_string():
