@@ -1495,11 +1495,12 @@ def show_recovery_codes():
     """Display recovery codes (after setup or from admin settings)"""
     initial_setup = request.args.get('initial_setup') == 'True'
     
-    # Only generate codes during initial setup
-    # When called from admin panel, we just display existing codes
+    # Generate new codes during initial setup or regeneration
     if initial_setup:
         recovery_codes = generate_recovery_codes()
+        # Codes are returned from generate_recovery_codes()
     else:
+        # Just display - no new codes
         recovery_codes = []
     
     unused_count = get_recovery_codes_count()
@@ -2751,19 +2752,24 @@ def email_history():
 @require_auth
 def regenerate_recovery_codes():
     """Regenerate recovery codes - clears old codes and creates new ones"""
-    conn = get_db()
-    
-    # Clear all existing codes
-    conn.execute("DELETE FROM recovery_codes")
-    
-    # Generate new codes
-    generate_recovery_codes()
-    
-    conn.commit()
-    conn.close()
-    
-    flash('New recovery codes have been generated! Use the "View Current Codes" button to see them.', 'success')
-    return redirect(url_for('show_recovery_codes'))
+    try:
+        conn = get_db()
+        
+        # Clear all existing codes
+        conn.execute("DELETE FROM recovery_codes")
+        conn.commit()
+        conn.close()
+        
+        # Generate new codes
+        generate_recovery_codes()
+        
+        flash('✅ New recovery codes have been generated!', 'success')
+        # Redirect to recovery codes page with initial_setup flag to display codes
+        return redirect(url_for('show_recovery_codes', initial_setup=True))
+    except Exception as e:
+        logger.error(f"Error regenerating recovery codes: {e}")
+        flash(f'Error generating codes: {str(e)}', 'danger')
+        return redirect(url_for('admin_security'))
 
 @app.route('/admin')
 @require_auth
