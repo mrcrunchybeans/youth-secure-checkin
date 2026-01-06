@@ -610,6 +610,11 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
         .then(data => {
             if (data.error) {
                 alert(data.error);
+                // Restore focus after error
+                setTimeout(() => {
+                    document.getElementById('phone').focus();
+                    document.getElementById('phone').value = '';
+                }, 100);
             } else if (data.is_checkout_code) {
                 // Handle checkout code entry
                 handleCheckoutCodeEntry(data);
@@ -663,6 +668,12 @@ function handlePhoneCheckout(data) {
     const modal = new bootstrap.Modal(document.getElementById('checkoutConfirmModal'));
     modal.show();
     
+    // Restore focus to input when modal is hidden
+    document.getElementById('checkoutConfirmModal').addEventListener('hidden.bs.modal', function restoreFocus() {
+        document.getElementById('phone').focus();
+        this.removeEventListener('hidden.bs.modal', restoreFocus);
+    });
+    
     // Clear phone input
     document.getElementById('phone').value = '';
 }
@@ -697,6 +708,12 @@ function handleCheckoutCodeEntry(data) {
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('checkoutConfirmModal'));
     modal.show();
+    
+    // Restore focus to input when modal is hidden
+    document.getElementById('checkoutConfirmModal').addEventListener('hidden.bs.modal', function restoreFocus() {
+        document.getElementById('phone').focus();
+        this.removeEventListener('hidden.bs.modal', restoreFocus);
+    });
     
     // Clear phone input
     document.getElementById('phone').value = '';
@@ -1034,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Keypad initialized with', keys.length, 'keys');
 
     let searchTimeout = null;
-    const SEARCH_DELAY_MS = 500; // Wait 500ms after typing stops before searching
+    const SEARCH_DELAY_MS = 1500; // Wait 1.5 seconds after typing stops before searching (users type slowly)
 
     function setPhone(v) {
         // enforce digits/alphanumeric and max length 5 (checkout codes can be 5 chars)
@@ -1049,15 +1066,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Search logic:
-        // - At 4 digits: wait for delay (user might be typing a 5-char checkout code)
-        // - At 5 chars: search immediately (max length reached)
+        // - At 5 chars: search immediately (max length reached - definitely complete code)
+        // - At 4 digits: wait for delay in case user is still typing 5-char checkout code
         // - On Enter: search immediately (handled separately)
         if (v.length === 5) {
             // Max length reached, search immediately
             console.log('Max length (5) reached, searching immediately');
             document.getElementById('checkin-form').dispatchEvent(new Event('submit'));
         } else if (v.length === 4) {
-            // Could be phone (4 digits) or checkout code (5 chars) - wait for more input
+            // Could be phone (4 digits) or checkout code (5 chars) - wait longer for more input
             console.log('4 chars entered, waiting', SEARCH_DELAY_MS, 'ms for more input...');
             searchTimeout = setTimeout(() => {
                 console.log('Delay elapsed, auto-submitting form');
