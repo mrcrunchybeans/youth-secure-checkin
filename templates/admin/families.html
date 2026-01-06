@@ -19,7 +19,6 @@
     <thead>
       <tr>
         <th>Phone</th>
-        <th>{{ branding.group_term }}</th>
         <th>Adults</th>
         <th>Kids</th>
         <th>Actions</th>
@@ -29,7 +28,6 @@
       {% for f in families %}
         <tr>
           <td>{{ f['phone'] }}</td>
-          <td>{{ f['troop'] or '—' }}</td>
           <td>{{ f['adults'] or '—' }}</td>
           <td>{{ f['kids'] or '—' }}</td>
           <td>
