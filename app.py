@@ -8,8 +8,34 @@ from functools import wraps
 import logging
 import hashlib
 
+import subprocess
+
 # Application version
 APP_VERSION = "1.0.2"
+
+def get_git_commit_hash():
+    """Get the current git commit hash for deployment tracking"""
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            cwd=Path(__file__).parent,
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        pass
+    return None
+
+def get_version_string():
+    """Get version string with git hash if available"""
+    commit = get_git_commit_hash()
+    if commit:
+        return f"{APP_VERSION} ({commit})"
+    return APP_VERSION
+
 logger = logging.getLogger(__name__)
 from requests.adapters import HTTPAdapter
 from urllib3.util.connection import create_connection
@@ -451,7 +477,7 @@ def inject_version():
         conn.close()
         
         return {
-            'app_version': APP_VERSION,
+            'app_version': get_version_string(),
             'current_year': datetime.now().year,
             'footer_enabled': footer_enabled,
             'footer_text': footer_text,
