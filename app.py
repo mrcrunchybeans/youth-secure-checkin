@@ -3729,41 +3729,170 @@ def admin_branding():
             timezone = request.form.get('timezone', 'America/New_York')
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('timezone', ?)", (timezone,))
             conn.commit()
-            conn.close()
             
             # Update backup manager with new timezone
             update_backup_manager_timezone()
             
             flash(f'Timezone updated to {timezone}', 'success')
+            conn.close()
             return redirect(url_for('admin_branding'))
+        
+        elif action == 'upload_logo':
+            # Handle logo upload
+            if 'logo_file' in request.files:
+                file = request.files['logo_file']
+                if file and file.filename and allowed_file(file.filename, {'png', 'jpg', 'jpeg', 'svg'}):
+                    # Delete old logo if it exists
+                    old_logo = get_logo_filename()
+                    if old_logo:
+                        try:
+                            old_path = app.config['UPLOAD_FOLDER'] / old_logo
+                            if old_path.exists():
+                                old_path.unlink()
+                        except Exception as e:
+                            app.logger.warning(f"Could not delete old logo: {e}")
+                    
+                    # Save new logo
+                    filename = secure_filename(f"logo_{datetime.now().timestamp()}.{file.filename.rsplit('.', 1)[1].lower()}")
+                    filepath = app.config['UPLOAD_FOLDER'] / filename
+                    file.save(str(filepath))
+                    set_logo_filename(filename)
+                    
+                    flash('Logo uploaded successfully', 'success')
+                else:
+                    flash('Invalid file type for logo. Use PNG, JPG, or SVG', 'danger')
+            else:
+                flash('No file selected', 'danger')
+            
+            conn.close()
+            return redirect(url_for('admin_branding'))
+        
+        elif action == 'remove_logo':
+            # Handle logo removal
+            old_logo = get_logo_filename()
+            if old_logo:
+                try:
+                    filepath = app.config['UPLOAD_FOLDER'] / old_logo
+                    if filepath.exists():
+                        filepath.unlink()
+                    set_logo_filename(None)
+                    flash('Logo removed successfully', 'success')
+                except Exception as e:
+                    app.logger.error(f"Error removing logo: {e}")
+                    flash('Error removing logo', 'danger')
+            conn.close()
+            return redirect(url_for('admin_branding'))
+        
+        elif action == 'upload_favicon':
+            # Handle favicon upload
+            if 'favicon_file' in request.files:
+                file = request.files['favicon_file']
+                if file and file.filename and allowed_file(file.filename, {'ico', 'png', 'jpg', 'jpeg'}):
+                    # Delete old favicon if it exists
+                    old_favicon = get_favicon_filename()
+                    if old_favicon:
+                        try:
+                            old_path = app.config['UPLOAD_FOLDER'] / old_favicon
+                            if old_path.exists():
+                                old_path.unlink()
+                        except Exception as e:
+                            app.logger.warning(f"Could not delete old favicon: {e}")
+                    
+                    # Save new favicon
+                    filename = secure_filename(f"favicon_{datetime.now().timestamp()}.{file.filename.rsplit('.', 1)[1].lower()}")
+                    filepath = app.config['UPLOAD_FOLDER'] / filename
+                    file.save(str(filepath))
+                    set_favicon_filename(filename)
+                    
+                    flash('Favicon uploaded successfully', 'success')
+                else:
+                    flash('Invalid file type for favicon. Use ICO, PNG, or JPG', 'danger')
+            else:
+                flash('No file selected', 'danger')
+            
+            conn.close()
+            return redirect(url_for('admin_branding'))
+        
+        elif action == 'remove_favicon':
+            # Handle favicon removal
+            old_favicon = get_favicon_filename()
+            if old_favicon:
+                try:
+                    filepath = app.config['UPLOAD_FOLDER'] / old_favicon
+                    if filepath.exists():
+                        filepath.unlink()
+                    set_favicon_filename(None)
+                    flash('Favicon removed successfully', 'success')
+                except Exception as e:
+                    app.logger.error(f"Error removing favicon: {e}")
+                    flash('Error removing favicon', 'danger')
+            conn.close()
+            return redirect(url_for('admin_branding'))
+        
         else:
-            # Update branding settings
+            # Update branding and footer settings
             settings_to_update = [
                 'organization_name', 'organization_type', 'group_term', 'group_term_lower',
-                'primary_color', 'secondary_color', 'accent_color'
+                'primary_color', 'secondary_color', 'accent_color', 'footer_text'
             ]
             
             for key in settings_to_update:
                 value = request.form.get(key, '')
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
             
-            # Handle logo upload if provided
-            if 'logo' in request.files:
-                logo = request.files['logo']
-                if logo.filename:
-                    # Save logo logic here (simplified)
-                    pass
+            # Handle checkboxes for footer
+            footer_enabled = 'footer_enabled' in request.form
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_enabled', ?)", 
+                        ('True' if footer_enabled else 'False',))
+            
+            footer_show_github = 'footer_show_github' in request.form
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_github', ?)", 
+                        ('True' if footer_show_github else 'False',))
+            
+            footer_show_version = 'footer_show_version' in request.form
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_version', ?)", 
+                        ('True' if footer_show_version else 'False',))
+            
+            footer_show_admin_link = 'footer_show_admin_link' in request.form
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('footer_show_admin_link', ?)", 
+                        ('True' if footer_show_admin_link else 'False',))
             
             conn.commit()
-            conn.close()
             flash('Branding settings updated successfully', 'success')
+            conn.close()
             return redirect(url_for('admin_branding'))
     
     # Get current timezone for the dropdown
     current_timezone = str(get_timezone())
     
+    # Get current logo and favicon filenames
+    current_logo = get_logo_filename()
+    current_favicon = get_favicon_filename()
+    
+    # Get footer settings
+    footer_settings = {}
+    footer_keys = ['footer_enabled', 'footer_text', 'footer_show_github', 'footer_show_version', 'footer_show_admin_link']
+    for key in footer_keys:
+        cur = conn.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        row = cur.fetchone()
+        if key == 'footer_text':
+            footer_settings[key] = row['value'] if row else ''
+        else:
+            footer_settings[key] = row['value'] == 'True' if row else True
+    
     conn.close()
-    return render_template('admin/branding.html', branding=get_branding_settings(), current_timezone=current_timezone)
+    
+    return render_template('admin/branding.html', 
+                         branding=get_branding_settings(), 
+                         current_timezone=current_timezone,
+                         current_logo=current_logo,
+                         current_favicon=current_favicon,
+                         footer_enabled=footer_settings.get('footer_enabled', True),
+                         footer_text=footer_settings.get('footer_text', ''),
+                         footer_show_github=footer_settings.get('footer_show_github', True),
+                         footer_show_version=footer_settings.get('footer_show_version', True),
+                         footer_show_admin_link=footer_settings.get('footer_show_admin_link', True),
+                         event_date_range_months=1)
 
 @app.route('/admin/email', methods=['GET', 'POST'])
 @require_auth
