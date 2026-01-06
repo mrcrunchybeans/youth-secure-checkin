@@ -4068,8 +4068,12 @@ def admin_security():
         if result and result[0]:
             # Parse and format the timestamp nicely
             from datetime import datetime as dt
-            generated_time = dt.fromisoformat(result[0])
-            recovery_codes_generated_at = generated_time.strftime('%B %d, %Y at %I:%M %p')
+            # Parse as UTC and convert to local time
+            generated_time_utc = dt.fromisoformat(result[0])
+            # Convert from UTC to local time by getting the system's local timezone offset
+            import time
+            local_time = generated_time_utc.astimezone()
+            recovery_codes_generated_at = local_time.strftime('%B %d, %Y at %I:%M %p')
     except Exception as e:
         logger.warning(f"Error retrieving recovery codes generation time: {e}")
         recovery_codes_generated_at = None
