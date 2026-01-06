@@ -1438,10 +1438,10 @@ def forgot_password():
                 )
                 
                 if success:
-                    session['can_reset_password'] = True
-                    session['reset_method'] = 'email'
+                    session['email_verification_pending'] = True
+                    session['reset_email'] = email_input
                     flash('A recovery code has been sent to your email.', 'success')
-                    return redirect(url_for('reset_password'))
+                    return redirect(url_for('verify_reset_code'))
                 else:
                     flash(f'Error sending email: {message}', 'danger')
             else:
@@ -1451,12 +1451,78 @@ def forgot_password():
     smtp_configured = bool(get_smtp_settings().get('smtp_server'))
     return render_template('forgot_password.html', smtp_configured=smtp_configured)
 
+@app.route('/verify-reset-code', methods=['GET', 'POST'])
+def verify_reset_code():
+    """Verify the reset code sent to email before allowing password reset"""
+    if not session.get('email_verification_pending'):
+        flash('Please request a password reset first', 'warning')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        entered_code = request.form.get('reset_code', '').strip()
+        
+        if not entered_code:
+            flash('Please enter the reset code from your email', 'danger')
+            return render_template('verify_reset_code.html')
+        
+        # Get the stored reset code hash and expiration
+        conn = get_db()
+        cursor = conn.execute("SELECT value FROM settings WHERE key = 'password_reset_code'")
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            flash('No reset code found. Please request a new one.', 'danger')
+            session.pop('email_verification_pending', None)
+            session.pop('reset_email', None)
+            return redirect(url_for('forgot_password'))
+        
+        # Extract hash and expiration time
+        stored_value = result[0]
+        parts = stored_value.split('|')
+        if len(parts) != 2:
+            flash('Invalid reset code data. Please request a new one.', 'danger')
+            session.pop('email_verification_pending', None)
+            session.pop('reset_email', None)
+            return redirect(url_for('forgot_password'))
+        
+        stored_hash, expiration_time = parts
+        
+        # Check if code expired (10 minutes)
+        try:
+            expiration = datetime.fromisoformat(expiration_time)
+            if datetime.now(timezone.utc) > expiration:
+                flash('Reset code expired. Please request a new one.', 'danger')
+                session.pop('email_verification_pending', None)
+                session.pop('reset_email', None)
+                return redirect(url_for('forgot_password'))
+        except ValueError:
+            flash('Invalid reset code. Please request a new one.', 'danger')
+            session.pop('email_verification_pending', None)
+            session.pop('reset_email', None)
+            return redirect(url_for('forgot_password'))
+        
+        # Verify the entered code matches the hash
+        entered_hash = hashlib.sha256(entered_code.encode()).hexdigest()
+        if entered_hash == stored_hash:
+            session.pop('email_verification_pending', None)
+            session.pop('reset_email', None)
+            session['can_reset_password'] = True
+            session['reset_method'] = 'email'
+            flash('Code verified! Please create a new password.', 'success')
+            return redirect(url_for('reset_password'))
+        else:
+            flash('Invalid reset code. Please try again.', 'danger')
+    
+    return render_template('verify_reset_code.html')
+
 @app.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
     """Reset password after recovery verification"""
     if not session.get('can_reset_password'):
         flash('Please verify your recovery code or email first', 'warning')
         return redirect(url_for('forgot_password'))
+
     
     if request.method == 'POST':
         new_password = request.form.get('new_password', '').strip()
