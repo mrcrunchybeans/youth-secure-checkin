@@ -258,6 +258,12 @@
               {% endif %}
               <a href="/admin" class="text-muted text-decoration-none ms-1" style="opacity: 0.6;">Admin</a>
             {% endif %}
+            {% if session.get('authenticated') or session.get('admin_authenticated') %}
+              {% if footer_show_version or footer_show_admin_link %}
+                <span class="text-muted ms-1" style="opacity: 0.7;">•</span>
+              {% endif %}
+              <a href="/logout" class="text-muted text-decoration-none ms-1" style="opacity: 0.6;">Logout</a>
+            {% endif %}
           </div>
         </div>
       </div>
