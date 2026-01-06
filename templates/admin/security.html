@@ -114,6 +114,90 @@
         </div>
       </div>
 
+      <!-- Recovery Codes & Password Reset -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3">
+            <i class="bi bi-shield-lock"></i> Password Recovery
+          </h5>
+          
+          <div class="mb-4">
+            <h6 class="mb-2">Recovery Codes</h6>
+            <p class="text-muted small">Recovery codes are one-time codes generated during setup that allow password recovery without email access.</p>
+            
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Unused Codes</label>
+                <div class="form-control bg-light">
+                  <span style="font-size: 1.2em;">
+                    <i class="bi bi-list-check text-info"></i> 
+                    <strong>{{ unused_codes_count }}/10</strong>
+                  </span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Last Generated</label>
+                <div class="form-control bg-light">
+                  {% if recovery_codes_generated_at %}
+                    <small>{{ recovery_codes_generated_at }}</small>
+                  {% else %}
+                    <small class="text-muted">Not yet generated</small>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            
+            <form method="POST" action="{{ url_for('regenerate_recovery_codes') }}">
+              <div class="alert alert-info small mb-3">
+                <i class="bi bi-info-circle"></i>
+                <strong>Note:</strong> Generating new codes will invalidate any remaining old codes. Only do this if you've lost or used all your codes.
+              </div>
+              <button type="submit" class="btn btn-warning">
+                <i class="bi bi-arrow-clockwise"></i> Generate New Recovery Codes
+              </button>
+              <a href="{{ url_for('show_recovery_codes') }}" class="btn btn-secondary">
+                <i class="bi bi-eye"></i> View Current Codes
+              </a>
+            </form>
+          </div>
+          
+          <hr class="my-4">
+          
+          <div>
+            <h6 class="mb-2">Recovery Email</h6>
+            <p class="text-muted small">An optional email address for receiving password reset codes. Leave blank to disable email-based recovery.</p>
+            
+            <form method="POST" class="mb-3">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="recovery_email" class="form-label fw-semibold">Recovery Email Address</label>
+                  <input type="email" class="form-control" id="recovery_email" name="recovery_email"
+                         value="{{ recovery_email or '' }}" placeholder="admin@example.com">
+                  <small class="text-muted">Used to send temporary recovery codes if needed</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">SMTP Status</label>
+                  <div class="form-control bg-light">
+                    {% if smtp_configured %}
+                      <i class="bi bi-check-circle-fill text-success"></i> <strong>Configured</strong>
+                      <small class="d-block text-muted">Email recovery available</small>
+                    {% else %}
+                      <i class="bi bi-exclamation-circle-fill text-warning"></i> <strong>Not Configured</strong>
+                      <small class="d-block text-muted">Email recovery disabled. See Email Settings.</small>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-check-circle"></i> Save Recovery Email
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <!-- Checkout Settings -->
       <div class="card mb-4">
         <div class="card-body">

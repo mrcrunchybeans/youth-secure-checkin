@@ -113,3 +113,5 @@ V1.0.1_DEPLOYMENT_COMPLETE.md
 # Backup/redundant files (git handles versioning)
 *.backup
 DOCKER.md.backup
+homepage.html
+CODE_REVIEW_FINDINGS.md

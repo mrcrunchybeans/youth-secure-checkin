@@ -80,3 +80,13 @@ CREATE TABLE IF NOT EXISTS login_lockout (
 
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts(ip_address, attempt_time);
 CREATE INDEX IF NOT EXISTS idx_login_lockout_ip ON login_lockout(ip_address);
+
+CREATE TABLE IF NOT EXISTS recovery_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code_hash TEXT UNIQUE NOT NULL,
+    used INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    used_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_used ON recovery_codes(used);

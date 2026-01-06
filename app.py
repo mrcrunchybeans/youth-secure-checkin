@@ -6,6 +6,7 @@ import requests
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import logging
+import hashlib
 
 # Application version
 APP_VERSION = "1.0.2"
@@ -747,6 +748,90 @@ def set_favicon_filename(filename):
     conn.commit()
     conn.close()
 
+def generate_recovery_codes():
+    """Generate 10 recovery codes and store them hashed in database"""
+    import secrets
+    
+    codes = []
+    conn = get_db()
+    
+    # Clear old unused codes first
+    conn.execute("DELETE FROM recovery_codes WHERE used = 0")
+    conn.commit()
+    
+    try:
+        for i in range(10):
+            # Generate code in format: XXXXXXXX (12 random chars)
+            code = secrets.token_hex(6).upper()
+            code_hash = hashlib.sha256(code.encode()).hexdigest()
+            
+            conn.execute(
+                "INSERT INTO recovery_codes (code_hash, used, created_at) VALUES (?, 0, ?)",
+                (code_hash, datetime.now(timezone.utc).isoformat())
+            )
+            codes.append(code)
+        
+        conn.commit()
+    finally:
+        conn.close()
+    
+    return codes
+
+def verify_recovery_code(code):
+    """Verify a recovery code and mark it as used. Returns True if valid and unused."""
+    code_hash = hashlib.sha256(code.encode()).hexdigest()
+    conn = get_db()
+    
+    try:
+        # Find the code
+        row = conn.execute(
+            "SELECT id FROM recovery_codes WHERE code_hash = ? AND used = 0",
+            (code_hash,)
+        ).fetchone()
+        
+        if not row:
+            return False
+        
+        # Mark as used
+        conn.execute(
+            "UPDATE recovery_codes SET used = 1, used_at = ? WHERE id = ?",
+            (datetime.now(timezone.utc).isoformat(), row['id'])
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def get_recovery_codes_count():
+    """Get count of unused recovery codes"""
+    conn = get_db()
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM recovery_codes WHERE used = 0").fetchone()[0]
+        return count
+    finally:
+        conn.close()
+
+def get_recovery_email():
+    """Get the recovery email address from settings"""
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT value FROM settings WHERE key = 'recovery_email'").fetchone()
+        return row['value'] if row else None
+    finally:
+        conn.close()
+
+def set_recovery_email(email):
+    """Set the recovery email address in settings"""
+    conn = get_db()
+    try:
+        if email:
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('recovery_email', ?)", (email,))
+        else:
+            conn.execute("DELETE FROM settings WHERE key = 'recovery_email'")
+        conn.commit()
+    finally:
+        conn.close()
+
 def get_branding_settings():
     """Get all branding/customization settings for templates"""
     conn = get_db()
@@ -1181,13 +1266,23 @@ def setup():
         hashed_password = generate_password_hash(admin_password, method='pbkdf2:sha256')
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('app_password', ?)", (hashed_password,))
         
+        # Generate recovery codes
+        recovery_codes = generate_recovery_codes()
+        
+        # Store recovery email if provided and SMTP is configured
+        recovery_email = request.form.get('recovery_email', '').strip()
+        smtp_server = conn.execute("SELECT value FROM settings WHERE key = 'smtp_server'").fetchone()
+        if recovery_email and smtp_server:
+            set_recovery_email(recovery_email)
+        
         # Mark setup as complete
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('is_setup_complete', ?)", ('true',))
         conn.commit()
         conn.close()
         
-        flash('Setup completed successfully! Please log in.', 'success')
-        return redirect(url_for('login'))
+        flash('Setup completed successfully! Please save your recovery codes.', 'success')
+        # Redirect to recovery codes display
+        return redirect(url_for('show_recovery_codes', initial_setup=True))
     
     conn.close()
     return render_template('setup.html')
@@ -1272,6 +1367,129 @@ def logout():
     session.pop('authenticated', None)
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Password recovery page - user enters recovery code or email"""
+    if request.method == 'POST':
+        recovery_method = request.form.get('method', 'code')  # 'code' or 'email'
+        
+        if recovery_method == 'code':
+            recovery_code = request.form.get('recovery_code', '').strip()
+            if not recovery_code:
+                flash('Please enter a recovery code', 'danger')
+                return render_template('forgot_password.html')
+            
+            if verify_recovery_code(recovery_code):
+                session['can_reset_password'] = True
+                session['reset_method'] = 'code'
+                flash('Recovery code verified! Please create a new password.', 'success')
+                return redirect(url_for('reset_password'))
+            else:
+                flash('Invalid or already-used recovery code', 'danger')
+        
+        elif recovery_method == 'email':
+            recovery_email = get_recovery_email()
+            email_input = request.form.get('email', '').strip()
+            
+            if not recovery_email:
+                flash('Email recovery is not configured', 'danger')
+                return render_template('forgot_password.html')
+            
+            if email_input.lower() == recovery_email.lower():
+                # Generate temporary reset code
+                reset_code = secrets.token_urlsafe(32)
+                reset_code_hash = hashlib.sha256(reset_code.encode()).hexdigest()
+                
+                # Store in settings with expiration (10 minutes)
+                conn = get_db()
+                conn.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES ('password_reset_code', ?)",
+                    (f"{reset_code_hash}|{datetime.now(timezone.utc).isoformat()}")
+                )
+                conn.commit()
+                conn.close()
+                
+                # Send email with reset code
+                success, message = send_email(
+                    recovery_email,
+                    'Password Recovery - Youth Secure Check-in',
+                    f'''
+                    <p>Someone requested a password reset for your Youth Secure Check-in account.</p>
+                    <p><strong>Reset Code:</strong></p>
+                    <p style="font-family: monospace; font-size: 14px; background: #f5f5f5; padding: 10px; border-radius: 5px;">
+                        {reset_code}
+                    </p>
+                    <p>This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
+                    ''',
+                    f'Reset code: {reset_code}'
+                )
+                
+                if success:
+                    session['can_reset_password'] = True
+                    session['reset_method'] = 'email'
+                    flash('A recovery code has been sent to your email.', 'success')
+                    return redirect(url_for('reset_password'))
+                else:
+                    flash(f'Error sending email: {message}', 'danger')
+            else:
+                # Don't reveal if email is correct or not (security best practice)
+                flash('If that email is registered, a recovery code has been sent.', 'info')
+    
+    smtp_configured = bool(get_smtp_settings().get('smtp_server'))
+    return render_template('forgot_password.html', smtp_configured=smtp_configured)
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """Reset password after recovery verification"""
+    if not session.get('can_reset_password'):
+        flash('Please verify your recovery code or email first', 'warning')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        
+        errors = []
+        if len(new_password) < 8:
+            errors.append('Password must be at least 8 characters')
+        if new_password != confirm_password:
+            errors.append('Passwords do not match')
+        
+        if errors:
+            for error in errors:
+                flash(error, 'danger')
+            return render_template('reset_password.html')
+        
+        # Set new password
+        hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+        conn = get_db()
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('app_password', ?)", (hashed_password,))
+        conn.commit()
+        conn.close()
+        
+        # Clear session
+        session.pop('can_reset_password', None)
+        session.pop('reset_method', None)
+        
+        flash('Password reset successfully! Please log in with your new password.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html')
+
+@app.route('/recovery-codes')
+@require_auth
+def show_recovery_codes():
+    """Display recovery codes (after setup or from admin settings)"""
+    initial_setup = request.args.get('initial_setup') == 'True'
+    
+    recovery_codes = generate_recovery_codes() if initial_setup else []
+    unused_count = get_recovery_codes_count()
+    
+    return render_template('recovery_codes.html', 
+                          codes=recovery_codes, 
+                          initial_setup=initial_setup,
+                          unused_count=unused_count)
 
 @app.route('/')
 @require_auth
@@ -2511,6 +2729,24 @@ def email_history():
         return redirect(url_for('history', event_id=event_id, start_date=start_date, end_date=end_date))
 
 # Admin routes
+@app.route('/admin/regenerate-recovery-codes', methods=['POST'])
+@require_auth
+def regenerate_recovery_codes():
+    """Regenerate recovery codes - clears old codes and creates new ones"""
+    conn = get_db()
+    
+    # Clear all existing codes
+    conn.execute("DELETE FROM recovery_codes")
+    
+    # Generate new codes
+    generate_recovery_codes()
+    
+    conn.commit()
+    conn.close()
+    
+    flash('New recovery codes have been generated! Use the "View Current Codes" button to see them.', 'success')
+    return redirect(url_for('show_recovery_codes'))
+
 @app.route('/admin')
 @require_auth
 def admin_index():
@@ -3681,6 +3917,15 @@ def admin_security():
                 set_override_password(new_override)
                 flash(f'✅ Admin override checkout code updated successfully! Your new code is: <strong style="font-family: monospace; font-size: 1.1em;">{new_override}</strong><br><small class="text-muted">⚠️ Save this code somewhere safe - we cannot display it again for security.</small>', 'success')
         
+        # Handle recovery email update
+        elif 'recovery_email' in request.form:
+            recovery_email = request.form.get('recovery_email', '').strip()
+            set_recovery_email(recovery_email)
+            if recovery_email:
+                flash('Recovery email updated successfully!', 'success')
+            else:
+                flash('Recovery email cleared. Email-based recovery is now disabled.', 'info')
+        
         # Handle checkout method settings
         elif 'checkout_method' in request.form:
             checkout_method = request.form.get('checkout_method', 'random_codes')
@@ -3705,6 +3950,12 @@ def admin_security():
     # Check if override section is unlocked (persists during session)
     override_unlocked = session.get('override_unlocked', False)
     
+    # Fetch recovery codes info
+    unused_codes_count = get_recovery_codes_count()
+    recovery_email = get_recovery_email()
+    smtp_configured = bool(get_smtp_settings().get('smtp_server'))
+    recovery_codes_generated_at = None  # Could retrieve from database if we track it
+    
     # Fetch label printing settings
     label_settings = {}
     for key in ['checkout_method', 'require_checkout_code', 'checkout_code_method', 'label_printer_type', 'label_size']:
@@ -3725,7 +3976,11 @@ def admin_security():
                          current_override_password=current_override_password,
                          override_unlocked=override_unlocked,
                          label_settings=label_settings,
-                         yourls_settings=yourls_settings)
+                         yourls_settings=yourls_settings,
+                         unused_codes_count=unused_codes_count,
+                         recovery_email=recovery_email,
+                         smtp_configured=smtp_configured,
+                         recovery_codes_generated_at=recovery_codes_generated_at)
 
 @app.route('/admin/security/unlock-override', methods=['POST'])
 @require_auth

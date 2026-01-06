@@ -254,6 +254,15 @@
                                    name="admin_password_confirm" required minlength="4"
                                    placeholder="Re-enter your access code">
                         </div>
+
+                        <div class="mb-3">
+                            <label for="recovery_email" class="form-label">Recovery Email Address
+                                <span class="badge bg-secondary ms-2">Optional</span>
+                            </label>
+                            <input type="email" class="form-control form-control-lg" id="recovery_email" 
+                                   name="recovery_email" placeholder="admin@example.com">
+                            <small class="text-muted">If SMTP is configured, you can use this email to recover your password. Leave blank to skip.</small>
+                        </div>
                     </div>
 
                     <!-- Features Overview -->
