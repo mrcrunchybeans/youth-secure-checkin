@@ -755,11 +755,11 @@ def generate_recovery_codes():
     codes = []
     conn = get_db()
     
-    # Clear old unused codes first
-    conn.execute("DELETE FROM recovery_codes WHERE used = 0")
-    conn.commit()
-    
     try:
+        # Clear old unused codes first
+        conn.execute("DELETE FROM recovery_codes WHERE used = 0")
+        conn.commit()
+        
         for i in range(10):
             # Generate code in format: XXXXXXXX (12 random chars)
             code = secrets.token_hex(6).upper()
@@ -772,6 +772,9 @@ def generate_recovery_codes():
             codes.append(code)
         
         conn.commit()
+    except Exception as e:
+        logger.warning(f"Error generating recovery codes: {e}")
+        codes = []
     finally:
         conn.close()
     
@@ -799,6 +802,9 @@ def verify_recovery_code(code):
         )
         conn.commit()
         return True
+    except Exception as e:
+        logger.warning(f"Error verifying recovery code: {e}")
+        return False
     finally:
         conn.close()
 
@@ -808,6 +814,10 @@ def get_recovery_codes_count():
     try:
         count = conn.execute("SELECT COUNT(*) FROM recovery_codes WHERE used = 0").fetchone()[0]
         return count
+    except Exception as e:
+        # Table might not exist yet, return 0
+        logger.warning(f"Error getting recovery codes count: {e}")
+        return 0
     finally:
         conn.close()
 
