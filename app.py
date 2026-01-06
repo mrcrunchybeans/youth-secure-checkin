@@ -762,6 +762,9 @@ def generate_recovery_codes():
         # Clear old unused codes first
         conn.execute("DELETE FROM recovery_codes WHERE used = 0")
         
+        # Track when codes were generated
+        generation_time = datetime.now(timezone.utc).isoformat()
+        
         for i in range(10):
             # Generate code in format: XXXXXXXX (12 random chars)
             code = secrets.token_hex(6).upper()
@@ -769,9 +772,15 @@ def generate_recovery_codes():
             
             conn.execute(
                 "INSERT INTO recovery_codes (code_hash, used, created_at) VALUES (?, 0, ?)",
-                (code_hash, datetime.now(timezone.utc).isoformat())
+                (code_hash, generation_time)
             )
             codes.append(code)
+        
+        # Store generation timestamp in settings for display on admin panel
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('recovery_codes_generated_at', ?)",
+            (generation_time,)
+        )
         
         conn.commit()
     except Exception as e:
@@ -4049,7 +4058,21 @@ def admin_security():
     unused_codes_count = get_recovery_codes_count()
     recovery_email = get_recovery_email()
     smtp_configured = bool(get_smtp_settings().get('smtp_server'))
-    recovery_codes_generated_at = None  # Could retrieve from database if we track it
+    
+    # Get the timestamp of when codes were last generated
+    recovery_codes_generated_at = None
+    try:
+        result = conn.execute(
+            "SELECT value FROM settings WHERE key = 'recovery_codes_generated_at'"
+        ).fetchone()
+        if result and result[0]:
+            # Parse and format the timestamp nicely
+            from datetime import datetime as dt
+            generated_time = dt.fromisoformat(result[0])
+            recovery_codes_generated_at = generated_time.strftime('%B %d, %Y at %I:%M %p')
+    except Exception as e:
+        logger.warning(f"Error retrieving recovery codes generation time: {e}")
+        recovery_codes_generated_at = None
     
     # Fetch label printing settings
     label_settings = {}
