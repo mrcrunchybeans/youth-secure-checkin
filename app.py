@@ -1561,13 +1561,15 @@ def show_recovery_codes():
     """Display recovery codes (after setup or from admin settings)"""
     initial_setup = request.args.get('initial_setup') == 'True'
     
+    # Get codes from session if recently generated
+    recovery_codes = session.get('generated_recovery_codes', [])
+    
     # Generate new codes during initial setup or regeneration
     if initial_setup:
         recovery_codes = generate_recovery_codes()
-        # Codes are returned from generate_recovery_codes()
-    else:
-        # Just display - no new codes
-        recovery_codes = []
+        # Store in session so user can view them multiple times before navigating away
+        session['generated_recovery_codes'] = recovery_codes
+        session.modified = True
     
     unused_count = get_recovery_codes_count()
     
@@ -2825,6 +2827,9 @@ def regenerate_recovery_codes():
         conn.execute("DELETE FROM recovery_codes")
         conn.commit()
         conn.close()
+        
+        # Clear any old codes from session
+        session.pop('generated_recovery_codes', None)
         
         # Generate new codes
         generate_recovery_codes()
