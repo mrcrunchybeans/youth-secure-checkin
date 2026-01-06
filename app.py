@@ -2709,13 +2709,37 @@ def add_family():
         
         adult_names = request.form.getlist('adults')
         adult_phones = request.form.getlist('adult_phones')
-        default_adult_index = int(request.form.get('default_adult_index', 0))
+        default_adult_index_str = request.form.get('default_adult_index', '0')
         
         kid_names = request.form.getlist('kids')
         kid_notes = request.form.getlist('kid_notes')
         
+        # Validate form data
+        try:
+            default_adult_index = int(default_adult_index_str)
+        except (ValueError, TypeError):
+            default_adult_index = 0
+        
+        # Filter out empty adult names
+        adult_names = [name for name in adult_names if name.strip()]
+        adult_phones = [phone.strip() for phone in adult_phones[:len(adult_names)]]
+        
+        # Filter out empty kid names
+        kid_names = [name for name in kid_names if name.strip()]
+        kid_notes = [note for note, name in zip(kid_notes, kid_names)] if kid_names else []
+        
+        # Validate at least one adult
+        if not adult_names:
+            flash('Error: Please add at least one adult to the family.', 'danger')
+            return render_template('admin/add_family.html')
+        
+        # Validate at least one kid
+        if not kid_names:
+            flash('Error: Please add at least one child to the family.', 'danger')
+            return render_template('admin/add_family.html')
+        
         # Use first adult's phone as family phone for backwards compatibility
-        family_phone = adult_phones[0].strip() if adult_phones and adult_phones[0].strip() else ''
+        family_phone = adult_phones[0] if adult_phones and adult_phones[0] else ''
             
         conn = get_db()
         try:
@@ -2727,14 +2751,13 @@ def add_family():
             # Add adults
             default_adult_id = None
             for i, name in enumerate(adult_names):
-                if name.strip():
-                    adult_phone = adult_phones[i].strip() if i < len(adult_phones) else ''
-                    name_hash = FieldEncryption.hash_for_search(name.strip())
-                    token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name.strip()))
-                    cur = conn.execute("INSERT INTO adults (family_id, name, name_hash, name_token_hashes, phone) VALUES (?, ?, ?, ?, ?)", 
-                                      (family_id, name.strip(), name_hash, token_hashes, adult_phone if adult_phone else None))
-                    if i == default_adult_index:
-                        default_adult_id = cur.lastrowid
+                adult_phone = adult_phones[i] if i < len(adult_phones) else ''
+                name_hash = FieldEncryption.hash_for_search(name)
+                token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name))
+                cur = conn.execute("INSERT INTO adults (family_id, name, name_hash, name_token_hashes, phone) VALUES (?, ?, ?, ?, ?)", 
+                                  (family_id, name, name_hash, token_hashes, adult_phone if adult_phone else None))
+                if i == default_adult_index:
+                    default_adult_id = cur.lastrowid
             
             # Update default adult if set
             if default_adult_id:
@@ -2742,12 +2765,11 @@ def add_family():
                 
             # Add kids
             for i, name in enumerate(kid_names):
-                if name.strip():
-                    note = kid_notes[i] if i < len(kid_notes) else ''
-                    name_hash = FieldEncryption.hash_for_search(name.strip())
-                    token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name.strip()))
-                    conn.execute("INSERT INTO kids (family_id, name, name_hash, name_token_hashes, notes) VALUES (?, ?, ?, ?, ?)", 
-                                (family_id, name.strip(), name_hash, token_hashes, note))
+                note = kid_notes[i] if i < len(kid_notes) else ''
+                name_hash = FieldEncryption.hash_for_search(name)
+                token_hashes = json.dumps(FieldEncryption.hash_name_tokens(name))
+                conn.execute("INSERT INTO kids (family_id, name, name_hash, name_token_hashes, notes) VALUES (?, ?, ?, ?, ?)", 
+                            (family_id, name, name_hash, token_hashes, note))
             
             conn.commit()
             flash('Family added successfully', 'success')
@@ -2755,6 +2777,7 @@ def add_family():
             
         except Exception as e:
             conn.rollback()
+            app.logger.error(f'Error adding family: {str(e)}', exc_info=True)
             flash(f'Error adding family: {str(e)}', 'danger')
             return render_template('admin/add_family.html')
         finally:
