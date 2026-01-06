@@ -1177,8 +1177,9 @@ def setup():
                 file.save(str(filepath))
                 conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('logo_filename', ?)", (filename,))
         
-        # Set admin password (store as plain text for now, matching existing pattern)
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('app_password', ?)", (admin_password,))
+        # Hash and set admin password
+        hashed_password = generate_password_hash(admin_password, method='pbkdf2:sha256')
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('app_password', ?)", (hashed_password,))
         
         # Mark setup as complete
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('is_setup_complete', ?)", ('true',))
@@ -1310,8 +1311,14 @@ def index():
     # Convert to dicts and format times
     checked_in = [dict(r) for r in checked_in]
     for checkin in checked_in:
-        dt = datetime.fromisoformat(checkin['checkin_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
-        checkin['formatted_time'] = dt.strftime('%b %d %I:%M %p')
+        try:
+            dt = datetime.fromisoformat(checkin['checkin_time'])
+            if dt.tzinfo is None:
+                dt = pytz.UTC.localize(dt)
+            dt = dt.astimezone(local_tz)
+            checkin['formatted_time'] = dt.strftime('%b %d %I:%M %p')
+        except (ValueError, TypeError):
+            checkin['formatted_time'] = 'N/A'
 
     months = get_event_date_range_months()
     cur2 = conn.execute(f"SELECT id, name, start_time FROM events WHERE start_time >= datetime('now', '-{months} month') AND start_time <= datetime('now', '+{months} month') ORDER BY start_time DESC")
@@ -1332,9 +1339,13 @@ def index():
 @require_auth
 def checkin_last4():
     phone_digits = request.form.get('last4', '').strip()
-    event_id = request.form.get('event_id')
     if not phone_digits:
         return jsonify({'error': 'Invalid input'}), 400
+    
+    try:
+        event_id = int(request.form.get('event_id', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid event_id'}), 400
     
     conn = get_db()
     
@@ -1532,9 +1543,13 @@ def search_name():
     """Search families by kid or adult name using tokenized hashes (supports partial names).
     Gracefully falls back to name_hash if token hashes not available yet."""
     name = request.form.get('name', '').strip()
-    event_id = request.form.get('event_id')
     if not name:
         return jsonify({'error': 'Name required'}), 400
+    
+    try:
+        event_id = int(request.form.get('event_id', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid event_id'}), 400
 
     from encryption import FieldEncryption
     
@@ -2016,7 +2031,11 @@ def checkin_selected():
 @app.route('/checkout/<int:kid_id>', methods=['POST'])
 @require_auth
 def checkout(kid_id):
-    event_id = request.form.get('event_id')
+    try:
+        event_id = int(request.form.get('event_id', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid event_id'}), 400
+    
     checkout_code = request.form.get('checkout_code', '').strip()
     additional_kid_ids = request.form.getlist('additional_kid_ids')  # Get additional kids to checkout
     
@@ -2329,11 +2348,24 @@ def history():
     # Convert to dicts and format times
     rows = [dict(r) for r in rows]
     for r in rows:
-        dt = datetime.fromisoformat(r['checkin_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
-        r['formatted_checkin'] = dt.strftime('%b %d, %Y %I:%M %p')
+        try:
+            dt = datetime.fromisoformat(r['checkin_time'])
+            if dt.tzinfo is None:
+                dt = pytz.UTC.localize(dt)
+            dt = dt.astimezone(local_tz)
+            r['formatted_checkin'] = dt.strftime('%b %d, %Y %I:%M %p')
+        except (ValueError, TypeError):
+            r['formatted_checkin'] = 'N/A'
+        
         if r['checkout_time']:
-            dt = datetime.fromisoformat(r['checkout_time']).replace(tzinfo=pytz.UTC).astimezone(local_tz)
-            r['formatted_checkout'] = dt.strftime('%b %d, %Y %I:%M %p')
+            try:
+                dt = datetime.fromisoformat(r['checkout_time'])
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                dt = dt.astimezone(local_tz)
+                r['formatted_checkout'] = dt.strftime('%b %d, %Y %I:%M %p')
+            except (ValueError, TypeError):
+                r['formatted_checkout'] = 'N/A'
         else:
             r['formatted_checkout'] = ''
     conn.close()
@@ -4006,7 +4038,7 @@ def admin_utilities():
     
     # Get database size
     import os
-    db_path = os.path.join(app.instance_path, 'checkin.db')
+    db_path = str(Path(__file__).parent / 'checkin.db')
     if os.path.exists(db_path):
         stats['db_size_mb'] = round(os.path.getsize(db_path) / (1024 * 1024), 2)
     else:
