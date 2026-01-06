@@ -1417,7 +1417,7 @@ def forgot_password():
                 conn = get_db()
                 conn.execute(
                     "INSERT OR REPLACE INTO settings (key, value) VALUES ('password_reset_code', ?)",
-                    (f"{reset_code_hash}|{datetime.now(timezone.utc).isoformat()}")
+                    (f"{reset_code_hash}|{datetime.now(timezone.utc).isoformat()}",)
                 )
                 conn.commit()
                 conn.close()
