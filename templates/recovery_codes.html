@@ -239,7 +239,7 @@
                     {% if initial_setup %}
                     <a href="{{ url_for('login') }}" class="btn btn-primary">Go to Login</a>
                     {% else %}
-                    <a href="{{ url_for('admin_settings') }}" class="btn btn-primary">Back to Settings</a>
+                    <a href="{{ url_for('admin_security') }}" class="btn btn-primary">Back to Settings</a>
                     {% endif %}
                     <button onclick="window.print()" class="btn btn-secondary">🖨️ Print Codes</button>
                     <button onclick="downloadCodes()" class="btn btn-secondary">⬇️ Download Codes</button>

@@ -756,9 +756,11 @@ def generate_recovery_codes():
     conn = get_db()
     
     try:
+        # Set timeout to allow waiting for locked database (5 seconds)
+        conn.execute("PRAGMA busy_timeout = 5000")
+        
         # Clear old unused codes first
         conn.execute("DELETE FROM recovery_codes WHERE used = 0")
-        conn.commit()
         
         for i in range(10):
             # Generate code in format: XXXXXXXX (12 random chars)
@@ -1493,7 +1495,13 @@ def show_recovery_codes():
     """Display recovery codes (after setup or from admin settings)"""
     initial_setup = request.args.get('initial_setup') == 'True'
     
-    recovery_codes = generate_recovery_codes() if initial_setup else []
+    # Only generate codes during initial setup
+    # When called from admin panel, we just display existing codes
+    if initial_setup:
+        recovery_codes = generate_recovery_codes()
+    else:
+        recovery_codes = []
+    
     unused_count = get_recovery_codes_count()
     
     return render_template('recovery_codes.html', 
