@@ -4,6 +4,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Flask 3.1](https://img.shields.io/badge/flask-3.1-green.svg)](https://flask.palletsprojects.com/)
 
+> **AI Transparency Notice**: This software was developed with AI assistance as a productivity augmentation tool. AI was used for code suggestions, documentation improvements, and architectural planning assistance. All AI-generated content was reviewed, tested, and approved by human developers before inclusion.
+
 A secure, flexible check-in/check-out system for youth organizations including Trail Life, scouting groups, churches, schools, and community programs. Features family management, event tracking, QR code checkout, label printing, and comprehensive security controls.
 
 ![Check-in Interface](docs/images/checkin-screenshot.png)
