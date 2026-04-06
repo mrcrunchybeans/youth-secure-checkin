@@ -13,6 +13,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 ## 🌟 Key Features
 
 ### ✅ Check-in Management
+
 - **Quick Check-in**: Fast family lookup by phone number (last 4 digits)
 - **Event Selection**: Auto-populated from iCal feeds or manual entry
 - **Kid Selection**: Multi-kid check-in with one tap
@@ -20,6 +21,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **History View**: Complete check-in history with filtering
 
 ### 🔒 Security & Access Control
+
 - **Multiple Authentication Levels**: App password, admin override, developer password
 - **Checkout Codes**: QR codes or printed labels for secure pickup
 - **Authorized Adults**: Track who can pick up each child
@@ -33,6 +35,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Searchable Name Hashes**: Partial name search without decryption (tokenized SHA-256)
 
 ### 👨‍👩‍👧‍👦 Family Management
+
 - **Family Records**: Store families with adults and children
 - **Improved Data Entry**: Clear, intuitive Add/Edit Family pages with helpful examples and context
 - **Group Assignment**: Organize by troop/den/class/group
@@ -41,6 +44,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Notes Field**: Track allergies, special needs, emergency info
 
 ### 🎨 Customizable Branding
+
 - **Organization Details**: Name, type, group terminology
 - **Color Schemes**: Primary, secondary, and accent colors
 - **Logo Upload**: PNG, JPG, or SVG logos (auto-sized)
@@ -51,6 +55,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 ### 🎫 Checkout Methods
 
 **Two Strict Modes** (choose one per event):
+
 - **Random 5-Digit Codes**: System generates unique codes during check-in
   - Delivered via QR code (scan with phone) or printed labels
   - Dual Mode: Support both QR and labels simultaneously
@@ -60,6 +65,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
   - Simple and efficient for smaller groups
 
 ### 📊 Event Management
+
 - **iCal Import**: Auto-import from Google Calendar, Outlook, etc.
 - **Manual Entry**: Create, edit, and delete events directly in the system
 - **Bulk Operations**: Clear all events with one click
@@ -67,6 +73,7 @@ A secure, flexible check-in/check-out system for youth organizations including T
 - **Event History**: Track attendance across events
 
 ### 💾 Backup & Restore
+
 - **AES-256 Encrypted Backups**: Protect sensitive child data with built-in encryption
 - **Scheduled Backups**: Automatic hourly, daily, weekly, or monthly backups
 - **Email Delivery**: Automatically email backups to configured recipients
@@ -116,6 +123,7 @@ docker compose logs
 **Quick Reference:** See [DOCKER_ENCRYPTION_QUICK_REF.md](DOCKER_ENCRYPTION_QUICK_REF.md) for common commands.
 
 **Try the Demo:**
+
 ```bash
 docker compose --profile demo up -d
 
@@ -132,6 +140,7 @@ For development or custom deployments:
 1. **Prerequisites**: Python 3.10+, pip, Git
 
 2. **Clone and setup**
+
    ```bash
    git clone https://github.com/mrcrunchybeans/youth-secure-checkin.git
    cd youth-secure-checkin
@@ -142,6 +151,7 @@ For development or custom deployments:
    ```
 
 3. **Configure**
+
    ```bash
    cp .env.example .env
    # Edit .env and set SECRET_KEY and DEVELOPER_PASSWORD
@@ -169,6 +179,7 @@ Complete first-time setup wizard, then start checking in families!
 ## 🎯 Use Cases
 
 This system is perfect for:
+
 - **Trail Life USA** troops and outposts
 - **Scouting organizations** (BSA, Girl Scouts, etc.)
 - **Churches** (children's ministry, youth groups)
@@ -180,14 +191,18 @@ This system is perfect for:
 ## 🔧 Configuration
 
 ### First-Time Setup Wizard
+
 On first run, you'll complete a 4-step setup wizard:
+
 1. **Organization Details**: Name, type, group terminology
 2. **Color Scheme**: Primary, secondary, accent colors
 3. **Access Code**: Set the main login password
 4. **Event Settings**: Configure event date range
 
 ### Admin Panel
+
 Access comprehensive settings at `/admin`:
+
 - **Families**: Add, edit, import, export family records
 - **Events**: Import from iCal or create manually
 - **Security**: Access codes, checkout codes, label settings
@@ -200,26 +215,29 @@ Access comprehensive settings at `/admin`:
 <summary><b>Click to collapse screenshots</b></summary>
 
 ### Kiosk & Check-in Experience
-| Main Kiosk | Family Selection |
-|:---:|:---:|
+
+|                Main Kiosk                 |                  Family Selection                  |
+| :---------------------------------------: | :------------------------------------------------: |
 | ![Kiosk Interface](docs/images/kiosk.png) | ![Family Selection](docs/images/kiosk-results.png) |
 
-| QR Code Checkout | Secure Checkout |
-|:---:|:---:|
+|             QR Code Checkout             |                 Secure Checkout                  |
+| :--------------------------------------: | :----------------------------------------------: |
 | ![QR Code](docs/images/kiosk-qrcode.png) | ![Checkout Code](docs/images/kiosk-checkout.png) |
 
 ### Admin Dashboard & Management
-| Admin Dashboard | Event Management |
-|:---:|:---:|
+
+|               Admin Dashboard               |         Event Management          |
+| :-----------------------------------------: | :-------------------------------: |
 | ![Admin Panel](docs/images/admin-panel.png) | ![Events](docs/images/events.png) |
 
-| Family Management | Edit Family Details |
-|:---:|:---:|
+|           Family Management           |             Edit Family Details             |
+| :-----------------------------------: | :-----------------------------------------: |
 | ![Families](docs/images/families.png) | ![Edit Family](docs/images/edit-family.png) |
 
 ### Customization & Reporting
-| Branding Settings | Attendance History |
-|:---:|:---:|
+
+|           Branding Settings           |         Attendance History          |
+| :-----------------------------------: | :---------------------------------: |
 | ![Branding](docs/images/branding.png) | ![History](docs/images/history.png) |
 
 </details>
@@ -237,6 +255,7 @@ Access comprehensive settings at `/admin`:
 ## 📋 Requirements
 
 See [requirements.txt](requirements.txt) for full dependency list:
+
 - Flask==3.1.1
 - icalendar==6.1.0
 - requests==2.32.4
@@ -250,14 +269,18 @@ See [requirements.txt](requirements.txt) for full dependency list:
 ## 🐳 Deployment Options
 
 ### Docker (Recommended)
+
 Pull pre-built images from Docker Hub:
+
 ```bash
 # Always specify the profile!
 docker compose up -d
 ```
+
 See [DOCKER.md](DOCKER.md) for complete guide.
 
 ### VPS / Cloud Server
+
 - **DigitalOcean, Linode, Vultr**: Ubuntu + Docker
 - **AWS, Google Cloud, Azure**: Container services
 - **SSL**: Use Caddy or Cloudflare Tunnel for automatic HTTPS
@@ -265,6 +288,7 @@ See [DOCKER.md](DOCKER.md) for complete guide.
 See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for hosting guides.
 
 ### Platform as a Service
+
 - **Railway**: Docker support with automatic SSL
 - **Render**: Docker deploy from GitHub
 - **Fly.io**: Global edge deployment
@@ -273,6 +297,7 @@ See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for hosting guides.
 ## 🤝 Contributing
 
 Contributions are welcome! Please:
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
