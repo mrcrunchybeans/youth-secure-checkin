@@ -15,4 +15,4 @@ APScheduler==3.10.4
 beautifulsoup4==4.12.2
 pyzipper==0.3.6
 pysqlcipher3==1.2.0
-cryptography==44.0.1
+cryptography==46.0.5
