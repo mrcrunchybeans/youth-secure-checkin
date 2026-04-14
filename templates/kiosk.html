@@ -66,7 +66,7 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         margin-bottom: 0;
     }
-    
+
     .kiosk-right {
         /* Checked-in list below, scrollable */
         overflow-y: auto;
@@ -273,6 +273,19 @@ h1 {
 {% endblock %}
 
 {% block navbar_buttons %}
+{% if kiosk_locked %}
+<button id="lock-btn" class="btn btn-warning btn-sm me-2" title="Unlock Kiosk">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lock-fill" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+    </svg>
+</button>
+{% else %}
+<button id="lock-btn" class="btn btn-outline-light btn-sm me-2" title="Lock Kiosk">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-unlock-fill" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M12 0a4 4 0 0 1 4 4v2.5h-1V4a3 3 0 1 0-6 0v2h.5A2.5 2.5 0 0 1 12 8.5v5A2.5 2.5 0 0 1 9.5 16h-7A2.5 2.5 0 0 1 0 13.5v-5A2.5 2.5 0 0 1 2.5 6H8V4a4 4 0 0 1 4-4"/>
+    </svg>
+</button>
+{% endif %}
 <button id="fullscreen-btn-nav" class="btn btn-outline-light btn-sm me-2">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-arrows-fullscreen" viewBox="0 0 16 16">
         <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707zm4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707zm0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707zm-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707z"/>
@@ -353,7 +366,7 @@ h1 {
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-lg w-100" id="search-btn" style="background-color: {{ branding.primary_color }}; color: white; border: none;">Check In</button>
+                        <button type="submit" class="btn btn-lg w-100" id="search-btn" style="background-color: {{ branding.primary_color }}; border: none;">Check In</button>
                     </form>
                 </div>
             </div>
@@ -432,12 +445,12 @@ h1 {
                     <!-- Modal for Family Selection -->
 <div class="modal fade" id="familyModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header" style="padding: 1.5rem; background-color: {{ branding.primary_color }}; color: white;">
+        <div class="modal-content" style="max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="padding: 1.5rem; background-color: {{ branding.primary_color }}; color: white; flex-shrink: 0;">
                 <h5 class="modal-title" style="font-size: 1.8rem;">Select Family Members</h5>
                 <button type="button" class="btn-close btn-close-white" style="font-size: 1.5rem;" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="modal-body" style="padding: 1.5rem; font-size: 1.2rem; max-height: 60vh; overflow-y: auto;">
+            <div class="modal-body" id="modal-body" style="padding: 1.5rem; font-size: 1.2rem; overflow-y: auto; flex: 1 1 auto;">
                 <!-- Family data will be loaded here -->
             </div>
         </div>
@@ -557,6 +570,25 @@ h1 {
 </div>
 
 <script>
+// Contrast-aware text color helper
+function contrastColor(hex) {
+    if (!hex) return '#ffffff';
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.substr(0,2), 16);
+    var g = parseInt(hex.substr(2,2), 16);
+    var b = parseInt(hex.substr(4,2), 16);
+    // W3C luminance formula
+    var luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.55 ? '#1a1a1a' : '#ffffff';
+}
+var PRIMARY_COLOR = '{{ branding.primary_color }}';
+var ACCENT_COLOR = '{{ branding.accent_color }}';
+// Apply contrast color to search button
+(function() {
+    var btn = document.getElementById('search-btn');
+    if (btn) btn.style.color = contrastColor(PRIMARY_COLOR);
+})();
 function showQRCodeModal(qrCodeData, checkoutCode, shortUrl) {
     document.getElementById('qr-code-img').src = qrCodeData;
     document.getElementById('qr-code-text').textContent = checkoutCode || '';
@@ -923,7 +955,7 @@ function showFamilyModal(data) {
     html += `</div>`;
     html += `</div>`;
 
-    html += `<button type="submit" class="btn btn-lg w-100 modal-submit" style="background-color: {{ branding.accent_color }}; color: white; border: none;">Check In Selected</button>`;
+    html += `<button type="submit" class="btn btn-lg w-100 modal-submit" style="background-color: {{ branding.accent_color }}; color: ${contrastColor(ACCENT_COLOR)}; border: none;">Check In Selected</button>`;
     html += `</form>`;
 
     modalBody.innerHTML = html;
@@ -1406,6 +1438,57 @@ document.getElementById('checkout-code-form').addEventListener('submit', functio
     });
 });
 
+// Kiosk lock/unlock functionality
+// When locked, intercept clicks on home link
+document.addEventListener('DOMContentLoaded', function() {
+    {% if kiosk_locked %}
+    const homeLink = document.querySelector('a.navbar-brand');
+    if (homeLink) {
+        homeLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('lock-btn').click();
+        });
+    }
+    {% endif %}
+});
+
+document.getElementById('lock-btn').addEventListener('click', function() {
+    {% if kiosk_locked %}
+    // When locked, prompt for code and redirect to admin if correct
+    const code = prompt('Enter admin override checkout code to unlock and return to admin dashboard:');
+    if (code) {
+        fetch('/kiosk/unlock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({password: code})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect || '/';
+            } else {
+                alert('Invalid access code');
+            }
+        });
+    }
+    {% else %}
+    // When unlocked, lock the kiosk
+    fetch('/kiosk/lock', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+    {% endif %}
+});
+
 // Enable Bootstrap tooltips
 document.addEventListener('DOMContentLoaded', function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -1514,7 +1597,6 @@ body {
 
 #familyModal .modal-body {
     padding: 1rem 1.25rem;
-    max-height: 65vh;
     overflow-y: auto;
 }
 

@@ -11,7 +11,7 @@ import hashlib
 import subprocess
 
 # Application version
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 
 def get_git_commit_hash():
     """Get the current git commit hash for deployment tracking"""
@@ -191,8 +191,9 @@ else:
 
 def get_db():
     db_path = app.config.get('DATABASE', DB_PATH)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 def ensure_tlc_synced_column():
@@ -1257,7 +1258,11 @@ def set_security_headers(response):
 @app.route('/health')
 def health():
     """Health check endpoint for Docker and monitoring"""
-    return jsonify({'status': 'ok'}), 200
+    return jsonify({
+        'status': 'ok',
+        'version': APP_VERSION,
+        'commit': get_git_commit_hash()
+    }), 200
 
 @app.route('/setup', methods=['GET', 'POST'])
 def setup():
@@ -1687,9 +1692,14 @@ def index():
     cur2 = conn.execute(f"SELECT id, name, start_time FROM events WHERE start_time >= datetime('now', '-{months} month') AND start_time <= datetime('now', '+{months} month') ORDER BY start_time DESC")
     events = cur2.fetchall()
     
-    # Get require_codes setting
+    # Get require_codes setting - derive from checkout_method if not explicitly set
     setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
-    require_codes = setting and setting[0] == 'true'
+    if setting:
+        require_codes = setting[0] == 'true'
+    else:
+        # Fallback: if a checkout method is configured, codes are implicitly required
+        method_row = conn.execute("SELECT value FROM settings WHERE key = 'checkout_method'").fetchone()
+        require_codes = method_row[0] in ('random_codes', 'phone_codes') if method_row else False
     
     conn.close()
 
@@ -2410,9 +2420,14 @@ def checkout(kid_id):
     
     conn = get_db()
     
-    # Check if codes are required
+    # Check if codes are required - derive from checkout_method if not explicitly set
     setting = conn.execute("SELECT value FROM settings WHERE key = 'require_checkout_code'").fetchone()
-    require_codes = setting and setting[0] == 'true'
+    if setting:
+        require_codes = setting[0] == 'true'
+    else:
+        # Fallback: if a checkout method is configured, codes are implicitly required
+        method_row = conn.execute("SELECT value FROM settings WHERE key = 'checkout_method'").fetchone()
+        require_codes = method_row[0] in ('random_codes', 'phone_codes') if method_row else False
     
     # If codes are required, verify the code or admin override password
     if require_codes:
@@ -2664,7 +2679,27 @@ def kiosk():
     
     conn.close()
 
-    return render_template('kiosk.html', checked_in=checked_in, events=events, current_event_id=int(event_id), current_event_name=current_event_name, current_event_date=current_event_date, logo_filename=logo_filename)
+    return render_template('kiosk.html', checked_in=checked_in, events=events, current_event_id=int(event_id), current_event_name=current_event_name, current_event_date=current_event_date, logo_filename=logo_filename, kiosk_locked=session.get('kiosk_locked', False))
+
+@app.route('/kiosk/lock', methods=['POST'])
+@require_auth
+def kiosk_lock():
+    """Lock the kiosk mode - prevents checkouts without code"""
+    session['kiosk_locked'] = True
+    logger.info(f"Kiosk locked from {request.remote_addr}")
+    return jsonify({'success': True, 'message': 'Kiosk locked'})
+
+@app.route('/kiosk/unlock', methods=['POST'])
+@require_auth
+def kiosk_unlock():
+    """Unlock the kiosk mode - requires the admin login access code"""
+    password = request.json.get('password', '') if request.is_json else request.form.get('password', '')
+    stored_hash = get_app_password()
+    if stored_hash and verify_password(password, stored_hash):
+        session['kiosk_locked'] = False
+        logger.info(f"Kiosk unlocked from {request.remote_addr}")
+        return jsonify({'success': True, 'message': 'Kiosk unlocked', 'redirect': url_for('index')})
+    return jsonify({'success': False, 'message': 'Invalid access code'}), 401
 
 @app.route('/history')
 @require_auth
@@ -3015,6 +3050,10 @@ def add_event():
                 hour = 0
             start_time = f"{date}T{hour:02d}:{start_minute}:00"
         
+        # If no start time provided, default to noon on the selected date
+        if start_time is None:
+            start_time = f"{date}T12:00:00"
+        
         # Convert optional end time
         end_time = None
         end_hour = request.form.get('end_hour')
@@ -3070,6 +3109,10 @@ def edit_event(event_id):
             elif start_ampm == 'AM' and hour == 12:
                 hour = 0
             start_time = f"{date}T{hour:02d}:{start_minute}:00"
+        
+        # If no start time provided, default to noon on the selected date
+        if start_time is None:
+            start_time = f"{date}T12:00:00"
         
         # Convert optional end time
         end_time = None
@@ -4090,6 +4133,9 @@ def admin_security():
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('checkout_code_method', ?)", (checkout_code_method,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_printer_type', ?)", (printer_type,))
             conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('label_size', ?)", (label_size,))
+            # Auto-set require_checkout_code based on checkout method
+            require_code_value = 'true' if checkout_method in ('random_codes', 'phone_codes') else 'false'
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('require_checkout_code', ?)", (require_code_value,))
             conn.commit()
             flash('Checkout method settings updated successfully!', 'success')
         
