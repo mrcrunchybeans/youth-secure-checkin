@@ -1031,12 +1031,35 @@ function showFamilyModal(data) {
                                             data-event-id="${eventId}">Check-Out</button>
                                 </td>
                             `;
-                            checkedInTbody.insertBefore(row, checkedInTbody.firstChild);
+                            checkedInTbody.appendChild(row);
                             
                             // Initialize tooltips for this row
                             const tooltips = row.querySelectorAll('[data-bs-toggle="tooltip"]');
                             tooltips.forEach(el => new bootstrap.Tooltip(el));
                         });
+                        
+                        // Sort the table rows alphabetically by last name to maintain live ordering
+                        const listItems = Array.from(checkedInTbody.querySelectorAll('tr'));
+                        listItems.sort((a, b) => {
+                            const btnA = a.querySelector('.checkout-btn');
+                            const btnB = b.querySelector('.checkout-btn');
+                            const nameA = btnA ? btnA.dataset.kidName.trim() : '';
+                            const nameB = btnB ? btnB.dataset.kidName.trim() : '';
+                            
+                            const getSortName = (fullName) => {
+                                const parts = fullName.split(' ');
+                                if (parts.length > 1) {
+                                    const last = parts.pop();
+                                    return (last + ' ' + parts.join(' ')).toLowerCase();
+                                }
+                                return fullName.toLowerCase();
+                            };
+                            
+                            return getSortName(nameA).localeCompare(getSortName(nameB));
+                        });
+                        
+                        // Re-append in sorted order
+                        listItems.forEach(tr => checkedInTbody.appendChild(tr));
                         
                         // Update count in header
                         const countBadge = document.querySelector('h2 .badge');
