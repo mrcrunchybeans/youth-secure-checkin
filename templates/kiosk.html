@@ -783,6 +783,11 @@ document.getElementById('confirm-checkout-btn').addEventListener('click', functi
     formData.append('event_id', eventId);
     if (!isPhoneCheckout) {
         formData.append('checkout_code', checkoutCode);
+    } else {
+        const phoneDigits = this.dataset.phoneDigits;
+        if (phoneDigits) {
+            formData.append('checkout_code', phoneDigits);
+        }
     }
     additionalKids.forEach(kidId => {
         formData.append('additional_kid_ids', kidId);
