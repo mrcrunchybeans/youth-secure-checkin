@@ -2469,18 +2469,23 @@ def checkout(kid_id):
             else:
                 method_row = conn.execute("SELECT value FROM settings WHERE key = 'checkout_method'").fetchone()
                 checkout_method = method_row[0] if method_row else 'random_codes'
-                if checkout_method == 'phone_codes' and checkout_code.isdigit() and len(checkout_code) == 4:
+                clean_checkout_code = ''.join(c for c in checkout_code if c.isdigit())
+                if checkout_method == 'phone_codes' and len(clean_checkout_code) >= 4:
                     phone_match = conn.execute("""
                         SELECT 1 FROM families f
                         WHERE f.id = ? AND (
                             REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?
                             OR EXISTS (
                                 SELECT 1 FROM adults a 
                                 WHERE a.family_id = f.id 
-                                AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                                AND (
+                                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                                    OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') = ?
+                                )
                             )
                         )
-                    """, (family_id, '%' + checkout_code, '%' + checkout_code)).fetchone()
+                    """, (family_id, '%' + clean_checkout_code, clean_checkout_code, '%' + clean_checkout_code, clean_checkout_code)).fetchone()
                     if phone_match:
                         code_valid = True
             

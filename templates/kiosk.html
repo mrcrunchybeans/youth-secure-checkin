@@ -1047,12 +1047,14 @@ function showFamilyModal(data) {
                             const nameB = btnB ? btnB.dataset.kidName.trim() : '';
                             
                             const getSortName = (fullName) => {
-                                const parts = fullName.split(' ');
-                                if (parts.length > 1) {
-                                    const last = parts.pop();
-                                    return (last + ' ' + parts.join(' ')).toLowerCase();
+                                const name = fullName.trim();
+                                const lastSpaceIdx = name.lastIndexOf(' ');
+                                if (lastSpaceIdx !== -1) {
+                                    const lastName = name.substring(lastSpaceIdx + 1);
+                                    const firstNames = name.substring(0, lastSpaceIdx);
+                                    return (lastName + ' ' + firstNames).toLowerCase();
                                 }
-                                return fullName.toLowerCase();
+                                return name.toLowerCase();
                             };
                             
                             return getSortName(nameA).localeCompare(getSortName(nameB));
