@@ -1672,7 +1672,7 @@ def index():
         JOIN families f ON k.family_id = f.id
         JOIN adults a ON c.adult_id = a.id
         WHERE c.checkout_time IS NULL AND c.event_id = ?
-        ORDER BY k.name COLLATE NOCASE ASC, c.checkin_time DESC
+        ORDER BY SUBSTR(k.name, INSTR(k.name, ' ') + 1) COLLATE NOCASE ASC, k.name COLLATE NOCASE ASC, c.checkin_time DESC
     """, (event_id,))
     checked_in = cur.fetchall()
 
@@ -2655,7 +2655,7 @@ def kiosk():
         JOIN families f ON k.family_id = f.id
         JOIN adults a ON c.adult_id = a.id
         WHERE c.checkout_time IS NULL AND c.event_id = ?
-        ORDER BY k.name COLLATE NOCASE ASC, c.checkin_time DESC
+        ORDER BY SUBSTR(k.name, INSTR(k.name, ' ') + 1) COLLATE NOCASE ASC, k.name COLLATE NOCASE ASC, c.checkin_time DESC
     """, (event_id,))
     checked_in = cur.fetchall()
 
