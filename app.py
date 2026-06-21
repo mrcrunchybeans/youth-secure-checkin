@@ -1672,7 +1672,7 @@ def index():
         JOIN families f ON k.family_id = f.id
         JOIN adults a ON c.adult_id = a.id
         WHERE c.checkout_time IS NULL AND c.event_id = ?
-        ORDER BY k.name ASC, c.checkin_time DESC
+        ORDER BY k.name COLLATE NOCASE ASC, c.checkin_time DESC
     """, (event_id,))
     checked_in = cur.fetchall()
 
@@ -2542,7 +2542,7 @@ def get_siblings(kid_id):
         FROM kids k
         JOIN checkins c ON c.kid_id = k.id
         WHERE k.family_id = ? AND k.id != ? AND c.event_id = ? AND c.checkout_time IS NULL
-        ORDER BY k.name
+        ORDER BY k.name COLLATE NOCASE
     """, (family_id, kid_id, event_id)).fetchall()
     
     conn.close()
@@ -2655,7 +2655,7 @@ def kiosk():
         JOIN families f ON k.family_id = f.id
         JOIN adults a ON c.adult_id = a.id
         WHERE c.checkout_time IS NULL AND c.event_id = ?
-        ORDER BY k.name ASC, c.checkin_time DESC
+        ORDER BY k.name COLLATE NOCASE ASC, c.checkin_time DESC
     """, (event_id,))
     checked_in = cur.fetchall()
 
