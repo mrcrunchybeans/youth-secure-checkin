@@ -2,7 +2,7 @@
 # Add these to your requirements.txt if enabling label printing
 
 # Image processing for label generation
-Pillow>=10.0.0
+Pillow>=12.2.0
 
 # DYMO printer support (optional - install if using DYMO printers)
 # Note: May require additional system packages
