@@ -1672,7 +1672,7 @@ def index():
         JOIN families f ON k.family_id = f.id
         JOIN adults a ON c.adult_id = a.id
         WHERE c.checkout_time IS NULL AND c.event_id = ?
-        ORDER BY c.checkin_time DESC
+        ORDER BY k.name ASC, c.checkin_time DESC
     """, (event_id,))
     checked_in = cur.fetchall()
 
@@ -1782,8 +1782,16 @@ def checkin_last4():
                 JOIN families f ON f.id = k.family_id
                 WHERE c.checkout_time IS NULL
                   AND c.event_id = ?
-                  AND c.checkout_code = ?
-            """, (event_id, phone_digits)).fetchall()
+                  AND (
+                      c.checkout_code = ?
+                      OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                      OR EXISTS (
+                          SELECT 1 FROM adults a 
+                          WHERE a.family_id = f.id 
+                          AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                      )
+                  )
+            """, (event_id, phone_digits, '%' + phone_digits, '%' + phone_digits)).fetchall()
             
             if phone_checkout_match:
                 kids_to_checkout = []
@@ -2647,7 +2655,7 @@ def kiosk():
         JOIN families f ON k.family_id = f.id
         JOIN adults a ON c.adult_id = a.id
         WHERE c.checkout_time IS NULL AND c.event_id = ?
-        ORDER BY c.checkin_time DESC
+        ORDER BY k.name ASC, c.checkin_time DESC
     """, (event_id,))
     checked_in = cur.fetchall()
 
