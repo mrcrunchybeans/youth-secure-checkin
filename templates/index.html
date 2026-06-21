@@ -592,12 +592,33 @@ document.getElementById('select-kids-form').addEventListener('submit', function(
                   data-kid-name="${checkin.kid_name}"
                   data-event-id="${eventId}">Check Out</button>
         `;
-        checkedInList.insertBefore(listItem, checkedInList.firstChild);
+        checkedInList.appendChild(listItem);
         
         // Initialize tooltips for this list item
         const tooltips = listItem.querySelectorAll('[data-bs-toggle="tooltip"]');
         tooltips.forEach(el => new bootstrap.Tooltip(el));
       });
+      
+      // Sort the list items alphabetically by last name to maintain live ordering
+      const listItems = Array.from(checkedInList.querySelectorAll('li'));
+      listItems.sort((a, b) => {
+        const nameA = a.querySelector('strong') ? a.querySelector('strong').textContent.trim() : '';
+        const nameB = b.querySelector('strong') ? b.querySelector('strong').textContent.trim() : '';
+        
+        const getSortName = (fullName) => {
+          const parts = fullName.split(' ');
+          if (parts.length > 1) {
+            const last = parts.pop();
+            return (last + ' ' + parts.join(' ')).toLowerCase();
+          }
+          return fullName.toLowerCase();
+        };
+        
+        return getSortName(nameA).localeCompare(getSortName(nameB));
+      });
+      
+      // Re-append in sorted order
+      listItems.forEach(li => checkedInList.appendChild(li));
       
       // Update count in header
       const countElement = document.querySelector('.checked-in-count');

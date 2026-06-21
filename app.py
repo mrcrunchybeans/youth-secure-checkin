@@ -2450,15 +2450,41 @@ def checkout(kid_id):
         if not is_admin_password:
             # Verify the checkout code matches for the primary kid
             checkin = conn.execute("""
-                SELECT checkout_code FROM checkins 
-                WHERE kid_id = ? AND event_id = ? AND checkout_time IS NULL
+                SELECT c.checkout_code, k.family_id 
+                FROM checkins c
+                JOIN kids k ON k.id = c.kid_id
+                WHERE c.kid_id = ? AND c.event_id = ? AND c.checkout_time IS NULL
             """, (kid_id, event_id)).fetchone()
             
             if not checkin:
                 conn.close()
                 return jsonify({'success': False, 'message': 'Check-in not found'}), 404
             
-            if checkin[0] != checkout_code:
+            actual_code = checkin[0]
+            family_id = checkin[1]
+            
+            code_valid = False
+            if actual_code == checkout_code:
+                code_valid = True
+            else:
+                method_row = conn.execute("SELECT value FROM settings WHERE key = 'checkout_method'").fetchone()
+                checkout_method = method_row[0] if method_row else 'random_codes'
+                if checkout_method == 'phone_codes' and checkout_code.isdigit() and len(checkout_code) == 4:
+                    phone_match = conn.execute("""
+                        SELECT 1 FROM families f
+                        WHERE f.id = ? AND (
+                            REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(f.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                            OR EXISTS (
+                                SELECT 1 FROM adults a 
+                                WHERE a.family_id = f.id 
+                                AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a.phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', '') LIKE ?
+                            )
+                        )
+                    """, (family_id, '%' + checkout_code, '%' + checkout_code)).fetchone()
+                    if phone_match:
+                        code_valid = True
+            
+            if not code_valid:
                 conn.close()
                 return jsonify({'success': False, 'message': 'Invalid checkout code', 'code_required': True}), 403
     
