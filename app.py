@@ -2235,6 +2235,10 @@ def checkin_selected():
     event_id = request.form.get('event_id')
     if not family_id or not adult_id or not kid_ids or not event_id:
         return jsonify({'success': False, 'message': 'Missing data'}), 400
+
+    # Get phone digits used for lookup (for phone_codes checkout method)
+    phone_digits = request.form.get('phone_digits', '').strip()
+
     conn = get_db()
     now = datetime.utcnow().isoformat()
     
@@ -2304,14 +2308,10 @@ def checkin_selected():
                     print(f"Error generating checkout code: {e}")
                     family_checkout_code = None
     elif checkout_method == 'phone_codes':
-        # Use last 4 digits of phone as the checkout code
-        if phone:
-            # Extract last 4 digits from formatted phone number
-            digits_only = ''.join(c for c in phone if c.isdigit())
-            if len(digits_only) >= 4:
-                family_checkout_code = digits_only[-4:]
-            else:
-                family_checkout_code = digits_only.zfill(4)
+        # Use last 4 digits of the phone digits used to find the family
+        # This allows secondary phones to work for checkout
+        if phone_digits:
+            family_checkout_code = phone_digits[-4:]
     
     for kid_id in kid_ids:
         # Check if already checked in to this event

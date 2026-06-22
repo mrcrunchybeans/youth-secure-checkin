@@ -262,6 +262,7 @@
         <form id="select-kids-form">
           <input type="hidden" id="family-id" name="family_id">
           <input type="hidden" id="modal-event-id" name="event_id" value="{{ current_event_id }}">
+          <input type="hidden" id="phone-digits" name="phone_digits">
           <div class="mb-3">
             <label class="form-label">Checking in as:</label>
             <select name="adult_id" id="adult-select" class="form-select" required>
@@ -398,6 +399,9 @@ function showQRCodeModal(qrCodeData, checkoutCode, shortUrl) {
   new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
 }
 
+// Store last phone search digits for checkout code generation
+let lastPhoneSearchDigits = '';
+
 // Unified search handler - detects if input is numeric (phone) or text (name)
 document.getElementById('checkin-form').addEventListener('submit', function(e) {
   e.preventDefault();
@@ -443,7 +447,10 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
       alert('Search failed. Please try again.');
     });
   } else if (isAllDigits || isCheckoutCode) {
-    // Phone search or checkout code
+    // Phone search or checkout code - store digits for checkout code
+    if (isAllDigits) {
+      lastPhoneSearchDigits = searchInput;
+    }
     fetch('/checkin_last4', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -896,6 +903,7 @@ function populateFamilyModal(data) {
   document.getElementById('modal-phone').textContent = data.phone;
   document.getElementById('modal-troop').textContent = data.troop || '—';
   document.getElementById('family-id').value = data.family_id;
+  document.getElementById('phone-digits').value = lastPhoneSearchDigits;
   
   const adultSelect = document.getElementById('adult-select');
   adultSelect.innerHTML = '<option value="">Select Adult</option>';

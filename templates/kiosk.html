@@ -607,6 +607,9 @@ function showQRCodeModal(qrCodeData, checkoutCode, shortUrl) {
     new bootstrap.Modal(document.getElementById('qrCodeModal')).show();
 }
 
+// Store last phone search digits for checkout code generation
+let lastPhoneSearchDigits = '';
+
 // Fullscreen buttons (both in navbar and fallback)
 ['fullscreen-btn', 'fullscreen-btn-nav'].forEach(function(btnId) {
     const btn = document.getElementById(btnId);
@@ -633,6 +636,8 @@ document.getElementById('checkin-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const phone = document.getElementById('phone').value;
     const eventId = document.getElementById('event-id').value;
+    // Store phone digits for checkout code generation
+    lastPhoneSearchDigits = phone;
     fetch('/checkin_last4', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -929,6 +934,7 @@ function showFamilyModal(data) {
     html += `<form id="checkin-selected-form">`;
     html += `<input type="hidden" name="family_id" value="${data.family_id}">`;
     html += `<input type="hidden" name="event_id" value="{{ current_event_id }}">`;
+    html += `<input type="hidden" name="phone_digits" value="${lastPhoneSearchDigits}">`;
 
     // Adult selector
     html += `<div class="mb-3 adult-selector">`;
